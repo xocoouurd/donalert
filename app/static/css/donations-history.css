@@ -1,0 +1,817 @@
+/* Donations History Page Styles */
+.donations-history-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* Page Header */
+.page-header {
+    padding: 2rem;
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.page-header h1 {
+    color: #fff;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.page-header .subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    margin-bottom: 0;
+}
+
+/* Donation Stats */
+.donation-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: flex-end;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 120px;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Donation Link Card */
+.donation-link-card {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.donation-link-card h5 {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.donation-link-card p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.95rem;
+}
+
+#donationUrl {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+}
+
+#donationUrl:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    color: #fff;
+}
+
+#copyUrlBtn {
+    background: var(--primary-color);
+    border: none;
+    color: #fff;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+#copyUrlBtn:hover {
+    background: var(--primary-hover);
+}
+
+/* Filters Section */
+.filters-section {
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.filters-section .form-label {
+    color: #fff;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.filters-section .form-control,
+.filters-section .form-select {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #fff !important;
+    backdrop-filter: blur(10px);
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    border-radius: 8px !important;
+}
+
+.filters-section .form-select {
+    background: rgba(255, 255, 255, 0.1) !important;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding-right: 2.5rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    vertical-align: middle !important;
+    position: relative !important;
+    transition: none !important;
+}
+
+.filters-section .form-control:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    color: #fff !important;
+    outline: none !important;
+}
+
+.filters-section .form-select:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    color: #fff !important;
+    outline: none !important;
+}
+
+/* Hide background image when select dropdown is open */
+.filters-section .form-select:active,
+.filters-section .form-select[size]:not([size="1"]) {
+    background-image: none !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    background-repeat: no-repeat !important;
+    background-size: 0 !important;
+    transition: none !important;
+}
+
+/* Webkit specific fix for dropdown arrow scaling */
+.filters-section .form-select::-webkit-scrollbar {
+    display: none;
+}
+
+/* Firefox specific fix */
+.filters-section .form-select[size] {
+    background-image: none !important;
+}
+
+.filters-section .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.filters-section .form-select option {
+    background: #333 !important;
+    background-image: none !important;
+    color: #fff !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.95rem !important;
+}
+
+/* Prevent background from showing in dropdown list */
+.filters-section .form-select option,
+.filters-section .form-select option:hover,
+.filters-section .form-select option:focus,
+.filters-section .form-select option:active,
+.filters-section .form-select option:selected {
+    background-image: none !important;
+}
+
+/* Ensure dropdown options are visible */
+.filters-section .form-select option:checked {
+    background: #555 !important;
+    background-image: none !important;
+    color: #fff !important;
+}
+
+.filters-section .form-select option:hover {
+    background: #555 !important;
+    background-image: none !important;
+}
+
+/* Additional browser compatibility */
+.dashboard-content .filters-section .form-select {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+}
+
+/* Ensure our custom dropdown arrow is visible */
+.dashboard-content .filters-section .form-select::-ms-expand {
+    display: none;
+}
+
+/* Table Section */
+.table-section {
+    padding: 0;
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+}
+
+.table {
+    margin-bottom: 0;
+    color: #fff;
+}
+
+.table thead th {
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-weight: 600;
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Sort Links */
+.sort-link {
+    color: #fff;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.sort-link:hover {
+    color: var(--primary-color);
+}
+
+.sort-link i {
+    font-size: 0.8rem;
+}
+
+/* Donation Date */
+.donation-date {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.date-primary {
+    font-weight: 600;
+    color: #fff;
+}
+
+.date-secondary {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Donor Info */
+.donor-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.donor-info i {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.donor-name {
+    font-weight: 500;
+    color: #fff;
+}
+
+/* Donation Message */
+.donation-message {
+    max-width: 300px;
+}
+
+.message-content {
+    color: #fff;
+    line-height: 1.4;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Donation Amount */
+.donation-amount {
+    text-align: right;
+}
+
+.amount-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Platform Info */
+.platform-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #fff;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.platform-twitch { background: rgba(145, 70, 255, 0.3); }
+.platform-youtube { background: rgba(255, 0, 0, 0.3); }
+.platform-kick { background: rgba(83, 255, 26, 0.3); }
+.platform-guest { background: rgba(255, 255, 255, 0.2); }
+
+/* No Donations */
+.no-donations {
+    padding: 3rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.no-donations i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.no-donations h4 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Pagination */
+.pagination-section {
+    padding: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pagination .page-link {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    margin: 0 0.25rem;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-link:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.pagination .page-item.active .page-link {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.pagination-info {
+    text-align: center;
+    margin-top: 1rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .donation-stats {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .stat-item {
+        min-width: 100px;
+    }
+    
+    .page-header h1 {
+        font-size: 2rem;
+    }
+    
+    .filters-section .row {
+        gap: 1rem;
+    }
+    
+    .filters-section .col-md-2,
+    .filters-section .col-md-4 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .donation-message {
+        max-width: 200px;
+    }
+    
+    .donation-stats {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .donations-history-container {
+        padding: 0 0.5rem;
+    }
+    
+    .page-header,
+    .donation-link-card,
+    .filters-section,
+    .table-section {
+        padding: 1rem;
+    }
+    
+    .table thead th,
+    .table tbody td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .donation-link-card .input-group {
+        flex-direction: column;
+    }
+    
+    .donation-link-card .input-group .form-control {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-header,
+.donation-link-card,
+.filters-section,
+.table-section {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.page-header {
+    animation-delay: 0.1s;
+}
+
+.donation-link-card {
+    animation-delay: 0.2s;
+}
+
+.filters-section {
+    animation-delay: 0.3s;
+}
+
+.table-section {
+    animation-delay: 0.4s;
+}
+
+/* Hover Effects */
+.glass-card:hover {
+    box-shadow: 0 15px 40px rgba(31, 38, 135, 0.3);
+}
+
+.stat-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Button Styles */
+.btn-primary {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-success {
+    background: #2ecc71;
+    border-color: #2ecc71;
+}
+
+/* Analytics Dashboard Styles */
+.analytics-dashboard {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 2rem;
+}
+
+.analytics-dashboard h4 {
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.analytics-controls .form-select {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 10px;
+    min-width: 180px;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    line-height: 1.5;
+    height: auto;
+    min-height: 42px;
+    /* Add dropdown arrow */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+}
+
+.analytics-controls .form-select:focus {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.2);
+    /* Keep arrow visible when focused */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+}
+
+.analytics-controls .form-select option {
+    background: #374151;
+    color: #fff;
+    padding: 0.5rem 0.75rem;
+    line-height: 1.5;
+}
+
+/* Summary Statistics Cards */
+.stats-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.stats-icon {
+    background: rgba(99, 102, 241, 0.8);
+    border-radius: 12px;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.stats-content {
+    flex: 1;
+}
+
+.stats-value {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+}
+
+.stats-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.stats-change {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.stats-change.positive {
+    color: #10b981;
+}
+
+.stats-change.negative {
+    color: #ef4444;
+}
+
+.stats-change i {
+    margin-right: 0.25rem;
+}
+
+/* Chart Containers */
+.chart-container {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 1.5rem;
+    height: 100%;
+}
+
+.chart-container h6 {
+    color: #fff;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.chart-container canvas {
+    max-height: 300px;
+}
+
+/* Top Donors List */
+.top-donors-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.donor-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.donor-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.donor-rank {
+    background: rgba(99, 102, 241, 0.8);
+    color: #fff;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.donor-info {
+    flex: 1;
+}
+
+.donor-name {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.donor-stats {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+}
+
+/* Custom scrollbar for top donors */
+.top-donors-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.top-donors-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.top-donors-list::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.6);
+    border-radius: 3px;
+}
+
+.top-donors-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.8);
+}
+
+/* Responsive adjustments for analytics */
+@media (max-width: 1200px) {
+    .analytics-dashboard {
+        padding: 1.5rem;
+    }
+    
+    .stats-value {
+        font-size: 1.5rem;
+    }
+    
+    .stats-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .analytics-dashboard {
+        padding: 1rem;
+    }
+    
+    .analytics-dashboard h4 {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .analytics-controls {
+        margin-top: 1rem;
+    }
+    
+    .stats-card {
+        padding: 1rem;
+    }
+    
+    .stats-value {
+        font-size: 1.3rem;
+    }
+    
+    .chart-container {
+        padding: 1rem;
+    }
+    
+    .chart-container canvas {
+        max-height: 250px;
+    }
+}

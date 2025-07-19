@@ -1,0 +1,1859 @@
+{% extends "base.html" %}
+{% block title %}Донейт алерт - DonAlert{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donation-alert.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">Донейт алерт тохиргоо</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="testAlert()">
+                        <i class="fas fa-play me-1"></i>Туршилт
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyOverlayUrl(event)">
+                        <i class="fas fa-copy me-1"></i>Overlay URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Settings Panel -->
+                <div class="col-xl-7 col-lg-7">
+                    <form id="alertSettingsForm">
+                        <!-- Alert Message Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-edit me-2"></i>Алерт мессежийн тохиргоо</h5>
+                            
+                            <div class="mb-3">
+                                <label for="textTemplate" class="form-label">Алерт мессежийн загвар</label>
+                                <textarea class="form-control" id="textTemplate" name="text_template" rows="2" 
+                                         placeholder="{name}-ээс **[{amount}₮]** donation орж ирлээ!">{{ settings.text_template }}</textarea>
+                                <div class="form-text">
+                                    <strong>Тэмдэглэгээ:</strong> {name} - Хандивлагчийн нэр, {amount} - Хандивын дүн, **текст** - Тод үсэг, *текст* - Налуу үсэг, [текст] - Онцлох өнгө
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="minimumAmount" class="form-label">Хамгийн бага хандивын дүн</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="minimumAmount" name="minimum_amount" 
+                                               value="{{ settings.minimum_amount }}" min="0">
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                    <div class="form-text">0 = бүх хандивыг харуулах</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Animation Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-magic me-2"></i>Хөдөлгөөнт эффектийн тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="visibleTime" class="form-label">Алерт харагдах хугацаа</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="visibleTime" name="visible_time" 
+                                               value="{{ (settings.visible_time / 1000) | round(1) }}" min="1" max="30" step="0.5">
+                                        <span class="input-group-text">секунд</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="animationSpeed" class="form-label">Хөдөлгөөний хурд</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="animationSpeed" name="animation_speed" 
+                                               value="{{ (settings.animation_speed / 1000) | round(1) }}" min="0.2" max="3" step="0.1">
+                                        <span class="input-group-text">секунд</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="transitionType" class="form-label">Хөдөлгөөнт эффектийн төрөл</label>
+                                    <select class="form-select" id="transitionType" name="transition_type">
+                                        <option value="fade-in" {{ 'selected' if settings.transition_type == 'fade-in' }}>Fade In</option>
+                                        <option value="slide-up" {{ 'selected' if settings.transition_type == 'slide-up' }}>Slide Up</option>
+                                        <option value="slide-down" {{ 'selected' if settings.transition_type == 'slide-down' }}>Slide Down</option>
+                                        <option value="slide-left" {{ 'selected' if settings.transition_type == 'slide-left' }}>Slide Left</option>
+                                        <option value="slide-right" {{ 'selected' if settings.transition_type == 'slide-right' }}>Slide Right</option>
+                                        <option value="zoom-in" {{ 'selected' if settings.transition_type == 'zoom-in' }}>Zoom In</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Image Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-image me-2"></i>Зураг болон байршлын тохиргоо</h5>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="imagePosition" class="form-label">Зургийн байрлал</label>
+                                    <select class="form-select" id="imagePosition" name="image_position">
+                                        <option value="left" {{ 'selected' if settings.image_position == 'left' }}>Зүүн</option>
+                                        <option value="right" {{ 'selected' if settings.image_position == 'right' }}>Баруун</option>
+                                        <option value="top" {{ 'selected' if settings.image_position == 'top' }}>Дээд</option>
+                                        <option value="bottom" {{ 'selected' if settings.image_position == 'bottom' }}>Доод</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="imageSize" class="form-label">Зургийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="range" class="form-range" id="imageSize" name="image_size" 
+                                               min="50" max="200" value="{{ settings.image_size }}">
+                                        <span class="input-group-text" id="imageSizeDisplay">{{ settings.image_size }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Зураг сонгох</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="selected-asset-preview" id="selectedGifPreview">
+                                        <img id="selectedGifImage" src="" alt="Selected GIF" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; display: none;">
+                                        <span id="selectedGifName" class="text-muted">Зураг сонгогдоогүй</span>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openAssetModal('gif')">
+                                        <i class="fas fa-images me-1"></i>Зураг сонгох
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sound Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-volume-up me-2"></i>Дуу болон TTS дуу холлолтын тохиргоо</h5>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="soundVolume" class="form-label">Дууны дуудлага</label>
+                                    <div class="input-group">
+                                        <input type="range" class="form-range" id="soundVolume" name="sound_volume" 
+                                               min="0" max="100" value="{{ settings.sound_volume }}">
+                                        <span class="input-group-text" id="soundVolumeDisplay">{{ settings.sound_volume }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Дуу сонгох</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="selected-asset-preview" id="selectedSoundPreview">
+                                        <i class="fas fa-music me-2" id="selectedSoundIcon" style="font-size: 24px; color: #6366f1; display: none;"></i>
+                                        <span id="selectedSoundName" class="text-muted">Дуу сонгогдоогүй</span>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="playSoundBtn" onclick="playSelectedSound()" style="display: none;">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="openAssetModal('sound')">
+                                        <i class="fas fa-volume-up me-1"></i>Дуу сонгох
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Text to Speech Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-microphone me-2"></i>Text to Speech тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="ttsEnabled" name="tts_enabled" 
+                                               {{ 'checked' if settings.tts_enabled }}>
+                                        <label class="form-check-label" for="ttsEnabled">Монгол дуу холлолт асаах</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="ttsMinAmount" class="form-label">Дуу холлолт хамгийн бага дүн</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="ttsMinAmount" name="tts_minimum_amount" 
+                                               value="{{ settings.tts_minimum_amount }}" min="0">
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="ttsSpeed" class="form-label">Уншигчийн хурд</label>
+                                    <select class="form-select" id="ttsSpeed" name="tts_speed">
+                                        <option value="0.5" {{ 'selected' if settings.tts_speed == 0.5 }}>Удаан</option>
+                                        <option value="0.75" {{ 'selected' if settings.tts_speed == 0.75 }}>Бага удаан</option>
+                                        <option value="1.0" {{ 'selected' if settings.tts_speed == 1.0 }}>Хэвийн</option>
+                                        <option value="1.25" {{ 'selected' if settings.tts_speed == 1.25 }}>Бага хурдан</option>
+                                        <option value="1.5" {{ 'selected' if settings.tts_speed == 1.5 }}>Хурдан</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="ttsVoice" class="form-label">Хоолойн сонголт</label>
+                                    <select class="form-select" id="ttsVoice" name="tts_voice">
+                                        <optgroup label="Эмэгтэй хоолой">
+                                            <option value="FEMALE1" {{ 'selected' if settings.tts_voice == 'FEMALE1' }}>Эмэгтэй 1</option>
+                                            <option value="FEMALE1v2" {{ 'selected' if settings.tts_voice == 'FEMALE1v2' }}>Эмэгтэй 1v2</option>
+                                            <option value="FEMALE2v2" {{ 'selected' if settings.tts_voice == 'FEMALE2v2' }}>Эмэгтэй 2v2</option>
+                                            <option value="FEMALE3v2" {{ 'selected' if settings.tts_voice == 'FEMALE3v2' }}>Эмэгтэй 3v2</option>
+                                            <option value="FEMALE4v2" {{ 'selected' if settings.tts_voice == 'FEMALE4v2' }}>Эмэгтэй 4v2</option>
+                                            <option value="FEMALE5v2" {{ 'selected' if settings.tts_voice == 'FEMALE5v2' }}>Эмэгтэй 5v2</option>
+                                        </optgroup>
+                                        <optgroup label="Эрэгтэй хоолой">
+                                            <option value="MALE1" {{ 'selected' if settings.tts_voice == 'MALE1' }}>Эрэгтэй 1</option>
+                                            <option value="MALE1v2" {{ 'selected' if settings.tts_voice == 'MALE1v2' }}>Эрэгтэй 1v2</option>
+                                            <option value="MALE2v2" {{ 'selected' if settings.tts_voice == 'MALE2v2' }}>Эрэгтэй 2v2</option>
+                                            <option value="MALE3v2" {{ 'selected' if settings.tts_voice == 'MALE3v2' }}>Эрэгтэй 3v2</option>
+                                            <option value="MALE4v2" {{ 'selected' if settings.tts_voice == 'MALE4v2' }}>Эрэгтэй 4v2</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ttsPitch" class="form-label">Хоолойн өндөр</label>
+                                    <select class="form-select" id="ttsPitch" name="tts_pitch">
+                                        <option value="0.5" {{ 'selected' if settings.tts_pitch == 0.5 }}>Маш доод</option>
+                                        <option value="0.75" {{ 'selected' if settings.tts_pitch == 0.75 }}>Доод</option>
+                                        <option value="1.0" {{ 'selected' if settings.tts_pitch == 1.0 }}>Хэвийн</option>
+                                        <option value="1.25" {{ 'selected' if settings.tts_pitch == 1.25 }}>Өндөр</option>
+                                        <option value="1.5" {{ 'selected' if settings.tts_pitch == 1.5 }}>Маш өндөр</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Voice Sample Preview Section -->
+                            <div class="mt-3">
+                                <!-- Usage Limitation Notice -->
+                                <div class="alert alert-warning py-2 mb-3" style="font-size: 0.9rem;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Анхаарулга:</strong> Chimege нь төлбөртэй загвар тул одоогоор хэрэглээ хязгаарлагдмал байгаа бөгөөд ирээдүйд энэ өөрчлөгдөх болно.
+                                </div>
+                                
+                                <!-- Usage Statistics -->
+                                <div class="row mb-3">
+                                    <div class="col-md-12">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadTTSUsage()">
+                                            <i class="fas fa-chart-bar me-1"></i>Хэрэглээ харах
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- TTS Usage Display -->
+                                <div id="ttsUsageDisplay" class="mb-3" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <h6><i class="fas fa-info-circle me-2"></i>TTS хэрэглээний статистик</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <strong>Өнөөдөр:</strong><br>
+                                                <span id="dailyUsage">-</span> хүсэлт / <span id="dailyLimit">-</span><br>
+                                                <span id="dailyChars">-</span> тэмдэгт / <span id="dailyCharLimit">-</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Энэ сар:</strong><br>
+                                                <span id="monthlyUsage">-</span> хүсэлт / <span id="monthlyLimit">-</span><br>
+                                                <span id="monthlyChars">-</span> тэмдэгт / <span id="monthlyCharLimit">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <h6 class="mb-2">
+                                    <i class="fas fa-microphone me-2"></i>Монгол дуу хоолойн жишээ
+                                </h6>
+                                
+                                <!-- Pre-recording Explanation -->
+                                <div class="alert alert-info py-2 mb-3" style="font-size: 0.9rem;">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Тайлбар:</strong> Эдгээр нь урьдчилан бичигдсэн жишээ дуулгалт юм. Бодит цагт үүсгэх дуу хоолой таны тохируулгаас хамаарч өөр сонсогдож болно.
+                                </div>
+                                
+                                <!-- Female Voices -->
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2">
+                                        <i class="fas fa-female me-1"></i>Эмэгтэй дуу хоолой
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female1')">
+                                                <i class="fas fa-play me-1"></i>FEMALE1
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female1v2')">
+                                                <i class="fas fa-play me-1"></i>FEMALE1v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female2v2')">
+                                                <i class="fas fa-play me-1"></i>FEMALE2v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female3v2')">
+                                                <i class="fas fa-play me-1"></i>FEMALE3v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female4v2')">
+                                                <i class="fas fa-play me-1"></i>FEMALE4v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female5v2')">
+                                                <i class="fas fa-play me-1"></i>FEMALE5v2
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Male Voices -->
+                                <div class="mb-3">
+                                    <h6 class="text-muted mb-2">
+                                        <i class="fas fa-male me-1"></i>Эрэгтэй дуу хоолой
+                                    </h6>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male1')">
+                                                <i class="fas fa-play me-1"></i>MALE1
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male1v2')">
+                                                <i class="fas fa-play me-1"></i>MALE1v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male2v2')">
+                                                <i class="fas fa-play me-1"></i>MALE2v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male3v2')">
+                                                <i class="fas fa-play me-1"></i>MALE3v2
+                                            </button>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male4v2')">
+                                                <i class="fas fa-play me-1"></i>MALE4v2
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                            </div>
+                            
+                            <div class="alert alert-success mt-3">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Чимэгэ TTS идэвхжсэн - Монгол хэлний мэргэжлийн уншигч
+                                <br><small class="text-muted">Үнэгүй хязгаарлалт: Өдөрт 5 хүсэлт, сард 150 хүсэлт</small>
+                            </div>
+                        </div>
+
+                        <!-- Donator Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-user me-2"></i>Донейтер тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label for="donatorImageSize" class="form-label">Зургийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="donatorImageSize" name="donator_image_size" 
+                                               value="{{ settings.donator_image_size }}" min="20" max="100">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="donatorNameSize" class="form-label">Нэрийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="donatorNameSize" name="donator_name_size" 
+                                               value="{{ settings.donator_name_size }}" min="12" max="48">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="donatorNameWeight" class="form-label">Нэрийн зузаан</label>
+                                    <select class="form-select" id="donatorNameWeight" name="donator_name_weight">
+                                        <option value="normal" {{ 'selected' if settings.donator_name_weight == 'normal' }}>Хэвийн</option>
+                                        <option value="bold" {{ 'selected' if settings.donator_name_weight == 'bold' }}>Тод</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="donatorAlignment" class="form-label">Байрлал</label>
+                                    <select class="form-select" id="donatorAlignment" name="donator_alignment">
+                                        <option value="left" {{ 'selected' if settings.donator_alignment == 'left' }}>Зүүн</option>
+                                        <option value="center" {{ 'selected' if settings.donator_alignment == 'center' }}>Төв</option>
+                                        <option value="right" {{ 'selected' if settings.donator_alignment == 'right' }}>Баруун</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="donatorColor" class="form-label">Нэрийн өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="donatorColor" name="donator_color" 
+                                           value="{{ settings.donator_color }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Text Template Style Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-font me-2"></i>Текст загварын дизайн</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label for="templateSize" class="form-label">Үсгийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="templateSize" name="template_size" 
+                                               value="{{ settings.template_size }}" min="12" max="48">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="templateWeight" class="form-label">Үсгийн зузаан</label>
+                                    <select class="form-select" id="templateWeight" name="template_weight">
+                                        <option value="normal" {{ 'selected' if settings.template_weight == 'normal' }}>Хэвийн</option>
+                                        <option value="bold" {{ 'selected' if settings.template_weight == 'bold' }}>Тод</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="templateAlignment" class="form-label">Байрлал</label>
+                                    <select class="form-select" id="templateAlignment" name="template_alignment">
+                                        <option value="left" {{ 'selected' if settings.template_alignment == 'left' }}>Зүүн</option>
+                                        <option value="center" {{ 'selected' if settings.template_alignment == 'center' }}>Төв</option>
+                                        <option value="right" {{ 'selected' if settings.template_alignment == 'right' }}>Баруун</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="templateBaseColor" class="form-label">Үндсэн өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="templateBaseColor" name="template_base_color" 
+                                           value="{{ settings.template_base_color }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="templateAccentColor" class="form-label">Онцлох өнгө [текст]</label>
+                                    <input type="color" class="form-control form-control-color" id="templateAccentColor" name="template_accent_color" 
+                                           value="{{ settings.template_accent_color }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Message Style Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-comment me-2"></i>Мессежийн дизайн</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <label for="messageSize" class="form-label">Үсгийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="messageSize" name="message_size" 
+                                               value="{{ settings.message_size }}" min="12" max="32">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="messageWeight" class="form-label">Үсгийн зузаан</label>
+                                    <select class="form-select" id="messageWeight" name="message_weight">
+                                        <option value="normal" {{ 'selected' if settings.message_weight == 'normal' }}>Хэвийн</option>
+                                        <option value="bold" {{ 'selected' if settings.message_weight == 'bold' }}>Тод</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="messageStyle" class="form-label">Үсгийн хэв</label>
+                                    <select class="form-select" id="messageStyle" name="message_style">
+                                        <option value="normal" {{ 'selected' if settings.message_style == 'normal' }}>Хэвийн</option>
+                                        <option value="italic" {{ 'selected' if settings.message_style == 'italic' }}>Налуу</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="messageAlignment" class="form-label">Байрлал</label>
+                                    <select class="form-select" id="messageAlignment" name="message_alignment">
+                                        <option value="left" {{ 'selected' if settings.message_alignment == 'left' }}>Зүүн</option>
+                                        <option value="center" {{ 'selected' if settings.message_alignment == 'center' }}>Төв</option>
+                                        <option value="right" {{ 'selected' if settings.message_alignment == 'right' }}>Баруун</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="messageColor" class="form-label">Өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="messageColor" name="message_color" 
+                                           value="{{ settings.message_color }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Тохиргоо хадгалах
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Live Preview Panel -->
+                <div class="col-xl-5 col-lg-5">
+                    <div class="glass-card p-3 sticky-top">
+                        <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Урьдчилан үзэх</h5>
+                        
+                        <div id="alertPreview" class="alert-preview-container">
+                            <div class="preview-background">
+                                <div id="previewAlert" class="donation-alert" style="display: none; opacity: 0; transition: opacity 0.3s ease;">
+                                    <!-- Preview content will be generated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Browser Audio Policy Warning -->
+                        <div class="alert alert-warning mt-3 py-2" style="font-size: 0.85rem;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Анхааруулга:</strong> Google Chrome зэрэг зарим хөтөч нь хуудастай эхлээд харилцах хэрэгтэй байдаг тул дуу автоматаар тоглохгүй байж болно. Энэ асуудал OBS дээр тохиолдохгүй.
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Asset Selection Modal -->
+<div class="modal fade" id="assetModal" tabindex="-1" aria-labelledby="assetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="assetModalLabel">Зураг сонгох</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Upload Section -->
+                    <div class="col-12 mb-4">
+                        <div class="glass-card p-3">
+                            <h6 class="mb-3"><i class="fas fa-upload me-2"></i>Шинэ файл нэмэх</h6>
+                            <div class="upload-area" onclick="triggerFileUpload()" id="uploadArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                                <p class="mb-2"><strong>Файл сонгох эсвэл энд чирж оруулах</strong></p>
+                                <p class="text-muted small">Зөвшөөрөгдсөн файл: <span id="allowedTypes"></span></p>
+                                <p class="text-muted small">Хамгийн их хэмжээ: <span id="maxSize"></span></p>
+                            </div>
+                            <input type="file" id="modalFileUpload" style="display: none;" onchange="uploadAssetFromModal(this.files[0])">
+                        </div>
+                    </div>
+                    
+                    <!-- Asset Gallery -->
+                    <div class="col-12">
+                        <div class="row" id="assetTabs">
+                            <div class="col-6">
+                                <button class="btn btn-outline-primary w-100 mb-3" id="userAssetsTab" onclick="switchAssetTab('user')" style="height: 48px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-user me-2"></i>Миний файлууд (<span id="userAssetCount">0</span>)
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="btn btn-outline-primary w-100 mb-3" id="defaultAssetsTab" onclick="switchAssetTab('default')" style="height: 48px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-star me-2"></i>Үндсэн файлууд (<span id="defaultAssetCount">0</span>)
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="asset-modal-gallery" id="modalAssetGallery">
+                            <!-- Assets will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Цуцлах</button>
+                <button type="button" class="btn btn-primary" onclick="confirmAssetSelection()" id="confirmSelectBtn" disabled>Сонгох</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+// Current settings
+let currentSettings = {{ settings.to_dict() | tojson }};
+let selectedGif = null;
+let selectedSound = null;
+
+// Asset data for modal
+window.userGifs = {{ user_gifs | tojson }};
+window.userSounds = {{ user_sounds | tojson }};
+window.defaultGifs = {{ default_gifs | tojson }};
+window.defaultSounds = {{ default_sounds | tojson }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize asset selections
+    initializeAssetSelections();
+    
+    // Initialize range displays
+    updateRangeDisplay('imageSize', 'imageSizeDisplay', '%');
+    updateRangeDisplay('soundVolume', 'soundVolumeDisplay', '%');
+    
+    // Add event listeners for live preview
+    document.getElementById('alertSettingsForm').addEventListener('input', updatePreview);
+    document.getElementById('alertSettingsForm').addEventListener('change', updatePreview);
+    
+    // Initial preview
+    updatePreview();
+});
+
+function initializeAssetSelections() {
+    // Initialize GIF selection and preview from current settings
+    if (currentSettings.selected_gif_id) {
+        // Set selectedGif from user asset
+        selectedGif = {
+            id: currentSettings.selected_gif_id,
+            url: currentSettings.gif_url,
+            is_default: false
+        };
+        
+        // Update preview directly from settings
+        const previewImg = document.getElementById('selectedGifImage');
+        const previewName = document.getElementById('selectedGifName');
+        previewImg.src = currentSettings.gif_url;
+        previewImg.style.display = 'block';
+        previewName.textContent = 'Сонгосон зураг'; // Selected image
+        
+    } else if (currentSettings.default_gif_name) {
+        // Set selectedGif from default asset
+        selectedGif = {
+            filename: currentSettings.default_gif_name,
+            url: currentSettings.gif_url,
+            is_default: true
+        };
+        
+        // Update preview directly from settings
+        const previewImg = document.getElementById('selectedGifImage');
+        const previewName = document.getElementById('selectedGifName');
+        previewImg.src = currentSettings.gif_url;
+        previewImg.style.display = 'block';
+        previewName.textContent = currentSettings.default_gif_name;
+    }
+    
+    // Initialize Sound selection and preview from current settings
+    if (currentSettings.selected_sound_id) {
+        // Set selectedSound from user asset
+        selectedSound = {
+            id: currentSettings.selected_sound_id,
+            url: currentSettings.sound_url,
+            is_default: false
+        };
+        
+        // Update preview directly from settings
+        const previewIcon = document.getElementById('selectedSoundIcon');
+        const previewName = document.getElementById('selectedSoundName');
+        const playBtn = document.getElementById('playSoundBtn');
+        
+        previewIcon.style.display = 'inline-block';
+        previewName.textContent = 'Сонгосон дуу'; // Selected sound
+        playBtn.style.display = 'inline-block';
+        
+    } else if (currentSettings.default_sound_name) {
+        // Set selectedSound from default asset
+        selectedSound = {
+            filename: currentSettings.default_sound_name,
+            url: currentSettings.sound_url,
+            is_default: true
+        };
+        
+        // Update preview directly from settings
+        const previewIcon = document.getElementById('selectedSoundIcon');
+        const previewName = document.getElementById('selectedSoundName');
+        const playBtn = document.getElementById('playSoundBtn');
+        
+        previewIcon.style.display = 'inline-block';
+        previewName.textContent = currentSettings.default_sound_name;
+        playBtn.style.display = 'inline-block';
+    }
+    
+    // Add click handlers for asset selection
+    document.querySelectorAll('.asset-item:not(.asset-upload)').forEach(item => {
+        item.addEventListener('click', function() {
+            selectAsset(this);
+        });
+    });
+}
+
+function selectAsset(element) {
+    const gallery = element.closest('.asset-gallery');
+    const assetType = gallery.dataset.type;
+    
+    // Remove previous selection
+    gallery.querySelectorAll('.asset-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Add selection to clicked item
+    element.classList.add('selected');
+    
+    // Update selection variables
+    if (assetType === 'gif') {
+        if (element.dataset.id) {
+            selectedGif = {
+                id: parseInt(element.dataset.id),
+                url: element.dataset.url,
+                is_default: false
+            };
+        } else {
+            selectedGif = {
+                filename: element.dataset.filename,
+                url: element.dataset.url,
+                is_default: true
+            };
+        }
+    } else if (assetType === 'sound') {
+        if (element.dataset.id) {
+            selectedSound = {
+                id: parseInt(element.dataset.id),
+                url: element.dataset.url,
+                is_default: false
+            };
+        } else {
+            selectedSound = {
+                filename: element.dataset.filename,
+                url: element.dataset.url,
+                is_default: true
+            };
+        }
+    }
+    
+    updatePreview();
+}
+
+function updateRangeDisplay(rangeId, displayId, suffix) {
+    const range = document.getElementById(rangeId);
+    const display = document.getElementById(displayId);
+    
+    function update() {
+        display.textContent = range.value + suffix;
+    }
+    
+    range.addEventListener('input', update);
+    update(); // Initial update
+}
+
+function updatePreview() {
+    const form = document.getElementById('alertSettingsForm');
+    const formData = new FormData(form);
+    
+    // Sample donation data
+    const sampleDonation = {
+        name: 'Бат-Эрдэнэ',
+        amount: 5000,
+        message: 'Сайхан stream байна!'
+    };
+    
+    // Get current form values
+    const template = formData.get('text_template') || currentSettings.text_template;
+    const position = formData.get('image_position') || currentSettings.image_position;
+    const imageSize = formData.get('image_size') || currentSettings.image_size;
+    const transitionType = formData.get('transition_type') || currentSettings.transition_type;
+    
+    // Get all styling settings
+    const previewSettings = {
+        text_template: template,
+        image_position: position,
+        image_size: imageSize,
+        transition_type: transitionType,
+        gif_url: selectedGif ? selectedGif.url : currentSettings.gif_url,
+        
+        // Donator settings
+        donator_image_size: formData.get('donator_image_size') || currentSettings.donator_image_size,
+        donator_name_size: formData.get('donator_name_size') || currentSettings.donator_name_size,
+        donator_name_weight: formData.get('donator_name_weight') || currentSettings.donator_name_weight,
+        donator_alignment: formData.get('donator_alignment') || currentSettings.donator_alignment,
+        donator_color: formData.get('donator_color') || currentSettings.donator_color,
+        
+        // Template style settings
+        template_size: formData.get('template_size') || currentSettings.template_size,
+        template_weight: formData.get('template_weight') || currentSettings.template_weight,
+        template_alignment: formData.get('template_alignment') || currentSettings.template_alignment,
+        template_accent_color: formData.get('template_accent_color') || currentSettings.template_accent_color,
+        template_base_color: formData.get('template_base_color') || currentSettings.template_base_color,
+        
+        // Message style settings
+        message_size: formData.get('message_size') || currentSettings.message_size,
+        message_weight: formData.get('message_weight') || currentSettings.message_weight,
+        message_alignment: formData.get('message_alignment') || currentSettings.message_alignment,
+        message_style: formData.get('message_style') || currentSettings.message_style,
+        message_color: formData.get('message_color') || currentSettings.message_color
+    };
+    
+    // Generate preview HTML
+    generateAlertPreview(sampleDonation, previewSettings);
+}
+
+function generateAlertPreview(donation, settings) {
+    const previewAlert = document.getElementById('previewAlert');
+    
+    // Process template
+    let processedText = settings.text_template
+        .replace(/{name}/g, donation.name)
+        .replace(/{amount}/g, donation.amount);
+    
+    // Apply text formatting
+    processedText = processedText
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\[(.*?)\]/g, `<span style="color: ${settings.template_accent_color}">$1</span>`);
+    
+    // Create HTML structure with full styling
+    const alertHTML = `
+        <!-- Donator Profile (if we have donator name) -->
+        <div class="donator-profile mb-3" style="
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            justify-content: ${settings.donator_alignment};
+        ">
+            <img src="/static/assets/default/avatar.png" alt="Donator" style="
+                width: ${settings.donator_image_size}px;
+                height: ${settings.donator_image_size}px;
+                border-radius: 50%;
+                border: 2px solid #6366f1;
+                object-fit: cover;
+            ">
+            <div style="
+                font-size: ${settings.donator_name_size}px;
+                font-weight: ${settings.donator_name_weight};
+                color: ${settings.donator_color};
+            ">${donation.name}</div>
+        </div>
+
+        <!-- Main Alert Content -->
+        <div class="d-flex align-items-center gap-3" style="
+            flex-direction: ${settings.image_position === 'top' ? 'column' : 
+                           settings.image_position === 'bottom' ? 'column-reverse' : 'row'};
+            text-align: ${settings.template_alignment};
+        ">
+            ${settings.image_position === 'right' ? 
+                `<div class="alert-content" style="
+                    color: ${settings.template_base_color};
+                    font-size: ${settings.template_size}px;
+                    font-weight: ${settings.template_weight};
+                    text-align: ${settings.template_alignment};
+                ">${processedText}</div>` : ''}
+            
+            <div class="alert-image">
+                <img src="${settings.gif_url}" alt="Donation GIF" style="
+                    width: ${Math.round(120 * settings.image_size / 100)}px;
+                    height: ${Math.round(120 * settings.image_size / 100)}px;
+                    object-fit: cover;
+                    border-radius: 8px;
+                ">
+            </div>
+            
+            ${settings.image_position !== 'right' ? 
+                `<div class="alert-content" style="
+                    color: ${settings.template_base_color};
+                    font-size: ${settings.template_size}px;
+                    font-weight: ${settings.template_weight};
+                    text-align: ${settings.template_alignment};
+                ">${processedText}</div>` : ''}
+        </div>
+        
+        ${donation.message ? `<div class="alert-message mt-3" style="
+            color: ${settings.message_color};
+            font-size: ${settings.message_size}px;
+            font-weight: ${settings.message_weight};
+            text-align: ${settings.message_alignment};
+            font-style: ${settings.message_style};
+            opacity: 0.9;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        ">"${donation.message}"</div>` : ''}
+    `;
+    
+    previewAlert.innerHTML = alertHTML;
+    previewAlert.className = 'donation-alert';
+    previewAlert.style.display = 'block';
+}
+
+// Debounce test alert to prevent multiple rapid calls
+let testAlertTimeout = null;
+
+function testAlert() {
+    const testButton = document.querySelector('button[onclick="testAlert()"]');
+    
+    // Prevent multiple rapid test alerts
+    if (testAlertTimeout) {
+        return;
+    }
+    
+    // Lock the button visually
+    testButton.disabled = true;
+    testButton.innerHTML = '<i class="fas fa-clock me-1"></i>Хүлээнэ үү...';
+    testButton.classList.add('btn-secondary');
+    testButton.classList.remove('btn-outline-primary');
+    
+    // Calculate cooldown based on current animation settings
+    const cooldownForm = document.getElementById('alertSettingsForm');
+    const cooldownFormData = new FormData(cooldownForm);
+    // Convert seconds to milliseconds for timing calculations
+    const visibleTime = Math.round(parseFloat(cooldownFormData.get('visible_time')) * 1000) || currentSettings.visible_time || 5000;
+    const animationSpeed = Math.round(parseFloat(cooldownFormData.get('animation_speed')) * 1000) || currentSettings.animation_speed || 1000;
+    
+    // Total animation duration = entrance animation + visible time + exit animation + buffer
+    const totalDuration = animationSpeed + visibleTime + animationSpeed + 500; // 500ms buffer
+    
+    testAlertTimeout = setTimeout(() => {
+        testAlertTimeout = null;
+        // Unlock the button
+        testButton.disabled = false;
+        testButton.innerHTML = '<i class="fas fa-play me-1"></i>Туршилт';
+        testButton.classList.remove('btn-secondary');
+        testButton.classList.add('btn-outline-primary');
+    }, totalDuration);
+    
+    
+    // Trigger test alert with animation and sound
+    const form = document.getElementById('alertSettingsForm');
+    const formData = new FormData(form);
+    
+    // Sample donation data
+    const sampleDonation = {
+        name: 'Тест хэрэглэгч',
+        amount: 5000,
+        message: 'Энэ бол туршилтын мессеж!'
+    };
+    
+    // Get current form values
+    const template = formData.get('text_template') || currentSettings.text_template;
+    const position = formData.get('image_position') || currentSettings.image_position;
+    const imageSize = formData.get('image_size') || currentSettings.image_size;
+    const transitionType = formData.get('transition_type') || currentSettings.transition_type;
+    
+    // Get all styling settings for test
+    const testSettings = {
+        text_template: template,
+        image_position: position,
+        image_size: imageSize,
+        transition_type: transitionType,
+        gif_url: selectedGif ? selectedGif.url : currentSettings.gif_url,
+        
+        // Donator settings
+        donator_image_size: formData.get('donator_image_size') || currentSettings.donator_image_size,
+        donator_name_size: formData.get('donator_name_size') || currentSettings.donator_name_size,
+        donator_name_weight: formData.get('donator_name_weight') || currentSettings.donator_name_weight,
+        donator_alignment: formData.get('donator_alignment') || currentSettings.donator_alignment,
+        donator_color: formData.get('donator_color') || currentSettings.donator_color,
+        
+        // Template style settings
+        template_size: formData.get('template_size') || currentSettings.template_size,
+        template_weight: formData.get('template_weight') || currentSettings.template_weight,
+        template_alignment: formData.get('template_alignment') || currentSettings.template_alignment,
+        template_accent_color: formData.get('template_accent_color') || currentSettings.template_accent_color,
+        template_base_color: formData.get('template_base_color') || currentSettings.template_base_color,
+        
+        // Message style settings
+        message_size: formData.get('message_size') || currentSettings.message_size,
+        message_weight: formData.get('message_weight') || currentSettings.message_weight,
+        message_alignment: formData.get('message_alignment') || currentSettings.message_alignment,
+        message_style: formData.get('message_style') || currentSettings.message_style,
+        message_color: formData.get('message_color') || currentSettings.message_color
+    };
+
+    // Don't update preview on test button - preview should stay as current settings
+    
+    // Send test alert to overlay via Socket.IO
+    
+    if (socket && socket.connected) {
+        const testData = {
+            user_id: userId,
+            donator_name: sampleDonation.name,
+            amount: sampleDonation.amount,
+            message: sampleDonation.message,
+            donator_avatar: '/static/assets/default/avatar.png'
+        };
+        socket.emit('test_alert', testData);
+    } else {
+    }
+    
+    // Don't play sound on settings page - only send to overlay
+}
+
+
+
+function generateTestAlert(donation, settings) {
+    const previewAlert = document.getElementById('previewAlert');
+    const donatorName = donation.name || 'Анонимус';
+    const amount = donation.amount;
+    const message = donation.message || '';
+    const donatorAvatar = '/static/assets/default/avatar.png';
+    
+    // Process text template (exactly like overlay)
+    let processedText = settings.text_template
+        .replace(/{name}/g, donatorName)
+        .replace(/{amount}/g, amount.toLocaleString());
+    
+    // Apply text formatting (exactly like overlay)
+    processedText = processedText
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\[(.*?)\]/g, `<span style="color: ${settings.template_accent_color}">$1</span>`);
+    
+    // Determine layout classes (exactly like overlay)
+    const isVertical = settings.image_position === 'top' || settings.image_position === 'bottom';
+    const isReverse = settings.image_position === 'right' || settings.image_position === 'bottom';
+    
+    let contentClass = 'alert-content';
+    if (isVertical) {
+        contentClass += isReverse ? ' vertical-reverse' : ' vertical';
+    } else {
+        contentClass += isReverse ? ' horizontal-reverse' : '';
+    }
+    
+    // Create HTML structure (exactly like overlay)
+    const alertHTML = `
+        <div class="donation-alert">
+            <div class="donator-profile" style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; justify-content: center;">
+                <img src="${donatorAvatar}" alt="${donatorName}" class="donator-avatar" 
+                     style="width: ${settings.donator_image_size}px; height: ${settings.donator_image_size}px; border-radius: 50%; border: 3px solid #6366f1; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);">
+                <div class="donator-name" style="
+                    font-size: ${settings.donator_name_size}px;
+                    font-weight: ${settings.donator_name_weight};
+                    color: ${settings.donator_color};
+                    text-align: ${settings.donator_alignment};
+                ">${donatorName}</div>
+            </div>
+            
+            <div class="${contentClass}">
+                <div class="alert-image">
+                    <img src="${settings.gif_url}" alt="Donation GIF" style="
+                        width: ${Math.round(120 * settings.image_size / 100)}px;
+                        height: ${Math.round(120 * settings.image_size / 100)}px;
+                        object-fit: cover;
+                    ">
+                </div>
+                
+                <div class="alert-text" style="
+                    font-size: ${settings.template_size}px;
+                    font-weight: ${settings.template_weight};
+                    color: ${settings.template_base_color};
+                    text-align: ${settings.template_alignment};
+                ">${processedText}</div>
+            </div>
+            
+            ${message ? `
+                <div class="alert-message" style="
+                    font-size: ${settings.message_size}px;
+                    font-weight: ${settings.message_weight};
+                    color: ${settings.message_color};
+                    text-align: ${settings.message_alignment};
+                    font-style: ${settings.message_style};
+                ">"${message}"</div>
+            ` : ''}
+        </div>
+    `;
+    
+    previewAlert.innerHTML = alertHTML;
+    previewAlert.className = 'donation-alert';
+    previewAlert.style.display = 'block';
+    
+    // Fade in the preview smoothly
+    setTimeout(() => {
+        previewAlert.style.opacity = '1';
+    }, 50);
+}
+
+function playSound(url) {
+    const audio = new Audio(url);
+    const volume = document.getElementById('soundVolume').value / 100;
+    audio.volume = volume;
+}
+
+// Global variable to track currently playing sound
+let currentSelectedAudio = null;
+
+function playSelectedSound() {
+    const playBtn = document.getElementById('playSoundBtn');
+    
+    // If audio is currently playing, stop it
+    if (currentSelectedAudio && !currentSelectedAudio.paused) {
+        currentSelectedAudio.pause();
+        currentSelectedAudio.currentTime = 0;
+        currentSelectedAudio = null;
+        
+        // Reset button to play state
+        playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        return;
+    }
+    
+    // Stop any currently playing modal audio
+    if (currentModalAudio) {
+        currentModalAudio.pause();
+        currentModalAudio.currentTime = 0;
+        currentModalAudio = null;
+    }
+    
+    // Play the currently selected sound
+    if (selectedSound && selectedSound.url) {
+        const volume = document.getElementById('soundVolume').value / 100;
+        currentSelectedAudio = new Audio(selectedSound.url);
+        currentSelectedAudio.volume = volume;
+        
+        // Change button to stop state
+        playBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        
+        // Handle audio end
+        currentSelectedAudio.addEventListener('ended', () => {
+            currentSelectedAudio = null;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        });
+        
+        // Handle audio errors
+        currentSelectedAudio.addEventListener('error', () => {
+            currentSelectedAudio = null;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        });
+        
+        currentSelectedAudio.play().catch(error => {
+            currentSelectedAudio = null;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        });
+    }
+}
+
+// Modal Asset Selection Variables
+let currentModalType = '';
+let currentSelectedAsset = null;
+let modalAssets = {
+    user: [],
+    default: []
+};
+
+function openAssetModal(type) {
+    currentModalType = type;
+    currentSelectedAsset = null;
+    
+    // Update modal title and allowed types
+    const modalTitle = document.getElementById('assetModalLabel');
+    const allowedTypes = document.getElementById('allowedTypes');
+    const maxSize = document.getElementById('maxSize');
+    const confirmBtn = document.getElementById('confirmSelectBtn');
+    
+    if (type === 'gif') {
+        modalTitle.textContent = 'Зураг сонгох';
+        allowedTypes.textContent = 'GIF, PNG, JPG';
+        maxSize.textContent = '10MB';
+    } else {
+        modalTitle.textContent = 'Дуу сонгох';
+        allowedTypes.textContent = 'MP3, WAV, OGG';
+        maxSize.textContent = '5MB';
+    }
+    
+    confirmBtn.disabled = true;
+    
+    // Load assets and show modal
+    loadModalAssets();
+    const modal = new bootstrap.Modal(document.getElementById('assetModal'));
+    modal.show();
+}
+
+function loadModalAssets() {
+    // Initialize counts for both tabs
+    updateAssetCounts();
+    
+    // Start with user assets tab active
+    switchAssetTab('user');
+}
+
+function updateAssetCounts() {
+    const userAssetCount = document.getElementById('userAssetCount');
+    const defaultAssetCount = document.getElementById('defaultAssetCount');
+    
+    // Get assets for current type
+    const userAssets = currentModalType === 'gif' ? 
+        (window.userGifs || []) : (window.userSounds || []);
+    const defaultAssets = currentModalType === 'gif' ? 
+        (window.defaultGifs || []) : (window.defaultSounds || []);
+    
+    userAssetCount.textContent = userAssets.length;
+    defaultAssetCount.textContent = defaultAssets.length;
+}
+
+function switchAssetTab(tabType) {
+    const userTab = document.getElementById('userAssetsTab');
+    const defaultTab = document.getElementById('defaultAssetsTab');
+    const gallery = document.getElementById('modalAssetGallery');
+    
+    // Update tab buttons
+    if (tabType === 'user') {
+        userTab.classList.remove('btn-outline-primary');
+        userTab.classList.add('btn-primary');
+        defaultTab.classList.remove('btn-primary');
+        defaultTab.classList.add('btn-outline-primary');
+        loadUserAssets();
+    } else {
+        defaultTab.classList.remove('btn-outline-primary');
+        defaultTab.classList.add('btn-primary');
+        userTab.classList.remove('btn-primary');
+        userTab.classList.add('btn-outline-primary');
+        loadDefaultAssets();
+    }
+}
+
+function loadUserAssets() {
+    const gallery = document.getElementById('modalAssetGallery');
+    
+    // Get user assets for current type
+    const userAssets = currentModalType === 'gif' ? 
+        (window.userGifs || []) : (window.userSounds || []);
+    
+    let html = '<div class="row g-3">';
+    
+    if (userAssets.length === 0) {
+        html += `
+            <div class="col-12">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-folder-open fa-3x mb-3"></i>
+                    <p>Танд одоогоор ${currentModalType === 'gif' ? 'зураг' : 'дуу'} файл байхгүй байна.</p>
+                    <p class="small">Дээрх хэсгээр шинэ файл нэмж болно.</p>
+                </div>
+            </div>
+        `;
+    } else {
+        userAssets.forEach(asset => {
+            html += `
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="modal-asset-item" data-id="${asset.id}" data-url="${asset.url}" data-is-default="false" onclick="selectModalAsset(this)">
+                        ${currentModalType === 'gif' ? 
+                            `<img src="${asset.url}" alt="${asset.display_name}" class="modal-asset-preview">` :
+                            `<div class="modal-asset-icon"><i class="fas fa-music"></i></div>`
+                        }
+                        <div class="modal-asset-name">${asset.display_name}</div>
+                        <button class="btn btn-sm btn-outline-danger modal-asset-delete" onclick="deleteModalAsset(event, ${asset.id})" title="Устгах">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        ${currentModalType === 'sound' ? 
+                            `<button class="btn btn-sm btn-outline-primary modal-asset-play" onclick="playModalSound(event, '${asset.url}')" title="Тоглуулах">
+                                <i class="fas fa-play"></i>
+                            </button>` : ''
+                        }
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>';
+    gallery.innerHTML = html;
+}
+
+function loadDefaultAssets() {
+    const gallery = document.getElementById('modalAssetGallery');
+    
+    // Get default assets for current type
+    const defaultAssets = currentModalType === 'gif' ? 
+        (window.defaultGifs || []) : (window.defaultSounds || []);
+    
+    let html = '<div class="row g-3">';
+    
+    if (defaultAssets.length === 0) {
+        html += `
+            <div class="col-12">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-star fa-3x mb-3"></i>
+                    <p>Үндсэн ${currentModalType === 'gif' ? 'зураг' : 'дуу'} файл байхгүй байна.</p>
+                </div>
+            </div>
+        `;
+    } else {
+        defaultAssets.forEach(asset => {
+            html += `
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="modal-asset-item" data-filename="${asset.filename}" data-url="${asset.url}" data-is-default="true" onclick="selectModalAsset(this)">
+                        ${currentModalType === 'gif' ? 
+                            `<img src="${asset.url}" alt="${asset.display_name}" class="modal-asset-preview">` :
+                            `<div class="modal-asset-icon"><i class="fas fa-music"></i></div>`
+                        }
+                        <div class="modal-asset-name">${asset.display_name}</div>
+                        ${currentModalType === 'sound' ? 
+                            `<button class="btn btn-sm btn-outline-primary modal-asset-play" onclick="playModalSound(event, '${asset.url}')" title="Тоглуулах">
+                                <i class="fas fa-play"></i>
+                            </button>` : ''
+                        }
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>';
+    gallery.innerHTML = html;
+}
+
+function selectModalAsset(element) {
+    // Remove previous selection
+    document.querySelectorAll('.modal-asset-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    
+    // Add selection to clicked item
+    element.classList.add('selected');
+    currentSelectedAsset = element;
+    
+    // Enable confirm button
+    document.getElementById('confirmSelectBtn').disabled = false;
+}
+
+function confirmAssetSelection() {
+    if (!currentSelectedAsset) return;
+    
+    const isDefault = currentSelectedAsset.dataset.isDefault === 'true';
+    
+    if (currentModalType === 'gif') {
+        if (isDefault) {
+            selectedGif = {
+                filename: currentSelectedAsset.dataset.filename,
+                url: currentSelectedAsset.dataset.url,
+                is_default: true
+            };
+        } else {
+            selectedGif = {
+                id: parseInt(currentSelectedAsset.dataset.id),
+                url: currentSelectedAsset.dataset.url,
+                is_default: false
+            };
+        }
+        
+        // Update preview
+        const previewImg = document.getElementById('selectedGifImage');
+        const previewName = document.getElementById('selectedGifName');
+        previewImg.src = selectedGif.url;
+        previewImg.style.display = 'block';
+        previewName.textContent = currentSelectedAsset.querySelector('.modal-asset-name').textContent;
+        
+    } else if (currentModalType === 'sound') {
+        if (isDefault) {
+            selectedSound = {
+                filename: currentSelectedAsset.dataset.filename,
+                url: currentSelectedAsset.dataset.url,
+                is_default: true
+            };
+        } else {
+            selectedSound = {
+                id: parseInt(currentSelectedAsset.dataset.id),
+                url: currentSelectedAsset.dataset.url,
+                is_default: false
+            };
+        }
+        
+        // Update preview
+        const previewIcon = document.getElementById('selectedSoundIcon');
+        const previewName = document.getElementById('selectedSoundName');
+        const playBtn = document.getElementById('playSoundBtn');
+        
+        previewIcon.style.display = 'inline-block';
+        previewName.textContent = currentSelectedAsset.querySelector('.modal-asset-name').textContent;
+        playBtn.style.display = 'inline-block';
+    }
+    
+    // Update live preview
+    updatePreview();
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('assetModal'));
+    modal.hide();
+}
+
+function triggerFileUpload() {
+    document.getElementById('modalFileUpload').click();
+}
+
+function uploadAssetFromModal(file) {
+    if (!file) return;
+    
+    const maxSize = currentModalType === 'gif' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    
+    if (file.size > maxSize) {
+        alert(`Файлын хэмжээ хэтэрсэн байна. Хамгийн их ${maxSize / 1024 / 1024}MB байх ёстой.`);
+        return;
+    }
+    
+    const allowedTypes = currentModalType === 'gif' ? 
+        ['image/gif', 'image/png', 'image/jpeg'] : 
+        ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+    
+    if (!allowedTypes.includes(file.type)) {
+        alert('Зөвшөөрөгдөөгүй файлын төрөл байна.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('asset_type', currentModalType);
+    
+    fetch('/donation-alert/upload-asset', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add to user assets
+            if (currentModalType === 'gif') {
+                window.userGifs = window.userGifs || [];
+                window.userGifs.push(data.asset);
+            } else {
+                window.userSounds = window.userSounds || [];
+                window.userSounds.push(data.asset);
+            }
+            
+            // Reload user assets tab
+            switchAssetTab('user');
+            alert('Файл амжилттай нэмэгдлээ!');
+        } else {
+            alert('Алдаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Файл байршуулахад алдаа гарлаа.');
+    });
+}
+
+function deleteModalAsset(event, assetId) {
+    event.stopPropagation();
+    
+    if (!confirm('Та энэ файлыг устгахыг хүсэж байна уу?')) {
+        return;
+    }
+    
+    fetch(`/donation-alert/delete-asset/${assetId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove from local arrays
+            if (currentModalType === 'gif') {
+                window.userGifs = window.userGifs.filter(asset => asset.id !== assetId);
+            } else {
+                window.userSounds = window.userSounds.filter(asset => asset.id !== assetId);
+            }
+            
+            // Reload user assets
+            loadUserAssets();
+            alert('Файл амжилттай устгагдлаа!');
+        } else {
+            alert('Алдаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Файл устгахад алдаа гарлаа.');
+    });
+}
+
+// Global variable to track currently playing modal audio
+let currentModalAudio = null;
+
+function playModalSound(event, url) {
+    event.stopPropagation();
+    
+    // Stop any currently playing modal audio
+    if (currentModalAudio) {
+        currentModalAudio.pause();
+        currentModalAudio.currentTime = 0;
+        currentModalAudio = null;
+    }
+    
+    // Stop any existing audio elements in DOM
+    const existingAudio = document.querySelector('audio');
+    if (existingAudio) {
+        existingAudio.pause();
+        existingAudio.remove();
+    }
+    
+    // Create and play new audio
+    currentModalAudio = new Audio(url);
+    currentModalAudio.volume = 0.5;
+    
+    // Clear reference when audio ends
+    currentModalAudio.addEventListener('ended', () => {
+        currentModalAudio = null;
+    });
+    
+    currentModalAudio.play().catch(error => {
+        currentModalAudio = null;
+    });
+}
+
+// Add drag and drop functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('uploadArea');
+    
+    if (uploadArea) {
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadAssetFromModal(files[0]);
+            }
+        });
+    }
+});
+
+function copyOverlayUrl(event) {
+    // Generate the overlay URL using the current user's token
+    const overlayToken = '{{ overlay_token }}';
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/overlay/${overlayToken}`;
+    
+    navigator.clipboard.writeText(url).then(() => {
+        // Show temporary success message
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-primary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    });
+}
+
+// Form submission
+document.getElementById('alertSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Handle checkboxes explicitly (FormData doesn't include unchecked checkboxes)
+    data.tts_enabled = document.getElementById('ttsEnabled').checked;
+    
+    // Convert seconds to milliseconds for backend
+    data.visible_time = Math.round(parseFloat(data.visible_time) * 1000);
+    data.animation_speed = Math.round(parseFloat(data.animation_speed) * 1000);
+    
+    // Add selected assets
+    if (selectedGif) {
+        if (selectedGif.is_default) {
+            data.default_gif_name = selectedGif.filename;
+            data.selected_gif_id = null;
+        } else {
+            data.selected_gif_id = selectedGif.id;
+            data.default_gif_name = null;
+        }
+    }
+    
+    if (selectedSound) {
+        if (selectedSound.is_default) {
+            data.default_sound_name = selectedSound.filename;
+            data.selected_sound_id = null;
+        } else {
+            data.selected_sound_id = selectedSound.id;
+            data.default_sound_name = null;
+        }
+    }
+    
+    // Submit settings
+    fetch('/donation-alert/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            const btn = this.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа!';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-primary');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            }, 2000);
+        } else {
+            alert('Алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
+        }
+    })
+    .catch(error => {
+        alert('Холболтын алдаа гарлаа');
+    });
+});
+
+function uploadAsset(type, file) {
+    if (!file) return;
+    
+    // Validate file
+    const maxSize = type === 'gif' ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for images, 5MB for sounds
+    if (file.size > maxSize) {
+        alert(`Файлын хэмжээ хэтэрсэн байна. Хамгийн ихдээ ${maxSize / 1024 / 1024}MB байх ёстой.`);
+        return;
+    }
+    
+    const allowedTypes = type === 'gif' ? 
+        ['image/gif', 'image/png', 'image/jpeg'] : 
+        ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+    
+    if (!allowedTypes.includes(file.type)) {
+        alert('Зөвшөөрөгдсөн файлын төрөл биш байна.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('asset_type', type);
+    
+    fetch('/donation-alert/upload-asset', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload page to show new asset
+            location.reload();
+        } else {
+            alert('Файл байршуулахад алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
+        }
+    })
+    .catch(error => {
+        alert('Файл байршуулахад алдаа гарлаа');
+    });
+}
+
+function deleteAsset(assetId) {
+    if (!confirm('Та үнэхээр энэ файлыг устгахыг хүсэж байна уу?')) {
+        return;
+    }
+    
+    fetch(`/donation-alert/delete-asset/${assetId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the asset from UI
+            document.querySelector(`[data-id="${assetId}"]`).remove();
+        } else {
+            alert('Файл устгахад алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
+        }
+    })
+    .catch(error => {
+        alert('Файл устгахад алдаа гарлаа');
+    });
+}
+
+// Real-time preview updates
+function updatePreviewInRealTime() {
+    const sampleDonation = {
+        name: 'Тест хэрэглэгч',
+        amount: 5000,
+        message: 'Энэ бол туршилтын мессеж!'
+    };
+    
+    // Get current form values for preview
+    const form = document.getElementById('alertSettingsForm');
+    const formData = new FormData(form);
+    
+    const previewSettings = {
+        text_template: formData.get('text_template') || currentSettings.text_template,
+        image_position: formData.get('image_position') || currentSettings.image_position,
+        image_size: parseInt(formData.get('image_size')) || currentSettings.image_size,
+        gif_url: selectedGif ? selectedGif.url : currentSettings.gif_url,
+        
+        // Donator settings
+        donator_image_size: parseInt(formData.get('donator_image_size')) || currentSettings.donator_image_size,
+        donator_name_size: parseInt(formData.get('donator_name_size')) || currentSettings.donator_name_size,
+        donator_name_weight: formData.get('donator_name_weight') || currentSettings.donator_name_weight,
+        donator_alignment: formData.get('donator_alignment') || currentSettings.donator_alignment,
+        donator_color: formData.get('donator_color') || currentSettings.donator_color,
+        
+        // Template style settings
+        template_size: parseInt(formData.get('template_size')) || currentSettings.template_size,
+        template_weight: formData.get('template_weight') || currentSettings.template_weight,
+        template_alignment: formData.get('template_alignment') || currentSettings.template_alignment,
+        template_accent_color: formData.get('template_accent_color') || currentSettings.template_accent_color,
+        template_base_color: formData.get('template_base_color') || currentSettings.template_base_color,
+        
+        // Message style settings
+        message_size: parseInt(formData.get('message_size')) || currentSettings.message_size,
+        message_weight: formData.get('message_weight') || currentSettings.message_weight,
+        message_alignment: formData.get('message_alignment') || currentSettings.message_alignment,
+        message_style: formData.get('message_style') || currentSettings.message_style,
+        message_color: formData.get('message_color') || currentSettings.message_color
+    };
+    
+    generateTestAlert(sampleDonation, previewSettings);
+}
+
+// Add event listeners to all form controls for real-time updates
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('alertSettingsForm');
+    
+    // Listen to all input, select, and range changes
+    form.addEventListener('input', updatePreviewInRealTime);
+    form.addEventListener('change', updatePreviewInRealTime);
+    
+    // Update preview when GIF selection changes
+    window.addEventListener('gifSelected', updatePreviewInRealTime);
+    
+    // Initial preview load
+    setTimeout(updatePreviewInRealTime, 500);
+});
+
+// Global variable to track currently playing voice sample
+let currentVoiceSample = null;
+let currentVoiceButton = null;
+
+// Voice Sample Playback Function
+function playVoiceSample(voiceId) {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    
+    // Stop any currently playing voice sample
+    if (currentVoiceSample) {
+        currentVoiceSample.pause();
+        currentVoiceSample.currentTime = 0;
+        
+        // Reset the previous button
+        if (currentVoiceButton) {
+            const prevBtn = currentVoiceButton;
+            const prevText = prevBtn.getAttribute('data-original-text') || prevBtn.textContent;
+            prevBtn.innerHTML = prevText;
+            prevBtn.disabled = false;
+        }
+    }
+    
+    // Store original text for this button
+    btn.setAttribute('data-original-text', originalText);
+    
+    // Disable button and show loading state
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Тоглож байна...';
+    btn.disabled = true;
+    
+    // Get user's volume setting
+    const volume = document.getElementById('soundVolume').value;
+    
+    // Play the pre-recorded voice sample
+    const audioUrl = `/static/assets/voice_models/${voiceId}_sample.wav`;
+    const audio = new Audio(audioUrl);
+    audio.volume = volume / 100;
+    
+    // Set as current playing sample
+    currentVoiceSample = audio;
+    currentVoiceButton = btn;
+    
+    audio.onloadeddata = () => {
+        audio.play();
+    };
+    
+    audio.onended = () => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        currentVoiceSample = null;
+        currentVoiceButton = null;
+    };
+    
+    audio.onerror = () => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        currentVoiceSample = null;
+        currentVoiceButton = null;
+        alert('Дуулгалт ачаалах боломжгүй байна');
+    };
+    
+    // Auto-stop after 10 seconds as fallback
+    setTimeout(() => {
+        if (currentVoiceSample === audio && !audio.ended) {
+            audio.pause();
+            audio.currentTime = 0;
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            currentVoiceSample = null;
+            currentVoiceButton = null;
+        }
+    }, 10000);
+}
+
+// TTS Usage Display Function
+function loadTTSUsage() {
+    const displayDiv = document.getElementById('ttsUsageDisplay');
+    
+    if (displayDiv.style.display === 'none') {
+        // Load usage data
+        fetch('/api/tts/usage')
+        .then(response => response.json())
+        .then(data => {
+            // Update display with separate elements
+            document.getElementById('dailyUsage').textContent = data.daily.requests;
+            document.getElementById('dailyLimit').textContent = data.daily.limit_requests;
+            document.getElementById('dailyChars').textContent = data.daily.characters;
+            document.getElementById('dailyCharLimit').textContent = data.daily.limit_characters;
+            
+            document.getElementById('monthlyUsage').textContent = data.monthly.requests;
+            document.getElementById('monthlyLimit').textContent = data.monthly.limit_requests;
+            document.getElementById('monthlyChars').textContent = data.monthly.characters;
+            document.getElementById('monthlyCharLimit').textContent = data.monthly.limit_characters;
+            
+            displayDiv.style.display = 'block';
+        })
+        .catch(error => {
+            alert('Хэрэглээний мэдээлэл ачаалж чадсангүй');
+        });
+    } else {
+        displayDiv.style.display = 'none';
+    }
+}
+</script>
+
+<!-- Add Socket.IO script -->
+<script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
+<script>
+// User identification for socket events
+const userId = {{ current_user.id if current_user.is_authenticated else 'null' }};
+
+// Initialize Socket.IO connection for test alerts
+let socket = null;
+
+if (typeof io !== 'undefined') {
+    socket = io({
+        transports: ['websocket', 'polling'],
+        upgrade: true,
+        rememberUpgrade: true
+    });
+    
+    socket.on('connect', function() {
+    });
+    
+    socket.on('disconnect', function() {
+    });
+    
+    socket.on('connect_error', function(error) {
+    });
+    
+    socket.on('error', function(error) {
+    });
+} else {
+}
+</script>
+{% endblock %}

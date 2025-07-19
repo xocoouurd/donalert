@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}Банкны мэдээлэл - DonAlert{% endblock %}
+{% block body_class %}dashboard-page bank-account-page{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">Банкны мэдээлэл</h2>
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Буцах
+                </a>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="glass-card p-4">
+                        <h5 class="mb-4">
+                            <i class="fas fa-university me-2"></i>
+                            Банкны данс бүртгэх
+                        </h5>
+                        
+                        <form method="POST">
+                            <div class="mb-3">
+                                <label for="bank_code" class="form-label">Банк сонгох</label>
+                                <div class="custom-dropdown">
+                                    <input type="hidden" id="bank_code" name="bank_code" value="{{ current_user.bank_code or '' }}" required>
+                                    <div class="dropdown-toggle" id="bankDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <div class="dropdown-selected" id="selectedBank">
+                                            {% if current_user.bank_code %}
+                                                {% for bank in bank_codes %}
+                                                    {% if bank.code == current_user.bank_code %}
+                                                        <div class="d-flex align-items-center">
+                                                            {% if bank.logo %}
+                                                                <img src="{{ bank.logo }}" alt="{{ bank.name }}" class="bank-logo me-2">
+                                                            {% endif %}
+                                                            <span>{{ bank.name }}</span>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-muted">Банк сонгоно уу</span>
+                                            {% endif %}
+                                        </div>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                    <ul class="dropdown-menu w-100" aria-labelledby="bankDropdown">
+                                        {% for bank in bank_codes %}
+                                            <li>
+                                                <a class="dropdown-item bank-option" href="#" 
+                                                   data-code="{{ bank.code }}" 
+                                                   data-name="{{ bank.name }}" 
+                                                   data-logo="{{ bank.logo }}">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if bank.logo %}
+                                                            <img src="{{ bank.logo }}" alt="{{ bank.name }}" class="bank-logo me-2">
+                                                        {% endif %}
+                                                        <span>{{ bank.name }}</span>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <div class="form-text">Та өөрийн банкаа сонгоно уу</div>
+                            </div>
+
+                            <input type="hidden" id="bank_name" name="bank_name" value="{{ current_user.bank_name or '' }}">
+
+                            <div class="mb-3">
+                                <label for="account_name" class="form-label">Данс эзэмшигчийн нэр</label>
+                                <input type="text" class="form-control" id="account_name" name="account_name" 
+                                       value="{{ current_user.bank_account_name or '' }}" required 
+                                       placeholder="Жишээ: Болдбаатар Батбаяр">
+                                <div class="form-text">Банкны дансанд бүртгэлтэй нэрээ оруулна уу</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="iban" class="form-label">IBAN дугаар</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">MN</span>
+                                    <input type="text" class="form-control" id="iban" name="iban" 
+                                           value="{{ current_user.bank_iban[2:] if current_user.bank_iban else '' }}" 
+                                           required placeholder="00 0000 00 0000000000" maxlength="21" 
+                                           title="18 оронтой тоо оруулна уу">
+                                </div>
+                                <div class="form-text">
+                                    Монголын IBAN дугаар MN + 18 тооноос бүрдэнэ. 
+                                    <strong>Жишээ:</strong> MN00 0000 00 0000000000
+                                </div>
+                            </div>
+
+                            {% if current_user.has_bank_account() %}
+                                <div class="alert alert-info mb-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Одоогийн банкны мэдээлэл:</strong><br>
+                                    <strong>Банк:</strong> {{ current_user.bank_name }}<br>
+                                    <strong>Данс эзэмшигч:</strong> {{ current_user.bank_account_name }}<br>
+                                    <strong>IBAN:</strong> {{ current_user.get_formatted_iban() }}
+                                </div>
+                            {% endif %}
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    {% if current_user.has_bank_account() %}Мэдээлэл шинэчлэх{% else %}Мэдээлэл хадгалах{% endif %}
+                                </button>
+                                {% if current_user.has_bank_account() %}
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                        <i class="fas fa-trash me-2"></i>Банкны мэдээлэл устгах
+                                    </button>
+                                {% endif %}
+                                <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary">
+                                    Цуцлах
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+{% if current_user.has_bank_account() %}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+            <div class="modal-header border-0 pb-1">
+                <h6 class="modal-title" id="deleteModalLabel">Банкны мэдээлэл устгах</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-2">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
+                    <p class="mb-1" style="font-size: 0.9rem;">Та үнэхээр банкны мэдээлэлээ устгахыг хүсэж байна уу?</p>
+                    <p class="text-muted" style="font-size: 0.8rem;">Энэ үйлдлийг буцаах боломжгүй.</p>
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center pt-1">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Цуцлах</button>
+                <form method="POST" action="{{ url_for('main.delete_bank_account') }}" style="display: inline;">
+                    <button type="submit" class="btn btn-danger btn-sm">Устгах</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.custom-dropdown {
+    position: relative;
+}
+
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    background-image: none;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+    min-height: 38px;
+}
+
+.dropdown-toggle:hover {
+    border-color: #86b7fe;
+}
+
+.dropdown-toggle:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.dropdown-selected {
+    flex-grow: 1;
+}
+
+.bank-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.dropdown-menu {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item.active {
+    background-color: #0d6efd;
+    color: white;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const bankCodeInput = document.getElementById('bank_code');
+    const bankNameInput = document.getElementById('bank_name');
+    const selectedBankDisplay = document.getElementById('selectedBank');
+    const ibanInput = document.getElementById('iban');
+    
+    // Handle bank selection from dropdown
+    document.querySelectorAll('.bank-option').forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const code = this.dataset.code;
+            const name = this.dataset.name;
+            const logo = this.dataset.logo;
+            
+            // Update hidden inputs
+            bankCodeInput.value = code;
+            bankNameInput.value = name;
+            
+            // Update display
+            selectedBankDisplay.innerHTML = `
+                <div class="d-flex align-items-center">
+                    ${logo ? `<img src="${logo}" alt="${name}" class="bank-logo me-2">` : ''}
+                    <span>${name}</span>
+                </div>
+            `;
+            
+            // Close dropdown
+            const dropdown = bootstrap.Dropdown.getOrCreateInstance(document.getElementById('bankDropdown'));
+            dropdown.hide();
+        });
+    });
+    
+    // Format IBAN input with masking
+    ibanInput.addEventListener('input', function() {
+        // Remove any non-digit characters
+        let value = this.value.replace(/\D/g, '');
+        
+        // Limit to 18 digits
+        if (value.length > 18) {
+            value = value.substring(0, 18);
+        }
+        
+        // Apply masking: 75 0015 00 1169191342
+        let masked = '';
+        if (value.length > 0) {
+            masked = value.substring(0, 2); // First 2 digits
+        }
+        if (value.length > 2) {
+            masked += ' ' + value.substring(2, 6); // Next 4 digits with space
+        }
+        if (value.length > 6) {
+            masked += ' ' + value.substring(6, 8); // Next 2 digits with space
+        }
+        if (value.length > 8) {
+            masked += ' ' + value.substring(8, 18); // Last 10 digits with space
+        }
+        
+        this.value = masked;
+    });
+    
+    // Format existing IBAN value on page load
+    if (ibanInput.value) {
+        // Remove any existing formatting
+        let value = ibanInput.value.replace(/\D/g, '');
+        
+        // Apply masking
+        let masked = '';
+        if (value.length > 0) {
+            masked = value.substring(0, 2);
+        }
+        if (value.length > 2) {
+            masked += ' ' + value.substring(2, 6);
+        }
+        if (value.length > 6) {
+            masked += ' ' + value.substring(6, 8);
+        }
+        if (value.length > 8) {
+            masked += ' ' + value.substring(8, 18);
+        }
+        
+        ibanInput.value = masked;
+    }
+    
+    // Update the form's IBAN field to include MN prefix
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        // Remove spaces from masked input to get clean digits
+        const ibanValue = ibanInput.value.replace(/\s/g, '');
+        
+        if (ibanValue.length !== 18) {
+            e.preventDefault();
+            alert('IBAN дугаар яг 18 оронтой байх ёстой.');
+            return;
+        }
+        
+        // Update the IBAN field to include MN prefix
+        ibanInput.name = 'iban';
+        ibanInput.value = 'MN' + ibanValue;
+    });
+});
+</script>
+{% endblock %}

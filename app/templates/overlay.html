@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DonAlert Overlay</title>
+    
+    <!-- Match the same fonts and base styling as the main site -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
+</head>
+<body>
+    <!-- Main alert container -->
+    <div id="alertContainer"></div>
+    
+    <!-- Alert queue for upcoming donations -->
+    <div id="alertQueue" class="alert-queue"></div>
+
+    <!-- Audio element for sound effects -->
+    <audio id="alertSound" preload="auto"></audio>
+    
+    <!-- Audio element for TTS -->
+    <audio id="ttsAudio" preload="auto"></audio>
+
+    <script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
+    <script>
+        // Configuration from server
+        const userId = {{ user.id }};
+        const settings = {{ settings.to_dict() | tojson }};
+        
+        // Alert queue management
+        let alertQueue = [];
+        let isShowingAlert = false;
+        
+        // Initialize WebSocket connection (only if socket.io is available)
+        let socket = null;
+        
+        if (typeof io !== 'undefined') {
+            // Connect to the development server when running locally
+            const socketUrl = window.location.hostname === 'donalert.invictamotus.com' && window.location.port === '' 
+                ? undefined  // Use default (current domain) for production
+                : 'http://localhost:5013';  // Use local dev server
+            
+            socket = io(socketUrl, {
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                rememberUpgrade: true
+            });
+            
+            // Join user's room for personalized alerts
+            const roomName = `user_${userId}`;
+            socket.emit('join', {room: roomName});
+            
+            // Listen for donation alerts
+            socket.on('donation_alert', function(data) {
+                queueAlert(data);
+            });
+            
+            // Listen for test alerts
+            socket.on('test_alert', function(data) {
+                
+                // If already showing an alert, ignore additional test alerts
+                if (isShowingAlert) {
+                    return;
+                }
+                
+                showAlert(data);
+            });
+
+            // Listen for settings updates
+            socket.on('settings_updated', function(newSettings) {
+                
+                // Check if sound changed
+                if (newSettings.sound_url !== settings.sound_url) {
+                    preloadSound(newSettings.sound_url);
+                }
+                
+                // Update all settings
+                Object.assign(settings, newSettings);
+            });
+            
+            // Listen for room join acknowledgments
+            socket.on('room_joined', function(data) {
+            });
+            
+            // Connection status logging
+            socket.on('connect', function() {
+                
+                // Re-join room after connection
+                const roomName = `user_${userId}`;
+                socket.emit('join', {room: roomName});
+                
+                // Preload initial sound after connection
+                preloadSound(settings.sound_url);
+            });
+            
+            socket.on('disconnect', function() {
+            });
+            
+            socket.on('error', function(error) {
+            });
+            
+            // Auto-reconnection
+            socket.on('connect_error', function(error) {
+            });
+        } else {
+        }
+
+        // Preload initial sound (fallback if no socket connection)
+        setTimeout(() => {
+            if (settings.sound_url) {
+                preloadSound(settings.sound_url);
+            }
+        }, 1000);
+        
+        function queueAlert(alertData) {
+            // Check minimum amount
+            if (alertData.amount < settings.minimum_amount) {
+                return;
+            }
+            
+            // Add to queue
+            alertQueue.push(alertData);
+            updateQueueDisplay();
+            
+            // Process queue if not currently showing alert
+            if (!isShowingAlert) {
+                processQueue();
+            }
+        }
+        
+        function processQueue() {
+            if (alertQueue.length === 0) {
+                isShowingAlert = false;
+                return;
+            }
+            
+            isShowingAlert = true;
+            const alertData = alertQueue.shift();
+            updateQueueDisplay();
+            
+            showAlert(alertData);
+        }
+        
+        function updateQueueDisplay() {
+            const queueContainer = document.getElementById('alertQueue');
+            queueContainer.innerHTML = '';
+            
+            // Show next few alerts in queue
+            alertQueue.slice(0, 3).forEach((alert, index) => {
+                const queueItem = document.createElement('div');
+                queueItem.className = 'queue-item';
+                queueItem.innerHTML = `
+                    <div style="font-weight: bold;">${alert.donator_name || 'Анонимус'}</div>
+                    <div>${alert.amount.toLocaleString()}₮</div>
+                `;
+                queueContainer.appendChild(queueItem);
+            });
+        }
+        
+        function showAlert(alertData) {
+            
+            // Set showing flag
+            isShowingAlert = true;
+            
+            const container = document.getElementById('alertContainer');
+            
+            // Play sound if configured
+            if (settings.sound_url && alertData.amount >= settings.tts_minimum_amount) {
+                playAlertSound();
+            }
+            
+            // Play TTS if backend provided audio URL
+            if (alertData.tts_audio_url) {
+                playTTSFromURL(alertData.tts_audio_url);
+            } else {
+            }
+            
+            // Create alert HTML
+            const alertHTML = createAlertHTML(alertData);
+            container.innerHTML = alertHTML;
+            
+            // Set CSS custom property for animation speed
+            document.documentElement.style.setProperty('--animation-speed', `${settings.animation_speed}ms`);
+            
+            // Apply entrance animation
+            const alertElement = container.querySelector('.donation-alert');
+            alertElement.classList.add(settings.transition_type);
+            
+            // Wait for entrance animation to complete, then show for visible duration
+            setTimeout(() => {
+                
+                // Wait for the full visibility duration, then start exit animation
+                setTimeout(() => {
+                    hideAlert(alertElement);
+                }, settings.visible_time);
+                
+            }, settings.animation_speed);
+        }
+        
+        function createAlertHTML(alertData) {
+            const donatorName = alertData.donator_name || 'Анонимус';
+            const amount = alertData.amount;
+            const message = alertData.message || '';
+            const donatorAvatar = alertData.donator_avatar;
+            const hasAvatar = alertData.has_avatar;
+            
+            // Process text template
+            let processedText = settings.text_template
+                .replace(/{name}/g, donatorName)
+                .replace(/{amount}/g, amount.toLocaleString());
+            
+            // Apply text formatting
+            processedText = processedText
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[(.*?)\]/g, `<span style="color: ${settings.template_accent_color}">$1</span>`);
+            
+            // Determine layout classes
+            const isVertical = settings.image_position === 'top' || settings.image_position === 'bottom';
+            const isReverse = settings.image_position === 'right' || settings.image_position === 'bottom';
+            
+            let contentClass = 'alert-content';
+            if (isVertical) {
+                contentClass += isReverse ? ' vertical-reverse' : ' vertical';
+            } else {
+                contentClass += isReverse ? ' horizontal-reverse' : '';
+            }
+            
+            return `
+                <div class="donation-alert">
+                    ${alertData.donator_name ? `
+                        <div class="donator-profile">
+                            ${hasAvatar ? `
+                                <img src="${donatorAvatar}" alt="${donatorName}" class="donator-avatar" 
+                                     style="width: ${settings.donator_image_size}px; height: ${settings.donator_image_size}px;">
+                            ` : ''}
+                            <div class="donator-name" style="
+                                font-size: ${settings.donator_name_size}px;
+                                font-weight: ${settings.donator_name_weight};
+                                color: ${settings.donator_color};
+                                text-align: ${settings.donator_alignment};
+                            ">${donatorName}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="${contentClass}">
+                        <div class="alert-image">
+                            <img src="${settings.gif_url}" alt="Donation GIF" style="
+                                width: ${Math.round(120 * settings.image_size / 100)}px;
+                                height: ${Math.round(120 * settings.image_size / 100)}px;
+                                object-fit: cover;
+                            ">
+                        </div>
+                        
+                        <div class="alert-text" style="
+                            font-size: ${settings.template_size}px;
+                            font-weight: ${settings.template_weight};
+                            color: ${settings.template_base_color};
+                            text-align: ${settings.template_alignment};
+                        ">${processedText}</div>
+                    </div>
+                    
+                    ${message ? `
+                        <div class="alert-message" style="
+                            font-size: ${settings.message_size}px;
+                            font-weight: ${settings.message_weight};
+                            color: ${settings.message_color};
+                            text-align: ${settings.message_alignment};
+                            font-style: ${settings.message_style};
+                        ">"${message}"</div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        function hideAlert(alertElement) {
+            
+            // Get the opposite exit animation based on entrance animation
+            const exitAnimation = getExitAnimation(settings.transition_type);
+            
+            // Remove entrance animation class and add exit animation class
+            alertElement.classList.remove(settings.transition_type);
+            alertElement.classList.add(exitAnimation);
+            
+            // Wait for exit animation to complete
+            setTimeout(() => {
+                document.getElementById('alertContainer').innerHTML = '';
+                
+                // Reset showing flag
+                isShowingAlert = false;
+                
+                // Process next alert in queue
+                setTimeout(() => {
+                    processQueue();
+                }, 500);
+            }, settings.animation_speed);
+        }
+        
+        function getExitAnimation(entranceAnimation) {
+            // Map entrance animations to their opposite exit animations
+            const exitMap = {
+                'fade-in': 'fade-out',
+                'slide-up': 'slide-down-exit',
+                'slide-down': 'slide-up-exit', 
+                'slide-left': 'slide-right-exit',
+                'slide-right': 'slide-left-exit',
+                'zoom-in': 'zoom-out'
+            };
+            
+            return exitMap[entranceAnimation] || 'fade-out';
+        }
+        
+        function preloadSound(soundUrl) {
+            if (soundUrl) {
+                const audio = document.getElementById('alertSound');
+                audio.src = soundUrl;
+                audio.load(); // Preload the audio file
+            }
+        }
+
+        function playAlertSound() {
+            const audio = document.getElementById('alertSound');
+            audio.currentTime = 0; // Reset to start
+            audio.volume = settings.sound_volume / 100;
+            audio.play().catch(e => {
+                // Silent audio play failure
+            });
+        }
+        
+        function playTTSFromURL(audioUrl) {
+            
+            const ttsAudio = document.getElementById('ttsAudio');
+            ttsAudio.src = audioUrl;
+            ttsAudio.volume = settings.sound_volume / 100;
+            
+            // Play TTS after a short delay to avoid overlapping with alert sound
+            setTimeout(() => {
+                ttsAudio.play().catch(e => {
+                });
+            }, 1000);
+            
+            ttsAudio.onended = () => {
+                // Clean up the TTS file after playback
+                if (audioUrl && audioUrl.includes('/static/uploads/tts/')) {
+                    fetch('/api/tts/cleanup', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ file_url: audioUrl })
+                    }).catch(e => {
+                        // Silent cleanup failure
+                    });
+                }
+            };
+        }
+        
+        // Legacy function - keeping for backward compatibility
+        function playTTSMessage(message) {
+        }
+        
+        // Test function for manual testing
+        window.testAlert = function() {
+            const testData = {
+                donator_name: 'Тест хэрэглэгч',
+                amount: 5000,
+                message: 'Энэ бол туршилтын мессеж!',
+                donator_avatar: '/static/assets/default/avatar.png'
+            };
+            
+            showAlert(testData);
+        };
+        
+        // Auto-test disabled - overlay waits for real alerts
+        // To manually test, open browser console and run: window.testAlert()
+        
+    </script>
+</body>
+</html>

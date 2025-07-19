@@ -1,0 +1,256 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: transparent;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+
+#alertContainer {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+    width: fit-content;
+    height: fit-content;
+}
+
+.donation-alert {
+    background: transparent;
+    border: none;
+    padding: 30px;
+    max-width: 600px;
+    min-width: 400px;
+    color: white;
+    text-align: center;
+    position: relative;
+    opacity: 0;
+    transform: scale(1);
+    transition: all 0.3s ease;
+}
+
+.donation-alert.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Animation classes */
+.donation-alert.fade-in {
+    animation: fadeInAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-up {
+    animation: slideUpAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-down {
+    animation: slideDownAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-left {
+    animation: slideLeftAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-right {
+    animation: slideRightAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.zoom-in {
+    animation: zoomInAlert var(--animation-speed) ease-in-out forwards;
+}
+
+@keyframes fadeInAlert {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeOutAlert {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes slideUpAlert {
+    from { transform: translateY(100px) scale(0.8); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes slideDownAlert {
+    from { transform: translateY(-100px) scale(0.8); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes slideLeftAlert {
+    from { transform: translateX(100px) scale(0.8); opacity: 0; }
+    to { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes slideRightAlert {
+    from { transform: translateX(-100px) scale(0.8); opacity: 0; }
+    to { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes zoomInAlert {
+    from { transform: scale(0.3); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* Exit animations (opposite of entrance) */
+@keyframes slideUpExit {
+    from { transform: translateY(0) scale(1); opacity: 1; }
+    to { transform: translateY(-100px) scale(0.8); opacity: 0; }
+}
+
+@keyframes slideDownExit {
+    from { transform: translateY(0) scale(1); opacity: 1; }
+    to { transform: translateY(100px) scale(0.8); opacity: 0; }
+}
+
+@keyframes slideLeftExit {
+    from { transform: translateX(0) scale(1); opacity: 1; }
+    to { transform: translateX(-100px) scale(0.8); opacity: 0; }
+}
+
+@keyframes slideRightExit {
+    from { transform: translateX(0) scale(1); opacity: 1; }
+    to { transform: translateX(100px) scale(0.8); opacity: 0; }
+}
+
+@keyframes zoomOutAlert {
+    from { transform: scale(1); opacity: 1; }
+    to { transform: scale(0.3); opacity: 0; }
+}
+
+/* Exit animation classes */
+.donation-alert.fade-out {
+    animation: fadeOutAlert var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-up-exit {
+    animation: slideUpExit var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-down-exit {
+    animation: slideDownExit var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-left-exit {
+    animation: slideLeftExit var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.slide-right-exit {
+    animation: slideRightExit var(--animation-speed) ease-in-out forwards;
+}
+
+.donation-alert.zoom-out {
+    animation: zoomOutAlert var(--animation-speed) ease-in-out forwards;
+}
+
+/* Alert content styling */
+.alert-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+.alert-content.vertical {
+    flex-direction: column;
+    text-align: center;
+}
+
+.alert-content.vertical-reverse {
+    flex-direction: column-reverse;
+    text-align: center;
+}
+
+.alert-content.horizontal-reverse {
+    flex-direction: row-reverse;
+}
+
+.alert-image img {
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.alert-text {
+    flex: 1;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.alert-message {
+    font-style: normal;
+    opacity: 0.9;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 18px;
+}
+
+/* Donator profile styling */
+.donator-profile {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+/* When there's no avatar, center the name */
+.donator-profile:not(:has(.donator-avatar)) {
+    justify-content: center;
+}
+
+.donator-avatar {
+    border-radius: 50%;
+    border: 3px solid #6366f1;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.donator-name {
+    font-weight: bold;
+    font-size: 20px;
+}
+
+/* Queue system for multiple alerts */
+.alert-queue {
+    position: absolute;
+    bottom: 50px;
+    right: 50px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 999;
+}
+
+.queue-item {
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #6366f1;
+    border-radius: 10px;
+    padding: 15px;
+    color: white;
+    font-size: 14px;
+    max-width: 300px;
+    backdrop-filter: blur(5px);
+    animation: slideInQueue 0.5s ease-in-out;
+}
+
+@keyframes slideInQueue {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Hide scrollbars and ensure proper sizing */
+::-webkit-scrollbar {
+    display: none;
+}

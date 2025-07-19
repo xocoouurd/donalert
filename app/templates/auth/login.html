@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Нэвтрэх - DonAlert{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="glass-card p-4">
+            <div class="text-center mb-4">
+                <h4 class="mb-2">DonAlert-д тавтай морилно уу</h4>
+                <p class="text-muted">Стриминг платформоороо нэвтрэх</p>
+            </div>
+            
+            <div class="d-grid gap-3">
+                <a href="{{ url_for('oauth.connect_platform', platform='twitch') }}" class="btn btn-outline-primary btn-lg">
+                    <i class="fab fa-twitch me-2"></i>Twitch
+                </a>
+                <a href="{{ url_for('oauth.connect_platform', platform='youtube') }}" class="btn btn-outline-danger btn-lg">
+                    <i class="fab fa-youtube me-2"></i>YouTube
+                </a>
+                <a href="{{ url_for('oauth.connect_platform', platform='kick') }}" class="btn btn-outline-success btn-lg">
+                    <i class="fas fa-play me-2"></i>Kick
+                </a>
+            </div>
+            
+            <div class="text-center mt-4">
+                <p class="small text-muted">
+                    Нэвтрэх замаар та манай үйлчилгээний нөхцөл болон нууцлалын бодлогыг зөвшөөрч байна.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

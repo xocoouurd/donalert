@@ -1,0 +1,818 @@
+/* Marathon Page Styles */
+.marathon-container {
+    max-width: 100%;
+    margin: 0;
+    /* Remove padding override to inherit dashboard-content padding (2rem) */
+}
+
+/* Marathon Status Indicator */
+.marathon-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #fff;
+    padding: 0.375rem 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #6b7280;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #6b7280; /* Gray for inactive */
+    transition: background-color 0.3s ease;
+}
+
+/* Status states */
+.marathon-status-indicator.running {
+    border-color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+}
+
+.marathon-status-indicator.running .status-dot {
+    background: #34d399;
+    animation: pulse-green 2s infinite;
+}
+
+.marathon-status-indicator.paused {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.marathon-status-indicator.paused .status-dot {
+    background: #f59e0b;
+}
+
+.marathon-status-indicator.inactive {
+    border-color: #6b7280;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.marathon-status-indicator.inactive .status-dot {
+    background: #6b7280;
+}
+
+/* Pulsing animation for running state */
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.2);
+    }
+}
+
+/* Header styling matches other pages */
+h2 {
+    color: #fff;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+/* Marathon Status */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-indicator i {
+    font-size: 0.7rem;
+}
+
+.status-indicator i.fa-circle {
+    color: #ef4444;
+}
+
+.status-indicator:has-text("Идэвхтэй") i.fa-circle,
+.status-indicator span:contains("Идэвхтэй") ~ i.fa-circle {
+    color: #10b981;
+}
+
+/* Stats Section */
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    height: 100%;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.timer-icon { background: rgba(99, 102, 241, 0.8); }
+.donation-amount-icon { background: rgba(34, 197, 94, 0.8); }
+.price-icon { background: rgba(16, 185, 129, 0.8); }
+.donated-icon { background: rgba(245, 158, 11, 0.8); }
+.manual-icon { background: rgba(139, 92, 246, 0.8); }
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+/* Section headings */
+h5 {
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* Form Controls - Marathon specific overrides */
+.marathon-container .form-label {
+    color: #333 !important;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.marathon-container .form-control,
+.marathon-container .form-select {
+    background: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: #333 !important;
+    backdrop-filter: blur(10px);
+}
+
+.marathon-container .form-control:focus,
+.marathon-container .form-select:focus {
+    background: #fff !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    color: #333 !important;
+}
+
+.marathon-container .form-control::placeholder {
+    color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Input Group styling */
+.marathon-container .input-group .form-control {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-right: none !important;
+}
+
+.marathon-container .input-group-text {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-left: none !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.marathon-container .input-group:focus-within .input-group-text {
+    border-color: var(--primary-color) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Marathon specific dropdown styling - matches working donation-goal.css approach */
+.marathon-container .form-select[id="timer_font_weight"],
+.marathon-container .form-select[id="notification_font_weight"],
+body.dashboard-page .dashboard-content .marathon-container .form-select,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select,
+html body .marathon-container .form-select {
+    background: #fff !important;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem !important;
+    height: auto !important;
+    min-height: 38px !important;
+    line-height: 1.5 !important;
+    font-size: 0.9rem !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 10px !important;
+    color: #333 !important;
+    width: 100% !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    box-sizing: border-box !important;
+}
+
+.marathon-container .form-select[id="timer_font_weight"]:focus,
+.marathon-container .form-select[id="notification_font_weight"]:focus,
+body.dashboard-page .dashboard-content .marathon-container .form-select:focus,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select:focus,
+html body .marathon-container .form-select:focus {
+    background: #fff !important;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23333333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    color: #333 !important;
+    outline: none !important;
+    height: auto !important;
+    min-height: 38px !important;
+    line-height: 1.5 !important;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+body.dashboard-page .dashboard-content .marathon-container .form-select option,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option,
+html body .marathon-container .form-select option {
+    background: #333 !important;
+    background-image: none !important;
+    color: #333 !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.4 !important;
+}
+
+/* Prevent background from showing in dropdown list */
+body.dashboard-page .dashboard-content .marathon-container .form-select option,
+body.dashboard-page .dashboard-content .marathon-container .form-select option:hover,
+body.dashboard-page .dashboard-content .marathon-container .form-select option:focus,
+body.dashboard-page .dashboard-content .marathon-container .form-select option:active,
+body.dashboard-page .dashboard-content .marathon-container .form-select option:selected,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:hover,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:focus,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:active,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:selected,
+html body .marathon-container .form-select option,
+html body .marathon-container .form-select option:hover,
+html body .marathon-container .form-select option:focus,
+html body .marathon-container .form-select option:active,
+html body .marathon-container .form-select option:selected {
+    background-image: none !important;
+}
+
+/* Ensure dropdown options are visible */
+body.dashboard-page .dashboard-content .marathon-container .form-select option:checked,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:checked,
+html body .marathon-container .form-select option:checked {
+    background: #555 !important;
+    background-image: none !important;
+    color: #333 !important;
+}
+
+body.dashboard-page .dashboard-content .marathon-container .form-select option:hover,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select option:hover,
+html body .marathon-container .form-select option:hover {
+    background: #555 !important;
+    background-image: none !important;
+}
+
+/* Ensure our custom dropdown arrow is visible */
+body.dashboard-page .dashboard-content .marathon-container .form-select::-ms-expand,
+.dashboard-wrapper .dashboard-content .marathon-container .form-select::-ms-expand,
+html body .marathon-container .form-select::-ms-expand {
+    display: none;
+}
+
+/* Form Check (Switch) */
+.form-check-input {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.form-check-label {
+    color: #fff;
+}
+
+/* Time Inputs */
+.time-inputs {
+    display: flex;
+    gap: 1rem;
+    align-items: end;
+}
+
+.time-input-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.time-input-group label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+/* Range Input */
+.form-range {
+    background: transparent;
+}
+
+.form-range::-webkit-slider-track {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    height: 6px;
+}
+
+.form-range::-webkit-slider-thumb {
+    background: var(--primary-color);
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.form-range::-moz-range-track {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    height: 6px;
+    border: none;
+}
+
+.form-range::-moz-range-thumb {
+    background: var(--primary-color);
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.range-value {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Color Input */
+.form-control-color {
+    width: 60px;
+    height: 40px;
+    border-radius: 8px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Font Settings */
+.font-settings {
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Form Text */
+.form-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+/* Controls Section */
+
+.manual-time-control {
+    margin-bottom: 2rem;
+}
+
+.marathon-controls .btn {
+    font-weight: 500;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+/* Preview Section */
+
+/* Timer Preview */
+.timer-preview {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    padding: 3rem 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-timer {
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.preview-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Notification Preview */
+.notification-preview {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 15px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-notification {
+    font-family: 'Inter', sans-serif;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Preview Info */
+.preview-info {
+    margin-top: 2rem;
+}
+
+.preview-info p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.overlay-link .input-group {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.overlay-link .form-control {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+}
+
+/* Button Styles */
+.btn-primary {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-radius: 10px;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: #10b981;
+    border-color: #10b981;
+    font-weight: 500;
+    border-radius: 10px;
+}
+
+.btn-success:hover {
+    background: #059669;
+    border-color: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    font-weight: 500;
+    border-radius: 10px;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+    border-color: #d97706;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    font-weight: 500;
+    border-radius: 10px;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-1px);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .stats-section {
+        padding: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .stat-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        padding: 1.5rem;
+    }
+    
+    .page-header h1 {
+        font-size: 2rem;
+    }
+    
+    .marathon-status {
+        text-align: left;
+        margin-top: 1rem;
+    }
+    
+    .stats-section,
+    .settings-section,
+    .controls-section,
+    .preview-section {
+        padding: 1.5rem;
+    }
+    
+    .stat-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 1.3rem;
+    }
+    
+    .time-inputs {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .preview-timer {
+        font-size: 36px !important;
+    }
+    
+    .preview-notification {
+        font-size: 20px !important;
+    }
+    
+    .marathon-controls .row {
+        gap: 1rem;
+    }
+    
+    .marathon-controls .col-6 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .marathon-container {
+        padding: 0 0.5rem;
+    }
+    
+    .page-header,
+    .stats-section,
+    .settings-section,
+    .controls-section,
+    .preview-section {
+        padding: 1rem;
+    }
+    
+    .timer-preview,
+    .notification-preview {
+        padding: 2rem 1rem;
+    }
+    
+    .preview-timer {
+        font-size: 28px !important;
+    }
+    
+    .preview-notification {
+        font-size: 18px !important;
+    }
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-header,
+.stats-section,
+.settings-section,
+.controls-section,
+.preview-section {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.page-header {
+    animation-delay: 0.1s;
+}
+
+.stats-section {
+    animation-delay: 0.2s;
+}
+
+.settings-section {
+    animation-delay: 0.3s;
+}
+
+.controls-section {
+    animation-delay: 0.4s;
+}
+
+.preview-section {
+    animation-delay: 0.5s;
+}
+
+/* Hover Effects */
+.glass-card:hover {
+    box-shadow: 0 15px 40px rgba(31, 38, 135, 0.3);
+}
+
+.stat-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.font-settings:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Timer Animation Effects for Preview */
+.preview-timer.anim-pulse {
+    animation: timerPulse 2s ease-in-out infinite;
+}
+
+.preview-timer.anim-bounce {
+    animation: timerBounce 2s ease-in-out infinite;
+}
+
+.preview-timer.anim-glow {
+    animation: timerGlow 2s ease-in-out infinite;
+}
+
+.preview-timer.anim-shake {
+    animation: timerShake 2s ease-in-out infinite;
+}
+
+.preview-timer.anim-zoom {
+    animation: timerZoom 2s ease-in-out infinite;
+}
+
+.preview-timer.anim-rotate {
+    animation: timerRotate 4s linear infinite;
+}
+
+/* Animation Keyframes */
+@keyframes timerPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+@keyframes timerBounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-15px);
+    }
+    60% {
+        transform: translateY(-7px);
+    }
+}
+
+@keyframes timerGlow {
+    0%, 100% {
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 20px currentColor, 0 0 30px currentColor, 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+}
+
+@keyframes timerShake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+        transform: translateX(-3px);
+    }
+    20%, 40%, 60%, 80% {
+        transform: translateX(3px);
+    }
+}
+
+@keyframes timerZoom {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+}
+
+@keyframes timerRotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Custom tooltip styling for error messages */
+.tooltip.error-tooltip .tooltip-inner {
+    background-color: #ffffff !important;
+    color: #dc3545 !important;
+    border: 1px solid #dc3545 !important;
+    font-weight: 500 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.tooltip.error-tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #dc3545 !important;
+}
+
+.tooltip.error-tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #dc3545 !important;
+}
+
+.tooltip.error-tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: #dc3545 !important;
+}
+
+.tooltip.error-tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: #dc3545 !important;
+}

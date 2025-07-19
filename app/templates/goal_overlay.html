@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Хандивын зорилго - {{ user.username }}</title>
+    
+    <!-- Match the same fonts as the main site -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/goal-overlay.css') }}">
+</head>
+<body>
+    <!-- Goal progress container -->
+    <div id="goalContainer" class="goal-container">
+        <div class="goal-content">
+            <div class="progress-container" id="progressContainer" style="
+                height: {{ goal.progress_height }}px;
+                background-color: {{ goal.progress_background_color }};
+                border-radius: 10px;
+                position: relative;
+                overflow: hidden;
+            ">
+                <div class="progress-bar progress-animation-{{ goal.progress_animation }}" id="progressBar" style="
+                    width: {{ goal.get_progress_percentage() }}%;
+                    height: 100%;
+                    background-color: {{ goal.progress_color }};
+                    border-radius: 8px;
+                    transition: width 0.3s ease;
+                "></div>
+                
+                <div class="goal-title" id="goalTitle" style="
+                    position: absolute;
+                    top: 50%;
+                    left: 15px;
+                    transform: translateY(-50%);
+                    font-size: {{ goal.title_font_size }}px;
+                    font-weight: {{ goal.title_font_weight }};
+                    color: {{ goal.title_color }};
+                    z-index: 3;
+                ">{{ goal.title }}</div>
+                
+                <div class="progress-text" style="
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    font-size: {{ goal.progress_text_size }}px;
+                    font-weight: {{ goal.progress_font_weight }};
+                    color: {{ goal.progress_font_color }};
+                    z-index: 2;
+                ">
+                    <span id="currentAmount">{{ "{:,}".format(goal.get_total_amount()|int) }}</span>₮ 
+                    (<span id="percentage">{{ goal.get_progress_percentage()|int }}</span>%)
+                </div>
+                
+                <div class="goal-amount" style="
+                    position: absolute;
+                    top: 50%;
+                    right: 15px;
+                    transform: translateY(-50%);
+                    font-size: {{ goal.progress_text_size }}px;
+                    font-weight: {{ goal.progress_font_weight }};
+                    color: {{ goal.progress_font_color }};
+                    z-index: 2;
+                ">
+                    <span id="goalAmount">{{ "{:,}".format(goal.goal_amount|int) }}</span>₮
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
+    <script>
+        // Configuration from server
+        const userId = {{ user.id }};
+        const goalData = {{ goal.to_dict() | tojson }};
+        
+        // Initialize WebSocket connection
+        let socket = null;
+        
+        if (typeof io !== 'undefined') {
+            socket = io({
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                rememberUpgrade: true
+            });
+            
+            // Join goal overlay room
+            const roomName = `goal_overlay_${userId}`;
+            socket.emit('join', {room: roomName});
+            
+            // Listen for goal updates
+            socket.on('goal_updated', function(data) {
+                updateGoalDisplay(data);
+            });
+            
+            // Connection status
+            socket.on('connect', function() {
+                console.log('Connected to goal overlay');
+                const roomName = `goal_overlay_${userId}`;
+                socket.emit('join', {room: roomName});
+            });
+            
+            socket.on('disconnect', function() {
+                console.log('Disconnected from goal overlay');
+            });
+        }
+        
+        function updateGoalDisplay(data) {
+            // Update title and styling
+            const titleElement = document.getElementById('goalTitle');
+            titleElement.textContent = data.title;
+            titleElement.style.fontSize = data.title_font_size + 'px';
+            titleElement.style.fontWeight = data.title_font_weight;
+            titleElement.style.color = data.title_color;
+            
+            // Update progress bar
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = data.progress_percentage + '%';
+            progressBar.style.backgroundColor = data.progress_color;
+            
+            // Update animation class
+            progressBar.className = 'progress-bar progress-animation-' + data.progress_animation;
+            
+            // Update progress container
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.height = data.progress_height + 'px';
+            progressContainer.style.backgroundColor = data.progress_background_color;
+            
+            // Update current amount
+            const currentAmount = document.getElementById('currentAmount');
+            currentAmount.textContent = Math.round(data.total_amount).toLocaleString();
+            
+            // Update percentage
+            const percentage = document.getElementById('percentage');
+            percentage.textContent = Math.round(data.progress_percentage);
+            
+            // Update goal amount
+            const goalAmount = document.getElementById('goalAmount');
+            goalAmount.textContent = Math.round(data.goal_amount).toLocaleString();
+            
+            // Update text styling
+            const progressText = document.querySelector('.progress-text');
+            const goalAmountElement = document.querySelector('.goal-amount');
+            
+            if (progressText) {
+                progressText.style.fontSize = data.progress_text_size + 'px';
+                progressText.style.fontWeight = data.progress_font_weight;
+                progressText.style.color = data.progress_font_color;
+            }
+            
+            if (goalAmountElement) {
+                goalAmountElement.style.fontSize = data.progress_text_size + 'px';
+                goalAmountElement.style.fontWeight = data.progress_font_weight;
+                goalAmountElement.style.color = data.progress_font_color;
+            }
+            
+            // Hide/show container based on active status
+            const container = document.getElementById('goalContainer');
+            if (data.is_active) {
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+        
+        // Format numbers with proper thousand separators
+        function formatNumber(num) {
+            return Math.round(num).toLocaleString('mn-MN');
+        }
+        
+        // Initialize display
+        document.addEventListener('DOMContentLoaded', function() {
+            // Format initial numbers
+            const currentAmount = document.getElementById('currentAmount');
+            const goalAmount = document.getElementById('goalAmount');
+            
+            currentAmount.textContent = formatNumber(goalData.total_amount);
+            goalAmount.textContent = formatNumber(goalData.goal_amount);
+            
+            // Hide if not active
+            if (!goalData.is_active) {
+                document.getElementById('goalContainer').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

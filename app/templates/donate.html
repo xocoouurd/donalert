@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ streamer.get_display_name() }} - Donation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/donate.css') }}">
+</head>
+<body class="donate-page">
+
+<div class="donation-container">
+    <!-- Header Section -->
+    <div class="header-section glass-card">
+        <div class="streamer-info">
+            <div class="streamer-avatar">
+                {% if streamer.get_profile_picture() %}
+                    <img src="{{ streamer.get_profile_picture() }}" alt="{{ streamer.get_display_name() }}" class="rounded-circle" width="80" height="80">
+                {% else %}
+                    <i class="fas fa-user-circle"></i>
+                {% endif %}
+            </div>
+            <div class="streamer-details">
+                <h1 class="streamer-name">{{ streamer.get_display_name() }}</h1>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Donation Section -->
+    <div class="donation-section">
+        <div class="row">
+            <!-- Left Column - Donation Form -->
+            <div class="col-lg-7">
+                <div class="donation-form-card glass-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-heart"></i> Хандив өгөх</h3>
+                        <p>Таны дэмжлэг стримэрт маш их хэрэгтэй!</p>
+                    </div>
+
+                    <!-- Authentication Section -->
+                    <div class="auth-section">
+                        {% if current_user.is_authenticated %}
+                            <h4>Нэвтэрсэн</h4>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    {% if current_user.get_profile_picture() %}
+                                        {% set primary_platform = current_user.get_primary_platform() %}
+                                        {% if primary_platform == 'twitch' %}
+                                            <img src="{{ current_user.get_profile_picture() }}" alt="{{ current_user.get_display_name() }}" class="rounded-circle" width="40" height="40" style="border: 2px solid #9146ff;">
+                                        {% elif primary_platform == 'youtube' %}
+                                            <img src="{{ current_user.get_profile_picture() }}" alt="{{ current_user.get_display_name() }}" class="rounded-circle" width="40" height="40" style="border: 2px solid #ff0000;">
+                                        {% elif primary_platform == 'kick' %}
+                                            <img src="{{ current_user.get_profile_picture() }}" alt="{{ current_user.get_display_name() }}" class="rounded-circle" width="40" height="40" style="border: 2px solid #53ff1a;">
+                                        {% else %}
+                                            <img src="{{ current_user.get_profile_picture() }}" alt="{{ current_user.get_display_name() }}" class="rounded-circle" width="40" height="40" style="border: 2px solid #6366f1;">
+                                        {% endif %}
+                                    {% else %}
+                                        <i class="fas fa-user-circle" style="font-size: 2.5rem; color: var(--primary-color);"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div style="color: #fff; font-weight: 500;">{{ current_user.get_display_name() }}</div>
+                                </div>
+                                <div class="ms-3">
+                                    <a href="{{ url_for('auth.logout', next=request.url) }}" class="btn btn-outline-secondary logout-btn">
+                                        <i class="fas fa-sign-out-alt me-1"></i>Гарах
+                                    </a>
+                                </div>
+                            </div>
+                        {% else %}
+                            <h4>Нэвтрэх</h4>
+                            <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.9rem; margin-bottom: 1rem;">
+                                Нэвтэрвэл таны нэр болон зураг хандивлагчийн мэдээлэл болон харагдана
+                            </p>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <a href="{{ url_for('oauth.connect_platform', platform='twitch', next=request.url) }}" class="btn btn-outline-primary w-100">
+                                        <i class="fab fa-twitch me-1"></i>Twitch
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a href="{{ url_for('oauth.connect_platform', platform='youtube', next=request.url) }}" class="btn btn-outline-danger w-100">
+                                        <i class="fab fa-youtube me-1"></i>YouTube
+                                    </a>
+                                </div>
+                                <div class="col-4">
+                                    <a href="{{ url_for('oauth.connect_platform', platform='kick', next=request.url) }}" class="btn btn-outline-success w-100">
+                                        <i class="fas fa-play me-1"></i>Kick
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Guest Donation Form -->
+                    <form id="donationForm" class="donation-form">
+                        {% if not current_user.is_authenticated %}
+                        <div class="form-group">
+                            <label for="donorName">Таны нэр</label>
+                            <input type="text" id="donorName" name="donor_name" class="form-control" 
+                                   placeholder="Нэрээ оруулна уу" required>
+                        </div>
+                        {% endif %}
+
+                        <div class="form-group">
+                            <label for="donationAmount">Хандивын дүн (₮)</label>
+                            <div class="amount-section">
+                                <div class="preset-amounts">
+                                    <button type="button" class="amount-btn" data-amount="5000">5,000₮</button>
+                                    <button type="button" class="amount-btn" data-amount="10000">10,000₮</button>
+                                    <button type="button" class="amount-btn" data-amount="20000">20,000₮</button>
+                                </div>
+                                <div class="custom-amount">
+                                    <input type="number" id="donationAmount" name="amount" class="form-control" 
+                                           placeholder="Эсвэл дүн оруулна уу" min="1" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="donationMessage">Мессэж (заавал биш)</label>
+                            <textarea id="donationMessage" name="message" class="form-control" 
+                                      placeholder="Стримэрт хэлэхийг хүсэж буй үг..." rows="3"></textarea>
+                        </div>
+
+                        <div class="submit-section">
+                            <button type="submit" class="donate-btn" id="donateBtn">
+                                <span class="btn-text">
+                                    <i class="fas fa-heart"></i>
+                                    <span>Хандив өгөх</span>
+                                </span>
+                                <span class="btn-loading" style="display: none;">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Уншиж байна...</span>
+                                    </div>
+                                    <span class="ms-2">Төлбөрийн нэхэмжлэх үүсгэж байна...</span>
+                                </span>
+                                <div class="btn-bg"></div>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column - Live Feed & Stats -->
+            <div class="col-lg-5">
+                <div class="live-feed-card glass-card">
+                    <div class="card-header">
+                        <h4><i class="fas fa-chart-line"></i> Хандивын мэдээ</h4>
+                    </div>
+                    
+
+                    <div class="recent-donations">
+                        <h5>Сүүлийн хандивууд</h5>
+                        <div class="donations-list" id="donationsList">
+                            {% if recent_donations %}
+                                {% for donation in recent_donations %}
+                                <div class="donation-item">
+                                    <div class="donation-row">
+                                        <span class="donor-name">{{ donation.donor_name }}</span>
+                                        <span class="donation-time">{{ donation.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                                        <span class="donation-amount">{{ "{:,.0f}".format(donation.amount) }}₮</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="no-donations">
+                                    <i class="fas fa-heart"></i>
+                                    <p>Та анхны хандивлагч болоорой!</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-body text-center">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h4>Баярлалаа!</h4>
+                <p>Таны хандив амжилттай илгээгдлээ!</p>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Хаах</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="paymentModalLabel">Төлбөр төлөх</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Уншиж байна...</span>
+                        </div>
+                        <p class="mt-2">Төлбөрийн нэхэмжлэх үүсгэж байна...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confetti Canvas -->
+<canvas id="confettiCanvas"></canvas>
+
+<script>
+// Donation form handling
+document.getElementById('donationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const donateBtn = document.getElementById('donateBtn');
+    const btnText = donateBtn.querySelector('.btn-text');
+    const btnLoading = donateBtn.querySelector('.btn-loading');
+    
+    // Show loading state
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline-flex';
+    donateBtn.disabled = true;
+    
+    const formData = new FormData(this);
+    const data = {
+        donor_name: formData.get('donor_name') || '{{ current_user.get_display_name() if current_user.is_authenticated else "" }}',
+        amount: parseFloat(formData.get('amount')),
+        message: formData.get('message'),
+        donor_platform: '{{ current_user.is_authenticated | lower }}'
+    };
+    
+    try {
+        const response = await fetch(`/donate/{{ username }}/submit`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if (result.payment_data) {
+                // Show payment modal with QR code
+                showPaymentModal(result.payment_data);
+            } else {
+                // Show success modal (for direct donations)
+                const modal = new bootstrap.Modal(document.getElementById('successModal'));
+                modal.show();
+                
+                // Trigger confetti
+                triggerConfetti();
+                
+                // Reset form
+                this.reset();
+            }
+        } else {
+            alert('Алдаа гарлаа: ' + result.error);
+        }
+    } catch (error) {
+        alert('Алдаа гарлаа: ' + error.message);
+    } finally {
+        // Reset button state
+        btnText.style.display = 'inline-flex';
+        btnLoading.style.display = 'none';
+        donateBtn.disabled = false;
+    }
+});
+
+// Preset amount buttons
+document.querySelectorAll('.amount-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const amount = this.dataset.amount;
+        document.getElementById('donationAmount').value = amount;
+        
+        // Update button states
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+
+// Custom amount input
+document.getElementById('donationAmount').addEventListener('input', function() {
+    document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+});
+
+// Confetti animation
+function triggerConfetti() {
+    const canvas = document.getElementById('confettiCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const confetti = [];
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b', '#eb4d4b'];
+    
+    for (let i = 0; i < 100; i++) {
+        confetti.push({
+            x: Math.random() * canvas.width,
+            y: -10,
+            vx: Math.random() * 4 - 2,
+            vy: Math.random() * 3 + 2,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            rotation: Math.random() * 360,
+            rotationSpeed: Math.random() * 10 - 5
+        });
+    }
+    
+    function animateConfetti() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        confetti.forEach((particle, index) => {
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.rotation += particle.rotationSpeed;
+            
+            ctx.save();
+            ctx.translate(particle.x, particle.y);
+            ctx.rotate(particle.rotation * Math.PI / 180);
+            ctx.fillStyle = particle.color;
+            ctx.fillRect(-5, -5, 10, 10);
+            ctx.restore();
+            
+            if (particle.y > canvas.height) {
+                confetti.splice(index, 1);
+            }
+        });
+        
+        if (confetti.length > 0) {
+            requestAnimationFrame(animateConfetti);
+        }
+    }
+    
+    animateConfetti();
+}
+
+// Payment modal handling
+function showPaymentModal(paymentData) {
+    // Show payment modal first with restricted closing
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'), {
+        backdrop: 'static',  // Prevent closing on backdrop click
+        keyboard: false      // Prevent closing on escape key
+    });
+    modal.show();
+    
+    // Store modal instance globally for later use
+    window.currentPaymentModal = modal;
+    
+    // Update payment content after modal is shown
+    setTimeout(() => {
+        displayPaymentDetails(paymentData);
+        checkPaymentStatus(paymentData.donation_payment_id);
+    }, 300);
+}
+
+function displayPaymentDetails(paymentData) {
+    const paymentContent = document.getElementById('paymentContent');
+    
+    // Filter and sort bank apps
+    const bankOrder = [
+        'Khan Bank', 'Хаан банк',
+        'Golomt Bank', 'Голомт банк', 
+        'Trade and Development Bank', 'Худалдаа хөгжлийн банк',
+        'Social Pay', 'Социал пэй',
+        'M Bank', 'М банк',
+        'Xac bank', 'Хас банк'
+    ];
+    
+    const excludedBanks = [
+        'qPay Wallet', 'QPay Wallet', 'QPay',
+        'National investment bank', 'Үндэсний хөрөнгө оруулалтын банк',
+        'Chinggis Khaan bank', 'Чингис хаан банк',
+        'Trans bank', 'Транс банк',
+        'Ard app', 'Ард апп'
+    ];
+    
+    let bankApps = [];
+    if (paymentData.app_links && paymentData.app_links.length > 0) {
+        // Filter out excluded banks
+        bankApps = paymentData.app_links.filter(link => 
+            !excludedBanks.some(excluded => 
+                link.name.toLowerCase().includes(excluded.toLowerCase())
+            )
+        );
+        
+        // Sort by priority order
+        bankApps.sort((a, b) => {
+            const aIndex = bankOrder.findIndex(bank => 
+                a.name.toLowerCase().includes(bank.toLowerCase())
+            );
+            const bIndex = bankOrder.findIndex(bank => 
+                b.name.toLowerCase().includes(bank.toLowerCase())
+            );
+            
+            if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+            if (aIndex !== -1) return -1;
+            if (bIndex !== -1) return 1;
+            return 0;
+        });
+    }
+    
+    // Build QR image source
+    const qrImageSrc = paymentData.qr_image.startsWith('data:') ? 
+        paymentData.qr_image : 
+        'data:image/png;base64,' + paymentData.qr_image;
+    
+    // Build bank options with logos
+    const bankOptions = bankApps.map(link => 
+        `<option value="${link.url}" data-logo="${link.logo || ''}">${link.name}</option>`
+    ).join('');
+    
+    // Build bank buttons with logos
+    const bankButtons = bankApps.map(link => {
+        const logoImg = link.logo ? 
+            `<img src="${link.logo}" alt="${link.name}" class="bank-logo me-2" style="width: 24px; height: 24px; object-fit: contain;">` : 
+            `<i class="fas fa-university me-2"></i>`;
+        return `
+            <button type="button" class="btn btn-outline-primary mb-2 w-100 text-start" onclick="openBankApp('${link.url}')">
+                ${logoImg}
+                ${link.name}
+            </button>
+        `;
+    }).join('');
+    
+    paymentContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-6 text-center">
+                <h6 class="mb-3">QR код</h6>
+                <div class="mb-3">
+                    <img src="${qrImageSrc}" alt="QR Code" class="img-fluid" style="max-width: 200px; border-radius: 10px; background: white; padding: 10px;">
+                </div>
+                <div class="payment-info">
+                    <p class="mb-1">Дүн: <span class="fw-bold text-primary">${paymentData.amount.toLocaleString()} ₮</span></p>
+                    <small class="text-muted">QR кодыг банкны апп-аар уншуулна уу</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6 class="mb-3">Банкны апп</h6>
+                <div class="mb-3" style="max-height: 300px; overflow-y: auto;">
+                    ${bankButtons}
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Төлбөр төлсний дараа автоматаар баталгаажина.
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Анхаар:</strong> Төлбөр хийж дуусах хүртэл энэ цонхыг битгий хаагаарай.
+                </div>
+                
+                <div id="paymentStatus" class="mt-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Шалгаж байна...</span>
+                    </div>
+                    <small class="text-muted ms-2">Төлбөрийн төлөвийг шалгаж байна...</small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function openBankApp(url) {
+    if (url) {
+        window.open(url, '_blank');
+    }
+}
+
+function checkPaymentStatus(paymentId) {
+    const checkInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/donation/payment/${paymentId}/status`);
+            const result = await response.json();
+            
+            console.log('Payment status check result:', result);
+            
+            if (result.success) {
+                if (result.status === 'paid') {
+                    // Payment successful
+                    clearInterval(checkInterval);
+                    
+                    // Update payment status to show success
+                    const paymentStatus = document.getElementById('paymentStatus');
+                    if (paymentStatus) {
+                        paymentStatus.innerHTML = `
+                            <div class="text-center">
+                                <i class="fas fa-check-circle text-success" style="font-size: 2rem;"></i>
+                                <div class="mt-2 text-success fw-bold">Төлбөр амжилттай баталгаажлаа!</div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Update donations list immediately with the completed donation
+                    const donationData = {
+                        donor_name: result.donor_name || 'Anonymous',
+                        amount: result.amount || 0,
+                        message: result.message || ''
+                    };
+                    console.log('Updating donations list with:', donationData);
+                    updateDonationsList(donationData);
+                    
+                    // Hide payment modal after a short delay
+                    setTimeout(() => {
+                        if (window.currentPaymentModal) {
+                            window.currentPaymentModal.hide();
+                            // Clean up after hiding
+                            setTimeout(() => {
+                                window.currentPaymentModal.dispose();
+                                window.currentPaymentModal = null;
+                            }, 300);
+                        }
+                        
+                        // Show success modal after payment modal is hidden
+                        setTimeout(() => {
+                            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                            successModal.show();
+                            
+                            // Trigger confetti
+                            triggerConfetti();
+                            
+                            // Reset form
+                            document.getElementById('donationForm').reset();
+                        }, 300);
+                    }, 1500); // Show success message for 1.5 seconds before closing
+                    
+                } else if (result.status === 'failed' || result.status === 'expired') {
+                    // Payment failed or expired
+                    clearInterval(checkInterval);
+                    
+                    // Hide payment modal
+                    if (window.currentPaymentModal) {
+                        window.currentPaymentModal.hide();
+                        // Clean up after hiding
+                        setTimeout(() => {
+                            window.currentPaymentModal.dispose();
+                            window.currentPaymentModal = null;
+                        }, 300);
+                    }
+                    
+                    // Show error message after modal is hidden
+                    setTimeout(() => {
+                        alert('Төлбөр амжилтгүй болсон эсвэл хугацаа дууссан байна.');
+                    }, 300);
+                }
+            }
+        } catch (error) {
+            console.error('Payment status check error:', error);
+        }
+    }, 3000); // Check every 3 seconds
+    
+    // Stop checking after 10 minutes
+    setTimeout(() => {
+        clearInterval(checkInterval);
+    }, 600000);
+}
+
+// WebSocket connection for real-time updates
+let socket;
+try {
+    socket = io();
+    
+    // Join the streamer's room for real-time updates
+    socket.emit('join_donation_room', { 
+        streamer_id: {{ streamer.id }},
+        room_type: 'donation_feed'
+    });
+    
+    // Handle new donation notifications from other users
+    socket.on('new_donation', function(data) {
+        console.log('New donation received via WebSocket:', data);
+        updateDonationsList(data);
+    });
+    
+    // Handle connection confirmation
+    socket.on('room_joined', function(data) {
+        console.log('Successfully joined donation room:', data);
+    });
+    
+    console.log('WebSocket connection established for donation feed');
+} catch (error) {
+    console.error('WebSocket connection failed:', error);
+}
+
+function updateDonationsList(donation) {
+    const donationsList = document.getElementById('donationsList');
+    const nodonations = donationsList.querySelector('.no-donations');
+    
+    // Remove "no donations" message if it exists
+    if (nodonations) {
+        nodonations.remove();
+    }
+    
+    // Create new donation item
+    const donationItem = document.createElement('div');
+    donationItem.className = 'donation-item';
+    donationItem.style.animation = 'fadeInUp 0.5s ease-out';
+    
+    const now = new Date();
+    const fullTimestamp = now.getFullYear() + '-' + 
+        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(now.getDate()).padStart(2, '0') + ' ' + 
+        String(now.getHours()).padStart(2, '0') + ':' + 
+        String(now.getMinutes()).padStart(2, '0') + ':' + 
+        String(now.getSeconds()).padStart(2, '0');
+    
+    donationItem.innerHTML = `
+        <div class="donation-row">
+            <span class="donor-name">${donation.donor_name}</span>
+            <span class="donation-time">${fullTimestamp}</span>
+            <span class="donation-amount">${donation.amount.toLocaleString()}₮</span>
+        </div>
+    `;
+    
+    // Add to top of list
+    donationsList.insertBefore(donationItem, donationsList.firstChild);
+    
+    // Keep only last 10 donations
+    const items = donationsList.querySelectorAll('.donation-item');
+    if (items.length > 10) {
+        items[items.length - 1].remove();
+    }
+}
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</body>
+</html>

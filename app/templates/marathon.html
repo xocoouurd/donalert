@@ -1,0 +1,1134 @@
+{% extends "base.html" %}
+
+{% block title %}Марафон тохиргоо{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/marathon.css') }}">
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content marathon-container">
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">Марафон тохиргоо</h2>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="marathon-status-indicator" id="marathonStatusIndicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span class="status-text" id="statusText">Идэвхгүй</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyOverlayUrl(event)">
+                        <i class="fas fa-copy me-1"></i>Overlay URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Quick Stats -->
+                <div class="col-12 mb-4">
+                    <div class="glass-card p-3">
+                        <div class="row">
+                            <div class="col-lg-3 col-md-6">
+                                <div class="stat-card">
+                                    <div class="stat-icon timer-icon">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="currentTime">
+                                            {% set tb = marathon.get_time_breakdown() %}
+                                            {% if (tb.days * 24 + tb.hours) >= 24 %}
+                                                {{ "%dд %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
+                                            {% else %}
+                                                {{ "%02d:%02d:%02d" | format(tb.days * 24 + tb.hours, tb.minutes, tb.seconds) }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="stat-label">Үлдсэн цаг</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="stat-card">
+                                    <div class="stat-icon donation-amount-icon">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="accumulatedDonations">{{ "{:,.0f}".format(marathon.accumulated_donations) }}₮</div>
+                                        <div class="stat-label">Марафоны хандив</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="stat-card">
+                                    <div class="stat-icon price-icon">
+                                        <i class="fas fa-coins"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value">{{ "{:,.0f}".format(marathon.minute_price) }}₮</div>
+                                        <div class="stat-label">Минутын үнэ</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="stat-card">
+                                    <div class="stat-icon donated-icon">
+                                        <i class="fas fa-gift"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="donatedTimeMinutes">{{ marathon.donated_time_minutes }}мин</div>
+                                        <div class="stat-label">Хандивын цаг</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Left Column: Settings -->
+                <div class="col-lg-6">
+                    <!-- Manual Time Controls -->
+                    <div class="glass-card p-3 mb-3">
+                        <h5 class="mb-3"><i class="fas fa-hand-paper me-2"></i>Цаг удирдах</h5>
+                        
+                        <!-- Important Notice -->
+                        <div class="alert alert-warning mb-3" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Анхаар:</strong> Марафон эхлэсний дараа цаг үргэлж тоологдож байна. Завсарлага авах бол заавал "Түр зогсоох" товчийг дарна уу! Хэрэв мартаад хожуу буцаж ирвэл өнгөрсөн цаг марафоны цагаас хасагдсан байх болно.
+                        </div>
+                        
+                        <div class="manual-time-control">
+                            <div class="input-group mb-3">
+                                <input type="number" class="form-control" id="manualMinutes" placeholder="Минут" min="1" max="1440">
+                                <button class="btn btn-success" type="button" id="addTimeBtn">
+                                    <i class="fas fa-plus"></i> Нэмэх
+                                </button>
+                                <button class="btn btn-warning" type="button" id="removeTimeBtn">
+                                    <i class="fas fa-minus"></i> Хасах
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="marathon-controls">
+                            <div class="row">
+                                <div class="col-6">
+                                    <button class="btn btn-success w-100" id="startMarathonBtn" 
+                                            {% if marathon.started_at and not marathon.is_paused %}disabled{% endif %}
+                                            data-bs-toggle="tooltip" data-bs-placement="top" title="">
+                                        <i class="fas fa-play"></i> 
+                                        {% if marathon.started_at and marathon.is_paused %}Үргэлжлүүлэх{% else %}Эхлүүлэх{% endif %}
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-warning w-100" id="pauseMarathonBtn" 
+                                            {% if not marathon.started_at or marathon.is_paused %}disabled{% endif %}>
+                                        <i class="fas fa-pause"></i> Түр зогсоох
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger w-100 mt-2" id="resetMarathonBtn">
+                                <i class="fas fa-redo"></i> Дахин эхлүүлэх
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Basic Settings -->
+                    <div class="glass-card p-3 mb-3">
+                        <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Үндсэн тохиргоо</h5>
+                        
+                        <form id="marathonSettingsForm" method="POST">
+                            <div class="mb-3">
+                                <label for="minute_price" class="form-label">Минутын үнэ (₮)</label>
+                                <input type="number" class="form-control" id="minute_price" name="minute_price" 
+                                       value="{{ marathon.minute_price }}" min="1" step="1" required>
+                                <div class="form-text">Хандивчид 1 минут цаг нэмэхэд хэдэн төгрөг төлөх ёстой</div>
+                            </div>
+
+                            <!-- Initial Time Setup -->
+                            <div class="mb-3">
+                                <label class="form-label">Анхны цаг тохируулах</label>
+                                <div class="d-flex align-items-start gap-2" style="width: 100%;">
+                                    <div class="time-inputs" style="flex: 1; min-width: 0;">
+                                        <div class="time-input-group">
+                                            <input type="number" class="form-control" id="initial_days" name="initial_days" 
+                                                   value="{{ marathon.get_time_breakdown().days }}" min="0" max="30"
+                                                   {% if marathon.started_at and not marathon.is_paused %}disabled{% endif %}>
+                                            <label>Өдөр</label>
+                                        </div>
+                                        <div class="time-input-group">
+                                            <input type="number" class="form-control" id="initial_hours" name="initial_hours" 
+                                                   value="{{ marathon.get_time_breakdown().hours }}" min="0" max="23"
+                                                   {% if marathon.started_at and not marathon.is_paused %}disabled{% endif %}>
+                                            <label>Цаг</label>
+                                        </div>
+                                        <div class="time-input-group">
+                                            <input type="number" class="form-control" id="initial_minutes" name="initial_minutes" 
+                                                   value="{{ marathon.get_time_breakdown().minutes }}" min="0" max="59"
+                                                   {% if marathon.started_at and not marathon.is_paused %}disabled{% endif %}>
+                                            <label>Минут</label>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-success d-flex align-items-center justify-content-center" id="confirmTimeBtn" 
+                                            {% if marathon.started_at and not marathon.is_paused %}disabled{% endif %}
+                                            data-bs-toggle="tooltip" data-bs-placement="top" title=""
+                                            style="height: 40px; width: 50px; margin-top: 0; flex-shrink: 0; padding: 0;">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Timer Font Settings -->
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-font me-2"></i>Цагийн үсэг</label>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="timer_font_size" class="form-label">Үсгийн хэмжээ</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="timer_font_size" name="timer_font_size" 
+                                           value="{{ marathon.timer_font_size }}" min="24" max="120">
+                                    <span class="input-group-text">px</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="timer_font_weight" class="form-label">Үсгийн бэлдэц</label>
+                                <select class="form-select" id="timer_font_weight" name="timer_font_weight">
+                                    <option value="300" {% if marathon.timer_font_weight == 300 %}selected{% endif %}>Нимгэн</option>
+                                    <option value="400" {% if marathon.timer_font_weight == 400 %}selected{% endif %}>Энгийн</option>
+                                    <option value="500" {% if marathon.timer_font_weight == 500 %}selected{% endif %}>Дунд</option>
+                                    <option value="600" {% if marathon.timer_font_weight == 600 %}selected{% endif %}>Жирэн</option>
+                                    <option value="700" {% if marathon.timer_font_weight == 700 %}selected{% endif %}>Маш жирэн</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="timer_font_color" class="form-label">Үсгийн өнгө</label>
+                                <input type="color" class="form-control form-control-color" id="timer_font_color" name="timer_font_color" 
+                                       value="{{ marathon.timer_font_color or '#ffffff' }}">
+                            </div>
+                        </div>
+                            </div>
+
+                            <!-- Animation Settings -->
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-magic me-2"></i>Анимацийн хэв маяг</label>
+                                <select class="form-select" id="timer_animation" name="timer_animation">
+                                    <option value="none" {% if marathon.timer_animation == 'none' %}selected{% endif %}>Анимацигүй</option>
+                                    <option value="pulse" {% if marathon.timer_animation == 'pulse' %}selected{% endif %}>Зүрхний цохилт</option>
+                                    <option value="bounce" {% if marathon.timer_animation == 'bounce' %}selected{% endif %}>Харайлт</option>
+                                    <option value="glow" {% if marathon.timer_animation == 'glow' %}selected{% endif %}>Гэрэлтэх</option>
+                                    <option value="shake" {% if marathon.timer_animation == 'shake' %}selected{% endif %}>Чичирхийлэх</option>
+                                    <option value="zoom" {% if marathon.timer_animation == 'zoom' %}selected{% endif %}>Томсох</option>
+                                    <option value="rotate" {% if marathon.timer_animation == 'rotate' %}selected{% endif %}>Эргэх</option>
+                                </select>
+                                <div class="form-text">Цагийн тоологч дээр анимацийн эффект нэмэх</div>
+                            </div>
+
+                            <!-- Notification Font Settings -->
+                            <div class="mb-3">
+                                <label class="form-label"><i class="fas fa-bell me-2"></i>Мэдэгдлийн үсэг</label>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="notification_font_size" class="form-label">Үсгийн хэмжээ</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="notification_font_size" name="notification_font_size" 
+                                           value="{{ marathon.notification_font_size }}" min="16" max="48">
+                                    <span class="input-group-text">px</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="notification_font_weight" class="form-label">Үсгийн бэлдэц</label>
+                                <select class="form-select" id="notification_font_weight" name="notification_font_weight">
+                                    <option value="300" {% if marathon.notification_font_weight == 300 %}selected{% endif %}>Нимгэн</option>
+                                    <option value="400" {% if marathon.notification_font_weight == 400 %}selected{% endif %}>Энгийн</option>
+                                    <option value="500" {% if marathon.notification_font_weight == 500 %}selected{% endif %}>Дунд</option>
+                                    <option value="600" {% if marathon.notification_font_weight == 600 %}selected{% endif %}>Жирэн</option>
+                                    <option value="700" {% if marathon.notification_font_weight == 700 %}selected{% endif %}>Маш жирэн</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="notification_font_color" class="form-label">Үсгийн өнгө</label>
+                                <input type="color" class="form-control form-control-color" id="notification_font_color" name="notification_font_color" 
+                                       value="{{ marathon.notification_font_color or '#ffffff' }}">
+                            </div>
+                        </div>
+                            </div>
+
+                            <!-- Save Button -->
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary" id="saveBtn">
+                                    <i class="fas fa-save me-2"></i>Тохиргоо хадгалах
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Preview -->
+                <div class="col-lg-6">
+                    <div class="glass-card p-3 mb-3 sticky-top">
+                        <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Урьдчилан үзэх</h5>
+                        
+                        <!-- Timer Preview -->
+                        <div class="timer-preview" id="timerPreview">
+                            <div class="preview-timer" id="previewTimer">
+                                {% set tb = marathon.get_time_breakdown() %}
+                                {% if (tb.days * 24 + tb.hours) >= 24 %}
+                                    {{ "%dд %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
+                                {% else %}
+                                    {{ "%02d:%02d:%02d" | format(tb.days * 24 + tb.hours, tb.minutes, tb.seconds) }}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Notification Preview -->
+                        <div class="notification-preview" id="notificationPreview">
+                            <div class="preview-notification" id="previewNotification">
+                                +15 минут хандиваар нэмэгдлээ!
+                            </div>
+                        </div>
+
+                        <div class="preview-info">
+                            <p><i class="fas fa-info-circle"></i> Энэ харагдац таны overlay дээр харагдах байдлыг харуулж байна</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Real-time updates
+let currentMarathonData = {{ marathon.to_dict() | tojson }};
+let countdownInterval = null;
+let socket = null;
+
+// Initialize seconds if not present
+if (!currentMarathonData.time_breakdown.seconds) {
+    currentMarathonData.time_breakdown.seconds = 0;
+}
+
+// Universal timer formatting function
+function formatTimerDisplay(timeBreakdown) {
+    const days = timeBreakdown.days || 0;
+    const hours = timeBreakdown.hours || 0;
+    const minutes = timeBreakdown.minutes || 0;
+    const seconds = timeBreakdown.seconds || 0;
+    
+    // If more than 24 hours total, show days
+    const totalHours = days * 24 + hours;
+    if (totalHours >= 24) {
+        return `${days}д ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    } else {
+        // Show HH:MM:SS format
+        return `${String(totalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+}
+
+// Update preview when settings change
+function updateTimerPreview() {
+    const fontSize = document.getElementById('timer_font_size').value;
+    const fontWeight = document.getElementById('timer_font_weight').value;
+    const fontColor = document.getElementById('timer_font_color').value;
+    const animation = document.getElementById('timer_animation').value;
+    
+    const previewTimer = document.getElementById('previewTimer');
+    previewTimer.style.setProperty('font-size', fontSize + 'px', 'important');
+    previewTimer.style.setProperty('font-weight', fontWeight, 'important');
+    previewTimer.style.setProperty('color', fontColor, 'important');
+    
+    // Update animation
+    previewTimer.classList.remove('anim-pulse', 'anim-bounce', 'anim-glow', 'anim-shake', 'anim-zoom', 'anim-rotate');
+    if (animation && animation !== 'none') {
+        previewTimer.classList.add('anim-' + animation);
+    }
+}
+
+function updateNotificationPreview() {
+    const fontSize = document.getElementById('notification_font_size').value;
+    const fontWeight = document.getElementById('notification_font_weight').value;
+    const fontColor = document.getElementById('notification_font_color').value;
+    
+    const previewNotification = document.getElementById('previewNotification');
+    previewNotification.style.setProperty('font-size', fontSize + 'px', 'important');
+    previewNotification.style.setProperty('font-weight', fontWeight, 'important');
+    previewNotification.style.setProperty('color', fontColor, 'important');
+}
+
+// Event listeners for real-time preview updates
+document.getElementById('timer_font_size').addEventListener('input', updateTimerPreview);
+document.getElementById('timer_font_weight').addEventListener('change', updateTimerPreview);
+document.getElementById('timer_font_color').addEventListener('change', updateTimerPreview);
+document.getElementById('timer_animation').addEventListener('change', updateTimerPreview);
+
+document.getElementById('notification_font_size').addEventListener('input', updateNotificationPreview);
+document.getElementById('notification_font_weight').addEventListener('change', updateNotificationPreview);
+document.getElementById('notification_font_color').addEventListener('change', updateNotificationPreview);
+
+// Form submission
+document.getElementById('marathonSettingsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const saveBtn = document.getElementById('saveBtn');
+    const originalText = saveBtn.innerHTML;
+    
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Хадгалж байна...';
+    saveBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/marathon', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа';
+            saveBtn.classList.remove('btn-primary');
+            saveBtn.classList.add('btn-success');
+            
+            // Update marathon data
+            currentMarathonData = result.marathon;
+            // Initialize seconds if not present
+            if (!currentMarathonData.time_breakdown.seconds) {
+                currentMarathonData.time_breakdown.seconds = 0;
+            }
+            updateStats();
+            
+            setTimeout(() => {
+                saveBtn.innerHTML = originalText;
+                saveBtn.classList.remove('btn-success');
+                saveBtn.classList.add('btn-primary');
+                saveBtn.disabled = false;
+            }, 2000);
+        } else {
+            throw new Error(result.error || 'Failed to save');
+        }
+    } catch (error) {
+        console.error('Error saving marathon settings:', error);
+        saveBtn.innerHTML = '<i class="fas fa-times me-2"></i>Алдаа гарлаа';
+        saveBtn.classList.remove('btn-primary');
+        saveBtn.classList.add('btn-danger');
+        
+        setTimeout(() => {
+            saveBtn.innerHTML = originalText;
+            saveBtn.classList.remove('btn-danger');
+            saveBtn.classList.add('btn-primary');
+            saveBtn.disabled = false;
+        }, 2000);
+    }
+});
+
+// Manual time controls
+document.getElementById('addTimeBtn').addEventListener('click', async function() {
+    const minutes = parseInt(document.getElementById('manualMinutes').value);
+    if (minutes > 0) {
+        await adjustTime(minutes);
+    }
+});
+
+document.getElementById('removeTimeBtn').addEventListener('click', async function() {
+    const minutes = parseInt(document.getElementById('manualMinutes').value);
+    if (minutes > 0) {
+        await adjustTime(-minutes);
+    }
+});
+
+// Marathon controls
+document.getElementById('startMarathonBtn').addEventListener('click', async function() {
+    await marathonControl('start');
+});
+
+document.getElementById('pauseMarathonBtn').addEventListener('click', async function() {
+    await marathonControl('pause');
+});
+
+document.getElementById('resetMarathonBtn').addEventListener('click', async function() {
+    if (confirm('Та марафоныг дахин эхлүүлэхдээ итгэлтэй байна уу? Энэ нь бүх өгөгдлийг арилгана.')) {
+        await marathonControl('reset');
+    }
+});
+
+// Confirm initial time button
+document.getElementById('confirmTimeBtn').addEventListener('click', async function() {
+    const confirmBtn = this;
+    
+    // Clean up any existing tooltips first
+    if (window.bootstrap && window.bootstrap.Tooltip) {
+        const existingTooltip = window.bootstrap.Tooltip.getInstance(confirmBtn);
+        if (existingTooltip) {
+            existingTooltip.dispose();
+        }
+    }
+    
+    const days = parseInt(document.getElementById('initial_days').value) || 0;
+    const hours = parseInt(document.getElementById('initial_hours').value) || 0;
+    const minutes = parseInt(document.getElementById('initial_minutes').value) || 0;
+    
+    // Calculate total minutes
+    const totalMinutes = (days * 24 * 60) + (hours * 60) + minutes;
+    
+    // Check if total time is 0
+    if (totalMinutes === 0) {
+        // Simple alert instead of complex tooltip
+        alert('Анхны цаг 0 байж болохгүй');
+        return;
+    }
+    
+    const originalHTML = confirmBtn.innerHTML;
+    
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    confirmBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/marathon/set-initial-time', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                days: days,
+                hours: hours,
+                minutes: minutes
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            currentMarathonData = result.marathon;
+            // Initialize seconds if not present
+            if (!currentMarathonData.time_breakdown.seconds) {
+                currentMarathonData.time_breakdown.seconds = 0;
+            }
+            
+            
+            updateStats();
+            updateControlButtons();
+            
+            // Show success feedback - switch to check icon
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i>';
+            confirmBtn.classList.remove('btn-success');
+            confirmBtn.classList.add('btn-outline-success');
+            
+            setTimeout(() => {
+                confirmBtn.innerHTML = '<i class="fas fa-save"></i>';
+                confirmBtn.classList.remove('btn-outline-success');
+                confirmBtn.classList.add('btn-success');
+                confirmBtn.disabled = false;
+            }, 1500);
+        } else {
+            throw new Error(result.error || 'Failed to set initial time');
+        }
+    } catch (error) {
+        console.error('Error setting initial time:', error);
+        confirmBtn.innerHTML = '<i class="fas fa-times"></i>';
+        confirmBtn.classList.remove('btn-success');
+        confirmBtn.classList.add('btn-danger');
+        
+        setTimeout(() => {
+            confirmBtn.innerHTML = '<i class="fas fa-save"></i>';
+            confirmBtn.classList.remove('btn-danger');
+            confirmBtn.classList.add('btn-success');
+            confirmBtn.disabled = false;
+        }, 1500);
+    }
+});
+
+// Marathon control functions
+async function adjustTime(minutes) {
+    try {
+        const response = await fetch('/api/marathon/adjust-time', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ minutes: minutes })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            document.getElementById('manualMinutes').value = '';
+            currentMarathonData = result.marathon;
+            // Initialize seconds if not present
+            if (!currentMarathonData.time_breakdown.seconds) {
+                currentMarathonData.time_breakdown.seconds = 0;
+            }
+            updateStats();
+        }
+    } catch (error) {
+        console.error('Error adjusting time:', error);
+    }
+}
+
+async function marathonControl(action) {
+    try {
+        // For pause, trigger overlay to save state first, then pause
+        if (action === 'pause') {
+            console.log('SETTINGS: Starting pause action...');
+            console.log('SETTINGS: Current settings page time before pause:', currentMarathonData.time_breakdown);
+            
+            // Send message via server to overlay to save current state immediately before pause
+            console.log('SETTINGS: Sending save state request via API...');
+            try {
+                await fetch('/api/marathon/request-save-state', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                console.log('SETTINGS: Save state request sent successfully');
+            } catch (error) {
+                console.log('SETTINGS: WARNING - Failed to send save state request:', error);
+            }
+            
+            // Wait a moment for overlay to save, then pause
+            console.log('SETTINGS: Waiting 100ms for overlay to save...');
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            console.log('SETTINGS: Calling pause API...');
+            const response = await fetch(`/api/marathon/pause`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            });
+            
+            const result = await response.json();
+            console.log('SETTINGS: Pause API response:', result);
+            
+            if (result.success) {
+                console.log('SETTINGS: Server returned paused marathon data:', result.marathon.time_breakdown);
+                // Use server data directly - it should contain the correct paused time from overlay
+                currentMarathonData = result.marathon;
+                // Initialize seconds if not present
+                if (!currentMarathonData.time_breakdown.seconds) {
+                    currentMarathonData.time_breakdown.seconds = 0;
+                }
+                console.log('SETTINGS: Updated settings page with paused data:', currentMarathonData.time_breakdown);
+                updateStats();
+                updateControlButtons();
+            }
+        } else {
+            // For other actions (start, reset), use regular API call
+            const response = await fetch(`/api/marathon/${action}`, {
+                method: 'POST',
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                currentMarathonData = result.marathon;
+                // Initialize seconds if not present
+                if (!currentMarathonData.time_breakdown.seconds) {
+                    currentMarathonData.time_breakdown.seconds = 0;
+                }
+                updateStats();
+                updateControlButtons();
+            }
+        }
+    } catch (error) {
+        console.error(`Error ${action} marathon:`, error);
+    }
+}
+
+
+function updateControlButtons() {
+    const startBtn = document.getElementById('startMarathonBtn');
+    const pauseBtn = document.getElementById('pauseMarathonBtn');
+    const confirmBtn = document.getElementById('confirmTimeBtn');
+    
+    // Update initial time inputs - disable when marathon is running
+    const initialDays = document.getElementById('initial_days');
+    const initialHours = document.getElementById('initial_hours');
+    const initialMinutes = document.getElementById('initial_minutes');
+    
+    const isRunning = currentMarathonData.is_running && !currentMarathonData.is_paused;
+    const totalTime = currentMarathonData.total_time_minutes || 0;
+    
+    // Update status indicator
+    updateStatusIndicator();
+    
+    if (isRunning) {
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        
+        // Disable initial time inputs and confirm button when running
+        initialDays.disabled = true;
+        initialHours.disabled = true;
+        initialMinutes.disabled = true;
+        confirmBtn.disabled = true;
+        
+        // Start visual-only countdown for preview
+        startVisualCountdown();
+    } else if (currentMarathonData.is_paused) {
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Үргэлжлүүлэх';
+        pauseBtn.disabled = true;
+        
+        // Keep initial time inputs and confirm button disabled when paused
+        initialDays.disabled = true;
+        initialHours.disabled = true;
+        initialMinutes.disabled = true;
+        confirmBtn.disabled = true;
+        
+        stopVisualCountdown(); // Stop visual countdown
+    } else {
+        // Check if total time is 0 to prevent starting
+        if (totalTime === 0) {
+            startBtn.disabled = true;
+            startBtn.setAttribute('title', 'Та эхлээд анхны цаг тохируулах ёстой (0-ээс эхлэх боломжгүй)');
+        } else {
+            startBtn.disabled = false;
+            startBtn.setAttribute('title', '');
+        }
+        
+        startBtn.innerHTML = '<i class="fas fa-play"></i> Эхлүүлэх';
+        pauseBtn.disabled = true;
+        
+        // Enable initial time inputs and confirm button when stopped
+        initialDays.disabled = false;
+        initialHours.disabled = false;
+        initialMinutes.disabled = false;
+        confirmBtn.disabled = false;
+        
+        stopVisualCountdown(); // Stop visual countdown
+    }
+    
+    // Initialize/update tooltips
+    if (window.bootstrap && window.bootstrap.Tooltip) {
+        // Start button tooltip
+        const startTooltip = window.bootstrap.Tooltip.getInstance(startBtn);
+        if (startTooltip) {
+            startTooltip.dispose();
+        }
+        new window.bootstrap.Tooltip(startBtn);
+        
+        // Confirm button tooltip
+        const confirmTooltip = window.bootstrap.Tooltip.getInstance(confirmBtn);
+        if (confirmTooltip) {
+            confirmTooltip.dispose();
+        }
+        new window.bootstrap.Tooltip(confirmBtn);
+    }
+}
+
+// Countdown functions for settings page
+function startCountdown() {
+    stopCountdown(); // Clear any existing interval
+    
+    // Initialize seconds if not present
+    if (!currentMarathonData.time_breakdown.seconds) {
+        currentMarathonData.time_breakdown.seconds = 0;
+    }
+    
+    let saveCounter = 0; // Save state every 10 seconds
+    
+    countdownInterval = setInterval(() => {
+        if (currentMarathonData && (currentMarathonData.time_breakdown.total_minutes > 0 || currentMarathonData.time_breakdown.seconds > 0)) {
+            // Decrease by 1 second
+            if (currentMarathonData.time_breakdown.seconds > 0) {
+                currentMarathonData.time_breakdown.seconds--;
+            } else {
+                // Move to next minute
+                currentMarathonData.time_breakdown.seconds = 59;
+                currentMarathonData.time_breakdown.total_minutes--;
+                
+                // Recalculate breakdown to ensure consistency
+                const totalMinutes = currentMarathonData.time_breakdown.total_minutes;
+                currentMarathonData.time_breakdown.days = Math.floor(totalMinutes / (24 * 60));
+                const remainingAfterDays = totalMinutes % (24 * 60);
+                currentMarathonData.time_breakdown.hours = Math.floor(remainingAfterDays / 60);
+                currentMarathonData.time_breakdown.minutes = remainingAfterDays % 60;
+                
+                // Also ensure total_minutes is accurate
+                currentMarathonData.time_breakdown.total_minutes = totalMinutes;
+            }
+            
+            updateStats();
+            
+            // Save state every 10 seconds or when minutes change
+            saveCounter++;
+            if (saveCounter >= 10 || currentMarathonData.time_breakdown.seconds === 59) {
+                saveCountdownState();
+                saveCounter = 0;
+            }
+            
+            if (currentMarathonData.time_breakdown.total_minutes === 0 && currentMarathonData.time_breakdown.seconds === 0) {
+                stopCountdown();
+                // Marathon completed - update UI
+                currentMarathonData.is_running = false;
+                updateControlButtons();
+                // Save final state
+                saveCountdownState();
+            }
+        }
+    }, 1000); // Update every second
+}
+
+// Save countdown state to database
+async function saveCountdownState() {
+    try {
+        const response = await fetch('/api/marathon/update-countdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                minutes: currentMarathonData.time_breakdown.total_minutes,
+                seconds: currentMarathonData.time_breakdown.seconds
+            })
+        });
+        
+        if (!response.ok) {
+            console.warn('Failed to save countdown state');
+        }
+    } catch (error) {
+        console.warn('Error saving countdown state:', error);
+    }
+}
+
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        // Save state when stopping countdown
+        saveCountdownState();
+    }
+}
+
+// Visual-only countdown for settings page preview (no database saves)
+let visualCountdownInterval = null;
+
+function startVisualCountdown() {
+    console.log('SETTINGS: Starting visual countdown for preview');
+    stopVisualCountdown(); // Clear any existing interval
+    
+    // Initialize seconds if not present
+    if (!currentMarathonData.time_breakdown.seconds) {
+        currentMarathonData.time_breakdown.seconds = 0;
+    }
+    
+    visualCountdownInterval = setInterval(() => {
+        if (currentMarathonData && (currentMarathonData.time_breakdown.total_minutes > 0 || currentMarathonData.time_breakdown.seconds > 0)) {
+            // Decrease by 1 second (visual only)
+            if (currentMarathonData.time_breakdown.seconds > 0) {
+                currentMarathonData.time_breakdown.seconds--;
+            } else if (currentMarathonData.time_breakdown.total_minutes > 0) {
+                // Move to next minute
+                currentMarathonData.time_breakdown.seconds = 59;
+                currentMarathonData.time_breakdown.total_minutes--;
+                
+                // Recalculate breakdown for display consistency
+                const totalMinutes = currentMarathonData.time_breakdown.total_minutes;
+                currentMarathonData.time_breakdown.days = Math.floor(totalMinutes / (24 * 60));
+                const remainingAfterDays = totalMinutes % (24 * 60);
+                currentMarathonData.time_breakdown.hours = Math.floor(remainingAfterDays / 60);
+                currentMarathonData.time_breakdown.minutes = remainingAfterDays % 60;
+            }
+            
+            // Update display only - NO database saves
+            updateStats();
+            
+            // Stop if countdown reaches zero
+            if (currentMarathonData.time_breakdown.total_minutes === 0 && currentMarathonData.time_breakdown.seconds === 0) {
+                stopVisualCountdown();
+                console.log('SETTINGS: Visual countdown completed');
+            }
+        }
+    }, 1000); // Update every second
+}
+
+function stopVisualCountdown() {
+    if (visualCountdownInterval) {
+        console.log('SETTINGS: Stopping visual countdown');
+        clearInterval(visualCountdownInterval);
+        visualCountdownInterval = null;
+    }
+}
+
+// Update status indicator based on marathon state
+function updateStatusIndicator() {
+    const statusIndicator = document.getElementById('marathonStatusIndicator');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    if (!currentMarathonData) {
+        // Default inactive state
+        statusIndicator.className = 'marathon-status-indicator inactive';
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Идэвхгүй';
+        return;
+    }
+    
+    const isRunning = currentMarathonData.is_running && !currentMarathonData.is_paused;
+    const isPaused = currentMarathonData.is_paused;
+    
+    if (isRunning) {
+        statusIndicator.className = 'marathon-status-indicator running';
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Ажиллаж байна';
+    } else if (isPaused) {
+        statusIndicator.className = 'marathon-status-indicator paused';
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Түр зогссон';
+    } else {
+        statusIndicator.className = 'marathon-status-indicator inactive';
+        statusDot.className = 'status-dot';
+        statusText.textContent = 'Идэвхгүй';
+    }
+}
+
+// Copy overlay URL function
+function copyOverlayUrl(event) {
+    const overlayUrl = "{{ url_for('main.marathon_overlay', token=marathon.overlay_token, _external=True) }}";
+    
+    // Create temporary textarea to copy text
+    const tempTextarea = document.createElement('textarea');
+    tempTextarea.value = overlayUrl;
+    document.body.appendChild(tempTextarea);
+    tempTextarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempTextarea);
+    
+    // Update button to show success
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа';
+    btn.classList.remove('btn-outline-primary');
+    btn.classList.add('btn-outline-success');
+    
+    setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-outline-primary');
+    }, 2000);
+}
+
+
+// Initialize preview and status  
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial preview styles based on current marathon settings
+    const previewTimer = document.getElementById('previewTimer');
+    previewTimer.style.setProperty('font-size', '{{ marathon.timer_font_size }}px', 'important');
+    previewTimer.style.setProperty('font-weight', '{{ marathon.timer_font_weight }}', 'important');
+    previewTimer.style.setProperty('color', '{{ marathon.timer_font_color or "#ffffff" }}', 'important');
+    
+    // Set initial animation
+    const initialAnimation = '{{ marathon.timer_animation or "none" }}';
+    if (initialAnimation && initialAnimation !== 'none') {
+        previewTimer.classList.add('anim-' + initialAnimation);
+    }
+    
+    const previewNotification = document.getElementById('previewNotification');
+    previewNotification.style.setProperty('font-size', '{{ marathon.notification_font_size }}px', 'important');
+    previewNotification.style.setProperty('font-weight', '{{ marathon.notification_font_weight }}', 'important');
+    previewNotification.style.setProperty('color', '{{ marathon.notification_font_color or "#ffffff" }}', 'important');
+    
+    updateTimerPreview();
+    updateNotificationPreview();
+    updateControlButtons();
+    updateStatusIndicator();
+});
+
+// Fix dropdown arrow issue by hiding background when dropdown is open
+document.querySelectorAll('.marathon-container .form-select').forEach(select => {
+    select.addEventListener('mousedown', function() {
+        this.style.transition = 'none';
+        this.style.backgroundImage = 'none';
+    });
+    
+    select.addEventListener('blur', function() {
+        this.style.transition = '';
+        this.style.backgroundImage = '';
+    });
+    
+    select.addEventListener('change', function() {
+        this.style.transition = '';
+        this.style.backgroundImage = '';
+    });
+});
+
+// Force dropdown styling for marathon page
+function forceDropdownStyling() {
+    const dropdowns = document.querySelectorAll('.marathon-container .form-select');
+    dropdowns.forEach(select => {
+        // Force the styles directly using the same approach as donation-goal.css
+        select.style.cssText = `
+            background: rgba(255, 255, 255, 0.1) !important;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 0.75rem center !important;
+            background-size: 16px 12px !important;
+            padding: 0.375rem 2.25rem 0.375rem 0.75rem !important;
+            height: auto !important;
+            min-height: 38px !important;
+            line-height: 1.5 !important;
+            font-size: 0.9rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 10px !important;
+            color: #fff !important;
+            width: 100% !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            box-sizing: border-box !important;
+        `;
+    });
+}
+
+// Initialize WebSocket for real-time updates
+function initializeSocket() {
+    // Connect to the development server when running locally
+    const socketUrl = window.location.hostname === 'donalert.invictamotus.com' && window.location.port === '' 
+        ? undefined  // Use default (current domain) for production
+        : 'http://localhost:5013';  // Use local dev server
+    
+    socket = io(socketUrl);
+    
+    socket.on('connect', () => {
+        console.log('Connected to marathon settings');
+        // Join marathon room for this user
+        socket.emit('join', { room: `marathon_overlay_${currentMarathonData.user_id}` });
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from marathon settings');
+    });
+    
+    socket.on('marathon_updated', (data) => {
+        console.log('SETTINGS: Received marathon_updated:', data);
+        // Update marathon data and refresh stats - this will correct any visual countdown drift
+        currentMarathonData = data;
+        // Ensure time_breakdown exists and initialize seconds if not present
+        if (!currentMarathonData.time_breakdown) {
+            currentMarathonData.time_breakdown = {
+                days: 0,
+                hours: 0,
+                minutes: 0,
+                seconds: 0,
+                total_minutes: 0
+            };
+        } else if (!currentMarathonData.time_breakdown.seconds) {
+            currentMarathonData.time_breakdown.seconds = 0;
+        }
+        
+        // Sync visual countdown with real overlay data
+        console.log('SETTINGS: Syncing visual countdown with overlay data:', currentMarathonData.time_breakdown);
+        
+        updateStats();
+        updateControlButtons();
+        updateStatusIndicator();
+    });
+    
+    socket.on('marathon_notification', (data) => {
+        // Flash notification in settings UI
+        showSettingsNotification(data.text);
+    });
+}
+
+// Show notification in settings page
+function showSettingsNotification(text) {
+    // Create temporary notification element
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(16, 185, 129, 0.9);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        z-index: 9999;
+        font-weight: 500;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+    notification.textContent = text;
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 4000);
+}
+
+// Update stats display
+function updateStats() {
+    // Ensure time_breakdown exists
+    if (!currentMarathonData.time_breakdown) {
+        currentMarathonData.time_breakdown = {
+            days: 0,
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+            total_minutes: 0
+        };
+    }
+    
+    const timeBreakdown = currentMarathonData.time_breakdown;
+    const timeString = formatTimerDisplay(timeBreakdown);
+    
+    // Update remaining time display
+    document.getElementById('currentTime').textContent = timeString;
+    document.getElementById('previewTimer').textContent = timeString;
+    
+    // Update statistics cards with real-time data
+    const accumulatedDonationsElement = document.getElementById('accumulatedDonations');
+    if (accumulatedDonationsElement && currentMarathonData.accumulated_donations !== undefined) {
+        accumulatedDonationsElement.textContent = new Intl.NumberFormat('mn-MN').format(currentMarathonData.accumulated_donations) + '₮';
+    }
+    
+    const minutePriceElement = document.querySelector('.price-icon').nextElementSibling.querySelector('.stat-value');
+    if (minutePriceElement) {
+        minutePriceElement.textContent = new Intl.NumberFormat('mn-MN').format(currentMarathonData.minute_price) + '₮';
+    }
+    
+    // Update donated time minutes using ID
+    const donatedTimeElement = document.getElementById('donatedTimeMinutes');
+    if (donatedTimeElement && currentMarathonData.donated_time_minutes !== undefined) {
+        donatedTimeElement.textContent = currentMarathonData.donated_time_minutes + 'мин';
+    }
+    
+    // Update initial time form inputs to reflect current marathon data
+    // Only update if marathon is stopped (not running or paused)
+    if (!currentMarathonData.is_running && !currentMarathonData.is_paused) {
+        const initialTimeBreakdown = currentMarathonData.time_breakdown;
+        document.getElementById('initial_days').value = initialTimeBreakdown.days || 0;
+        document.getElementById('initial_hours').value = initialTimeBreakdown.hours || 0;
+        document.getElementById('initial_minutes').value = initialTimeBreakdown.minutes || 0;
+    }
+}
+
+// Set initial status color based on marathon state
+document.addEventListener('DOMContentLoaded', function() {
+    updateStats(); // This will set the correct status
+    initializeSocket(); // Initialize WebSocket connection
+    
+    // Force dropdown styling
+    forceDropdownStyling();
+});
+
+// Also force styling when window loads (in case DOM ready fired too early)
+window.addEventListener('load', forceDropdownStyling);
+</script>
+{% endblock %}

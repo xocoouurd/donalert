@@ -1,0 +1,704 @@
+/* DonAlert - Clean, Techy Design */
+:root {
+    --primary-color: #6366f1;
+    --primary-hover: #5855eb;
+    --secondary-color: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.1);
+    --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.15);
+}
+
+/* Typography */
+body {
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    margin: 0;
+    padding-bottom: 45px; /* Account for fixed footer */
+}
+
+/* Prevent scrolling only on home page */
+body.no-scroll {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', 'Monaco', 'Consolas', monospace;
+    font-weight: 400;
+}
+
+/* Glass Morphism Effects */
+.glass-card {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: var(--shadow-glass);
+    transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+    box-shadow: 0 12px 40px rgba(31, 38, 135, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Navigation */
+.navbar {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem 0;
+    position: relative;
+    z-index: 1060;
+}
+
+.navbar-brand {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 1.25rem;
+    color: white !important;
+}
+
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem !important;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: white !important;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Hero Section */
+.hero-section {
+    height: calc(
+        100vh - 80px - 45px - 2rem
+    ); /* Subtract navbar, footer, and margin */
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+    margin-bottom: 2rem;
+}
+
+.hero-section .glass-card {
+    position: relative;
+    z-index: 1;
+}
+
+.hero-card {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.hero-icon {
+    opacity: 0.8;
+}
+
+/* Utility Classes */
+.min-vh-75 {
+    min-height: 75vh;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--primary-color);
+    border: none;
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.btn-outline-primary {
+    color: #6441a5;
+    border: 2px solid #6441a5;
+    background: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    color: white;
+    background: #6441a5;
+    border-color: #6441a5;
+    box-shadow: 0 4px 15px rgba(100, 65, 165, 0.3);
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border: 2px solid #dc3545;
+    background: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover {
+    color: white;
+    background: #dc3545;
+    border-color: #dc3545;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.btn-outline-success {
+    color: #198754;
+    border: 2px solid #198754;
+    background: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    padding: 0.75rem 2rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-success:hover {
+    color: white;
+    background: #198754;
+    border-color: #198754;
+    box-shadow: 0 4px 15px rgba(25, 135, 84, 0.3);
+}
+
+/* Forms */
+.form-control {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    height: 40px;
+}
+
+.form-control:focus {
+    background: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-select {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px !important;
+    padding: 0.75rem 2.25rem 0.75rem 1rem;
+    font-weight: 400;
+    transition: all 0.3s ease;
+    height: 40px;
+    /* Add dropdown arrow */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+}
+
+.form-select:focus {
+    background: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Remove Bootstrap's default dropdown arrow from all dropdown-toggle elements */
+.dropdown-toggle::after {
+    display: none !important;
+}
+
+/* Ensure custom dropdowns don't get background arrows */
+.dropdown-toggle,
+#bankDropdown {
+    background-image: none !important;
+}
+
+/* Fix bank account page header dropdown background */
+.dashboard-page .navbar .dropdown-menu {
+    background: rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Fix header dropdown button background on dashboard pages */
+.dashboard-page .navbar .dropdown-toggle {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Add custom arrow back to header dropdown */
+.navbar .dropdown-toggle::after {
+    display: inline-block !important;
+    margin-left: 0.5rem;
+    vertical-align: 0.125em;
+    content: '';
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+}
+
+.form-range {
+    height: 40px;
+    padding: 12px 0;
+}
+
+.form-control-color {
+    height: 40px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 4px;
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+/* Custom textarea height adjustment */
+textarea.form-control {
+    height: auto;
+    min-height: 80px;
+}
+
+/* Modal form elements should use Bootstrap defaults */
+.modal .form-select {
+    height: calc(1.5em + 0.75rem + 2px) !important;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.375rem !important;
+    background-color: #fff !important;
+}
+
+.modal .form-select:focus {
+    border-color: #86b7fe !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+    background-color: #fff !important;
+}
+
+/* Cards */
+.card {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 16px;
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+}
+
+.card-header {
+    background: rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Alerts */
+.alert {
+    border: none;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    font-weight: 500;
+}
+
+.alert-success {
+    background: rgba(34, 197, 94, 0.1);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* Footer */
+footer {
+    background: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 0.75rem 0;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+footer .container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-card {
+        margin: 2rem 1rem;
+        padding: 2rem !important;
+    }
+
+    .display-4 {
+        font-size: 2.5rem;
+    }
+
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+}
+
+/* Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.glass-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Dropdown */
+.dropdown-menu {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    box-shadow: var(--shadow-glass);
+    padding: 0.5rem;
+    z-index: 1070 !important;
+    position: absolute !important;
+}
+
+.dropdown-item {
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+    color: #ffffff;
+}
+
+.dropdown-item:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+}
+
+.dropdown-item i {
+    pointer-events: none;
+    margin-right: 8px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Dashboard Sidebar */
+.dashboard-wrapper {
+    display: flex;
+    min-height: calc(
+        100vh - 80px - 45px - 2rem
+    ); /* Subtract navbar, footer, and margin */
+    margin-bottom: 2rem;
+}
+
+.sidebar {
+    width: 250px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 1rem 0;
+    border-radius: 20px 0 0 20px;
+}
+
+.sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-nav .nav-item {
+    margin-bottom: 0.5rem;
+}
+
+.sidebar-nav .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 0.65rem 1.25rem;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    border-radius: 8px;
+    margin: 0 1rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.sidebar-nav .nav-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.sidebar-nav .nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-nav .nav-link i {
+    margin-right: 0.65rem;
+    width: 18px;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.dashboard-content {
+    flex: 1;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0 20px 20px 0;
+    overflow-y: auto;
+    max-height: calc(100vh - 80px - 45px - 2rem);
+}
+
+/* Add bottom padding to dashboard content for better scrolling */
+.dashboard-content > *:last-child {
+    margin-bottom: 2rem;
+}
+
+/* Typography sizing */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+}
+
+/* Dashboard page titles */
+.dashboard-page h1,
+.dashboard-page h2 {
+    color: white !important;
+}
+
+.dashboard-page h3,
+.dashboard-page h4,
+.dashboard-page h5,
+.dashboard-page h6 {
+    color: #333333 !important;
+}
+
+/* Override default text colors to use softer black */
+.dashboard-page .glass-card:not(.donation-alert):not(.alert-preview-container):not(.goal-preview-container),
+.dashboard-page .form-label,
+.dashboard-page .form-text,
+.dashboard-page p:not(.donation-alert p):not(.goal-preview p),
+.dashboard-page
+    span:not(.input-group-text):not(.donation-alert span):not(.goal-preview span):not(
+        #userAssetCount
+    ):not(#defaultAssetCount),
+.dashboard-page
+    div:not(.alert):not(.badge):not(.donation-alert):not(.donation-alert div):not(.goal-preview):not(.goal-preview div),
+.dashboard-page small:not(.donation-alert small):not(.goal-preview small) {
+    color: #333333 !important;
+}
+
+.dashboard-page .text-muted:not(.donation-alert .text-muted) {
+    color: #888888 !important;
+}
+
+.dashboard-page .asset-name {
+    color: #333333 !important;
+}
+
+h1 {
+    font-size: 2rem;
+}
+h2 {
+    font-size: 1.6rem;
+}
+h3 {
+    font-size: 1.4rem;
+}
+h4 {
+    font-size: 1.2rem;
+}
+h5 {
+    font-size: 1.1rem;
+}
+h6 {
+    font-size: 1rem;
+}
+
+.lead {
+    font-size: 1.1rem;
+    font-weight: 400;
+}
+
+.small {
+    font-size: 0.8rem;
+}
+
+.btn {
+    font-size: 0.9rem;
+}
+
+.btn-lg {
+    font-size: 1rem;
+}
+
+.btn-sm {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.badge {
+    font-size: 0.7rem;
+}
+
+.display-4 {
+    font-size: 2.5rem;
+}
+
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+}
+
+/* Minimal Sidebar Styles */
+.sidebar-minimal {
+    width: 60px !important;
+    min-width: 60px !important;
+}
+
+.sidebar-minimal .nav-link {
+    padding: 15px 0;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 0 8px;
+}
+
+.sidebar-minimal .nav-link i {
+    font-size: 18px;
+    margin-right: 0;
+}
+
+.sidebar-minimal .nav-link:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 70px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    white-space: nowrap;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-minimal .nav-link:hover::before {
+    content: '';
+    position: absolute;
+    left: 65px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 6px solid rgba(0, 0, 0, 0.9);
+    z-index: 1001;
+}
+
+.sidebar-minimal .nav-link:hover {
+    transform: translateX(0);
+}
+
+/* Override Bootstrap container for dashboard pages */
+.dashboard-page .container {
+    max-width: 95% !important;
+    width: 95% !important;
+}
+
+@media (min-width: 1400px) {
+    .dashboard-page .container {
+        max-width: 1600px !important;
+    }
+}
+
+@media (min-width: 1600px) {
+    .dashboard-page .container {
+        max-width: 1800px !important;
+    }
+}
+
+@media (min-width: 1900px) {
+    .dashboard-page .container {
+        max-width: 2000px !important;
+    }
+}

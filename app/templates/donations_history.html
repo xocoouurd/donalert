@@ -1,0 +1,759 @@
+{% extends "base.html" %}
+
+{% block title %}Хандивын түүх{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donations-history.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="donations-history-container">
+    <!-- Header Section -->
+    <div class="page-header glass-card">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1><i class="fas fa-history"></i> Хандивын түүх</h1>
+                <p class="subtitle">Таны хүлээн авсан бүх хандивын жагсаалт</p>
+            </div>
+            <div class="col-md-6">
+                <div class="donation-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ stats.total_donations }}</div>
+                        <div class="stat-label">Нийт хандив</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ "{:,.0f}".format(stats.total_amount) }}₮</div>
+                        <div class="stat-label">Нийт дүн</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ "{:,.0f}".format(stats.average_amount) }}₮</div>
+                        <div class="stat-label">Дундаж</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donation Page Link -->
+    {% if donation_url %}
+    <div class="donation-link-card glass-card">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5><i class="fas fa-link"></i> Таны хандивын хуудас</h5>
+                <p class="mb-0">Энэ холбоосыг үзэгчидтэй хуваалцаж, хандив цуглуулаарай</p>
+            </div>
+            <div class="col-md-4">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="donationUrl" value="{{ donation_url }}" readonly>
+                    <button class="btn btn-primary" type="button" id="copyUrlBtn">
+                        <i class="fas fa-copy"></i> Хуулах
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Analytics Dashboard -->
+    <div class="analytics-dashboard glass-card mb-4">
+        <!-- Analytics Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4><i class="fas fa-chart-bar me-2"></i>Аналитик мэдээлэл</h4>
+            <div class="analytics-controls">
+                <select id="analyticsDateRange" class="form-select">
+                    <option value="7">Сүүлийн 7 өдөр</option>
+                    <option value="30" selected>Сүүлийн 30 өдөр</option>
+                    <option value="90">Сүүлийн 90 өдөр</option>
+                    <option value="365">Сүүлийн жил</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Summary Statistics Cards -->
+        <div class="row analytics-summary mb-4">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stats-content">
+                        <div class="stats-value" id="totalRevenue">0₮</div>
+                        <div class="stats-label">Нийт орлого</div>
+                        <div class="stats-change" id="revenueGrowth">
+                            <i class="fas fa-arrow-up"></i> 0%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-icon">
+                        <i class="fas fa-gift"></i>
+                    </div>
+                    <div class="stats-content">
+                        <div class="stats-value" id="totalDonations">0</div>
+                        <div class="stats-label">Нийт хандив</div>
+                        <div class="stats-change" id="donationGrowth">
+                            <i class="fas fa-arrow-up"></i> 0%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-icon">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <div class="stats-content">
+                        <div class="stats-value" id="averageDonation">0₮</div>
+                        <div class="stats-label">Дундаж дүн</div>
+                        <div class="stats-change" id="conversionRate">
+                            <i class="fas fa-percentage"></i> <span>0%</span> хөрвүүлэлт
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stats-content">
+                        <div class="stats-value" id="maxDonation">0₮</div>
+                        <div class="stats-label">Хамгийн их</div>
+                        <div class="stats-change">
+                            <i class="fas fa-crown"></i> Дээд дүн
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row">
+            <!-- Revenue Timeline Chart -->
+            <div class="col-lg-8 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-chart-line me-2"></i>Орлогын динамик</h6>
+                    <canvas id="revenueChart" height="300"></canvas>
+                </div>
+            </div>
+            
+            <!-- Platform Breakdown Chart -->
+            <div class="col-lg-4 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-chart-pie me-2"></i>Платформын хуваарь</h6>
+                    <canvas id="platformChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Hourly Pattern Chart -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-clock me-2"></i>Цагийн хуваарь</h6>
+                    <canvas id="hourlyChart" height="250"></canvas>
+                </div>
+            </div>
+
+            <!-- Weekly Pattern Chart -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-calendar-week me-2"></i>7 хоногийн хуваарь</h6>
+                    <canvas id="weeklyChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Top Donors -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-users me-2"></i>Шилдэг хандивчид</h6>
+                    <div class="top-donors-list" id="topDonorsList">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Donation Amount Distribution -->
+            <div class="col-lg-6 mb-4">
+                <div class="chart-container">
+                    <h6><i class="fas fa-chart-bar me-2"></i>Дүнгийн хуваарь</h6>
+                    <canvas id="amountDistributionChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="filters-section glass-card">
+        <form method="GET" id="filtersForm">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Хайх</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           placeholder="Нэр, мессэж, платформоор хайх..." value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="sort_by" class="form-label">Эрэмбэлэх</label>
+                    <select class="form-select" id="sort_by" name="sort_by">
+                        <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Огноо</option>
+                        <option value="donor_name" {% if sort_by == 'donor_name' %}selected{% endif %}>Нэр</option>
+                        <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Дүн</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="sort_order" class="form-label">Дараалал</label>
+                    <select class="form-select" id="sort_order" name="sort_order">
+                        <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Буурах</option>
+                        <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Өсөх</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="per_page" class="form-label">Хуудсанд</label>
+                    <select class="form-select" id="per_page" name="per_page">
+                        <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i> Шүүх
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Donations Table -->
+    <div class="table-section glass-card">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}sort_by=created_at&sort_order={{ 'asc' if sort_by == 'created_at' and sort_order == 'desc' else 'desc' }}" 
+                               class="sort-link">
+                                Огноо
+                                {% if sort_by == 'created_at' %}
+                                    <i class="fas fa-sort-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}sort_by=donor_name&sort_order={{ 'asc' if sort_by == 'donor_name' and sort_order == 'desc' else 'desc' }}" 
+                               class="sort-link">
+                                Нэр
+                                {% if sort_by == 'donor_name' %}
+                                    <i class="fas fa-sort-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>Мессэж</th>
+                        <th>
+                            <a href="?{% if query_string %}{{ query_string }}&{% endif %}sort_by=amount&sort_order={{ 'asc' if sort_by == 'amount' and sort_order == 'desc' else 'desc' }}" 
+                               class="sort-link">
+                                Дүн
+                                {% if sort_by == 'amount' %}
+                                    <i class="fas fa-sort-{{ 'down' if sort_order == 'desc' else 'up' }}"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th>Платформ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if donations.items %}
+                        {% for donation in donations.items %}
+                        <tr>
+                            <td>
+                                <div class="donation-date">
+                                    <div class="date-primary">{{ donation.created_at.strftime('%Y-%m-%d') }}</div>
+                                    <div class="date-secondary">{{ donation.created_at.strftime('%H:%M') }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="donor-info">
+                                    <i class="fas fa-user"></i>
+                                    <span class="donor-name">{{ donation.donor_name }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="donation-message">
+                                    {% if donation.message %}
+                                        <div class="message-content">{{ donation.message }}</div>
+                                    {% else %}
+                                        <span class="text-muted">Мессэж алга</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="donation-amount">
+                                    <span class="amount-value">{{ "{:,.0f}".format(donation.amount) }}₮</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="platform-info">
+                                    <span class="platform-badge platform-{{ donation.platform }}">
+                                        {% if donation.platform == 'twitch' %}
+                                            <i class="fab fa-twitch"></i>
+                                        {% elif donation.platform == 'youtube' %}
+                                            <i class="fab fa-youtube"></i>
+                                        {% elif donation.platform == 'kick' %}
+                                            <i class="fas fa-play"></i>
+                                        {% else %}
+                                            <i class="fas fa-globe"></i>
+                                        {% endif %}
+                                        {{ donation.platform.title() }}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5">
+                                <div class="no-donations">
+                                    <i class="fas fa-heart"></i>
+                                    <h4>Хандив олдсонгүй</h4>
+                                    <p class="text-muted">
+                                        {% if search %}
+                                            "{{ search }}" хайлтаар ямар ч хандив олдсонгүй.
+                                        {% else %}
+                                            Танд одоогоор хандив ирээгүй байна.
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if donations.pages > 1 %}
+        <div class="pagination-section">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if donations.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ donations.prev_num }}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in donations.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != donations.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_num }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if donations.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ donations.next_num }}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+            <div class="pagination-info">
+                Хуудас {{ donations.page }} / {{ donations.pages }} 
+                ({{ donations.total }}-с {{ donations.per_page * (donations.page - 1) + 1 }}-{{ donations.per_page * donations.page if donations.page < donations.pages else donations.total }})
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Copy donation URL to clipboard
+document.getElementById('copyUrlBtn').addEventListener('click', function() {
+    const urlInput = document.getElementById('donationUrl');
+    urlInput.select();
+    urlInput.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        document.execCommand('copy');
+        
+        // Show success feedback
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Хуулагдлаа';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-primary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 2000);
+    } catch (err) {
+        console.error('Copy failed:', err);
+    }
+});
+
+// Auto-submit form when filters change
+document.getElementById('per_page').addEventListener('change', function() {
+    document.getElementById('filtersForm').submit();
+});
+
+document.getElementById('sort_by').addEventListener('change', function() {
+    document.getElementById('filtersForm').submit();
+});
+
+document.getElementById('sort_order').addEventListener('change', function() {
+    document.getElementById('filtersForm').submit();
+});
+
+// Search with debounce
+let searchTimeout;
+document.getElementById('search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        document.getElementById('filtersForm').submit();
+    }, 500);
+});
+
+// Fix dropdown arrow issue by hiding background when dropdown is open
+document.querySelectorAll('.filters-section .form-select').forEach(select => {
+    select.addEventListener('mousedown', function() {
+        this.style.transition = 'none';
+        this.style.backgroundImage = 'none';
+    });
+    
+    select.addEventListener('blur', function() {
+        this.style.transition = '';
+        this.style.backgroundImage = '';
+    });
+    
+    select.addEventListener('change', function() {
+        this.style.transition = '';
+        this.style.backgroundImage = '';
+    });
+});
+
+// Analytics Dashboard JavaScript
+let analyticsCharts = {};
+
+// Load analytics data
+async function loadAnalytics(days = 30) {
+    try {
+        const [analyticsResponse, summaryResponse] = await Promise.all([
+            fetch(`/api/donations/analytics?days=${days}`),
+            fetch(`/api/donations/summary?days=${days}`)
+        ]);
+        
+        const analyticsData = await analyticsResponse.json();
+        const summaryData = await summaryResponse.json();
+        
+        if (analyticsData.success && summaryData.success) {
+            updateSummaryCards(summaryData.summary);
+            updateCharts(analyticsData.data);
+            updateTopDonors(analyticsData.data.top_donors);
+        }
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+    }
+}
+
+// Update summary cards
+function updateSummaryCards(summary) {
+    document.getElementById('totalRevenue').textContent = Math.round(summary.total_amount).toLocaleString() + '₮';
+    document.getElementById('totalDonations').textContent = summary.total_donations;
+    document.getElementById('averageDonation').textContent = Math.round(summary.average_amount).toLocaleString() + '₮';
+    document.getElementById('maxDonation').textContent = Math.round(summary.max_amount).toLocaleString() + '₮';
+    
+    // Update growth indicators
+    const revenueGrowth = document.getElementById('revenueGrowth');
+    const donationGrowth = document.getElementById('donationGrowth');
+    const conversionRate = document.getElementById('conversionRate');
+    
+    revenueGrowth.innerHTML = `<i class="fas fa-arrow-${summary.revenue_growth >= 0 ? 'up' : 'down'}"></i> ${Math.abs(summary.revenue_growth)}%`;
+    revenueGrowth.className = `stats-change ${summary.revenue_growth >= 0 ? 'positive' : 'negative'}`;
+    
+    donationGrowth.innerHTML = `<i class="fas fa-arrow-${summary.donation_growth >= 0 ? 'up' : 'down'}"></i> ${Math.abs(summary.donation_growth)}%`;
+    donationGrowth.className = `stats-change ${summary.donation_growth >= 0 ? 'positive' : 'negative'}`;
+    
+    conversionRate.innerHTML = `<i class="fas fa-percentage"></i> <span>${summary.conversion_rate}%</span> хөрвүүлэлт`;
+}
+
+// Update charts
+function updateCharts(data) {
+    // Revenue timeline chart
+    updateRevenueChart(data.revenue_timeline);
+    
+    // Platform breakdown chart
+    updatePlatformChart(data.platform_breakdown);
+    
+    // Hourly pattern chart
+    updateHourlyChart(data.hourly_pattern);
+    
+    // Weekly pattern chart
+    updateWeeklyChart(data.weekly_pattern);
+    
+    // Amount distribution chart
+    updateAmountDistributionChart(data.amount_distribution);
+}
+
+// Revenue timeline chart
+function updateRevenueChart(data) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    if (analyticsCharts.revenue) {
+        analyticsCharts.revenue.destroy();
+    }
+    
+    analyticsCharts.revenue = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => new Date(d.date).toLocaleDateString('mn-MN')),
+            datasets: [{
+                label: 'Орлого (₮)',
+                data: data.map(d => d.amount),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString() + '₮';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Platform breakdown chart
+function updatePlatformChart(data) {
+    const ctx = document.getElementById('platformChart').getContext('2d');
+    
+    if (analyticsCharts.platform) {
+        analyticsCharts.platform.destroy();
+    }
+    
+    const platformColors = {
+        'twitch': '#9146FF',
+        'youtube': '#FF0000',
+        'kick': '#53FC18',
+        'guest': '#6B7280'
+    };
+    
+    analyticsCharts.platform = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.map(d => d.platform === 'guest' ? 'Зочин' : d.platform.charAt(0).toUpperCase() + d.platform.slice(1)),
+            datasets: [{
+                data: data.map(d => d.amount),
+                backgroundColor: data.map(d => platformColors[d.platform] || '#6B7280')
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Hourly pattern chart
+function updateHourlyChart(data) {
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    
+    if (analyticsCharts.hourly) {
+        analyticsCharts.hourly.destroy();
+    }
+    
+    // Fill missing hours with 0
+    const hourlyData = Array(24).fill(0);
+    data.forEach(d => {
+        hourlyData[d.hour] = d.count;
+    });
+    
+    analyticsCharts.hourly = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Array(24).fill(0).map((_, i) => i + ':00'),
+            datasets: [{
+                label: 'Хандивын тоо',
+                data: hourlyData,
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: '#6366f1',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Weekly pattern chart  
+function updateWeeklyChart(data) {
+    const ctx = document.getElementById('weeklyChart').getContext('2d');
+    
+    if (analyticsCharts.weekly) {
+        analyticsCharts.weekly.destroy();
+    }
+    
+    const dayNames = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
+    const weeklyData = Array(7).fill(0);
+    data.forEach(d => {
+        weeklyData[d.day] = d.count;
+    });
+    
+    analyticsCharts.weekly = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dayNames,
+            datasets: [{
+                label: 'Хандивын тоо',
+                data: weeklyData,
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: '#6366f1',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Amount distribution chart
+function updateAmountDistributionChart(data) {
+    const ctx = document.getElementById('amountDistributionChart').getContext('2d');
+    
+    if (analyticsCharts.amountDist) {
+        analyticsCharts.amountDist.destroy();
+    }
+    
+    analyticsCharts.amountDist = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.range),
+            datasets: [{
+                label: 'Хандивын тоо',
+                data: data.map(d => d.count),
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: '#6366f1',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Update top donors list
+function updateTopDonors(topDonors) {
+    const container = document.getElementById('topDonorsList');
+    
+    if (topDonors.length === 0) {
+        container.innerHTML = '<p class="text-muted">Хандивчид байхгүй байна</p>';
+        return;
+    }
+    
+    container.innerHTML = topDonors.map((donor, index) => `
+        <div class="donor-item">
+            <div class="donor-rank">${index + 1}</div>
+            <div class="donor-info">
+                <div class="donor-name">${donor.name}</div>
+                <div class="donor-stats">${donor.count} хандив • ${Math.round(donor.amount).toLocaleString()}₮</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Date range change handler
+document.getElementById('analyticsDateRange').addEventListener('change', function() {
+    loadAnalytics(parseInt(this.value));
+});
+
+// Load initial analytics
+document.addEventListener('DOMContentLoaded', function() {
+    loadAnalytics(30);
+});
+</script>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Нүүр - DonAlert{% endblock %}
+
+{% block body_class %}{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container-fluid px-0">
+        <div class="row justify-content-center min-vh-75 align-items-center">
+            <div class="col-lg-8 text-center">
+                <div class="glass-card hero-card p-5">
+                    <div class="hero-icon mb-4">
+                        <i class="fas fa-rocket fa-4x text-primary"></i>
+                    </div>
+                    <h1 class="display-3 fw-bold mb-3">
+                        <span class="text-primary">Don</span><span class="text-warning">Alert</span>
+                    </h1>
+                    <p class="lead mb-4" style="font-size: 1.3rem;">
+                        🇲🇳 <strong>Монголын</strong> цогц хандивын платформ<br>
+                        <span class="text-muted">Стримерчдийн орлогыг нэмэгдүүлэх бүх шийдэл нэг дороос</span>
+                    </p>
+                    
+                    <!-- Key Stats -->
+                    <div class="row mb-5">
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <h3 class="text-success">⚡ Бодит цаг</h3>
+                                <p class="small text-muted">WebSocket технологи</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <h3 class="text-info">🎯 10+ онцлог</h3>
+                                <p class="small text-muted">Бүрэн цогц шийдэл</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-item">
+                                <h3 class="text-warning">🏆 Мэргэжлийн</h3>
+                                <p class="small text-muted">OBS бэлэн дизайн</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg px-5 py-3">
+                                <i class="fas fa-tachometer-alt me-2"></i>Хянах самбар
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5 py-3">
+                                <i class="fas fa-play me-2"></i>Үнэгүй эхлүүлэх
+                            </a>
+                        {% endif %}
+                        <a href="#features" class="btn btn-outline-light btn-lg px-5 py-3">
+                            <i class="fas fa-star me-2"></i>Онцлогууд
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="features-section py-5" id="features" style="background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">🚀 Стримерчдэд зориулсан бүх зүйл</h2>
+            <p class="lead text-muted">Таны стримийг дараагийн түвшинд хүргэх онцлогууд</p>
+        </div>
+
+        <!-- Main Features Grid -->
+        <div class="row g-4 mb-5">
+            <!-- Donation Alerts -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-bell fa-3x text-danger"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">🔔 Хандивын сэрэмжлүүлэг</h4>
+                    <p class="text-muted mb-3">Бодит цагийн алерт системээр хандивчидтайгаа холбогдоорой!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>✨ Олон янзын анимейшн эффект</li>
+                        <li>🎵 Дуу болон монгол TTS дуу холлолт</li>
+                        <li>🎨 Бүрэн өөрчлөгдөх дизайн</li>
+                        <li>💰 Доод дүнгийн тохиргоо</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Income Analytics -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-chart-line fa-3x text-success"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">📊 Орлогын аналитик</h4>
+                    <p class="text-muted mb-3">Таны орлогыг дэлгэрэнгүй хянах мэргэжлийн хяналтын самбар!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>💹 Бодит цагийн статистик</li>
+                        <li>📈 Визуал график болон чарт</li>
+                        <li>🏆 Шилдэг хандивчидын жагсаалт</li>
+                        <li>📤 Экспорт хийх боломж</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Marathon System -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-clock fa-3x text-warning"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">⏱️ Марафон систем</h4>
+                    <p class="text-muted mb-3">Хандив ирэх тусам стримийн цаг нэмэгдэх шинэлэг систем!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>⏰ Минут тутамын үнэ тогтоох</li>
+                        <li>🔄 Автомат цаг нэмэгдэх</li>
+                        <li>🎮 Гар удирдлагын хэрэгсэл</li>
+                        <li>✨ Гоёмсог анимейшн эффект</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Goal Tracker -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-bullseye fa-3x text-info"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">🎯 Зорилгын хяналт</h4>
+                    <p class="text-muted mb-3">Таны зорилгыг үзэгчидтэй хуваалцаж, хамтдаа биелүүлээрэй!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>📊 Бодит цагийн прогресс</li>
+                        <li>🎨 Өөрчлөгдөх прогресс бар</li>
+                        <li>🔄 Автомат шинэчлэгдэх</li>
+                        <li>📱 OBS-д бэлэн overlay</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Public Donation -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-share-alt fa-3x text-primary"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">🌐 Нийтийн хандивын хуудас</h4>
+                    <p class="text-muted mb-3">Үзэгчид танд амархан хандив өгөх тусгай хуудас!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>📱 Мобайл дээр ажилладаг</li>
+                        <li>🏦 QPay болон банкны апп</li>
+                        <li>👤 Бүртгэлгүй хандив өгөх</li>
+                        <li>🔗 Хуваалцах боломжтой линк</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Platform Integration -->
+            <div class="col-lg-4 col-md-6">
+                <div class="glass-card feature-card h-100 p-4 text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-link fa-3x text-purple"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">🔗 Платформын холболт</h4>
+                    <p class="text-muted mb-3">Twitch, YouTube, Kick платформуудтайгаа холбогдоорой!</p>
+                    <ul class="list-unstyled text-start">
+                        <li>📺 Twitch, YouTube, Kick</li>
+                        <li>👤 Автомат профайл мэдээлэл</li>
+                        <li>🔐 Аюулгүй OAuth холболт</li>
+                        <li>🌟 Олон платформын дэмжлэг</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment & Technical Features -->
+        <div class="row g-4 mb-5">
+            <div class="col-lg-6">
+                <div class="glass-card feature-card h-100 p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-credit-card fa-2x text-success me-3"></i>
+                        <h4 class="fw-bold mb-0">💳 Монголын төлбөрийн систем</h4>
+                    </div>
+                    <p class="text-muted mb-3">QPay интеграци болон бүх томоохон банкуудтай холболт</p>
+                    <div class="row">
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>🏦 Бүх банкны дэмжлэг</li>
+                                <li>📱 QR код төлбөр</li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>💰 Шууд данс руу орох</li>
+                                <li>🔒 Аюулгүй баталгаажуулалт</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="glass-card feature-card h-100 p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="fas fa-volume-up fa-2x text-info me-3"></i>
+                        <h4 class="fw-bold mb-0">🗣️ Монгол дуу холлолт</h4>
+                    </div>
+                    <p class="text-muted mb-3">Chimege API ашиглан монгол хэлний дуу холлолтын технологи</p>
+                    <div class="row">
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>👨 Эрэгтэй дуу холлолт</li>
+                                <li>👩 Эмэгтэй дуу холлолт</li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li>⚡ Хурд тохируулах</li>
+                                <li>🎵 Аялгуу өөрчлөх</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="text-center">
+            <div class="glass-card p-5">
+                <h3 class="fw-bold mb-3">🚀 Өнөөдөр л эхлээрэй!</h3>
+                <p class="lead text-muted mb-4">Монголын хамгийн шилдэг стримерчид DonAlert ашигладаг</p>
+                <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+                    {% if not current_user.is_authenticated %}
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-success btn-lg px-5 py-3">
+                            <i class="fas fa-rocket me-2"></i>Үнэгүй туршиж үзэх
+                        </a>
+                    {% endif %}
+                    <a href="https://discord.gg/s7vXqkFdYM" target="_blank" class="btn btn-outline-primary btn-lg px-5 py-3">
+                        <i class="fab fa-discord me-2"></i>Discord нийгэмлэг
+                    </a>
+                </div>
+                <p class="small text-muted mt-3">
+                    💡 <strong>Үнэгүй туршилт:</strong> Бүх онцлогийг туршиж үзээрэй • 
+                    🔒 <strong>Аюулгүй:</strong> Таны мэдээлэл хамгаалагдсан • 
+                    ⚡ <strong>Хурдан:</strong> 2 минутад бэлэн болно
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.feature-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.feature-icon {
+    opacity: 0.9;
+}
+
+.stat-item h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.text-purple {
+    color: #9b59b6 !important;
+}
+
+.hero-card {
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.features-section {
+    min-height: auto;
+}
+
+@media (max-width: 768px) {
+    .display-3 {
+        font-size: 2.5rem;
+    }
+    
+    .feature-card {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,403 @@
+/* Donation Goal Settings Page Styles */
+
+.goal-preview {
+    background: transparent;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    min-height: 120px;
+}
+
+.goal-title {
+    margin-bottom: 15px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.progress-container {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #374151;
+    height: 30px;
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 8px;
+    background-color: #6366f1;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.goal-amount {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+/* Manual adjustment buttons */
+.input-group .btn {
+    border-color: #6366f1;
+    color: #6366f1;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-group .btn:hover {
+    background-color: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
+
+/* Specific styles for add/remove buttons */
+.input-group .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+    height: 40px;
+}
+
+.input-group .btn-outline-success {
+    border-color: #198754;
+    color: #198754;
+    height: 40px;
+}
+
+.input-group .btn-outline-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.input-group .btn-outline-success:hover {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+/* Override button styling */
+.input-group .btn-outline-warning {
+    border-color: #ffc107;
+    color: #ffc107;
+    height: 40px;
+    background-color: white;
+    border-width: 1px;
+}
+
+.input-group .btn-outline-warning:hover {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+    border-width: 1px;
+}
+
+/* Form styling consistency */
+.glass-card h5 {
+    color: #374151;
+    font-weight: 600;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #374151;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+/* Fix dropdown text cropping and arrow visibility */
+.form-select {
+    line-height: 1.5;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    height: auto;
+    min-height: 38px;
+    /* Ensure dropdown arrow stays visible when open */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+}
+
+.form-select:focus {
+    /* Keep arrow visible when focused/open */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+}
+
+.form-select option {
+    padding: 0.375rem 0.75rem;
+    line-height: 1.5;
+}
+
+/* Preview container - same background as donation alert preview */
+.preview-container {
+    background: linear-gradient(45deg, #2d3748 0%, #1a202c 100%);
+    border-radius: 12px;
+    padding: 20px;
+    min-height: 200px;
+}
+
+/* Goal preview exclusions - same approach as donation alert */
+.dashboard-page .glass-card:not(.donation-alert):not(.alert-preview-container):not(.goal-preview-container), 
+.dashboard-page .form-label, 
+.dashboard-page .form-text, 
+.dashboard-page p:not(.donation-alert p):not(.goal-preview p), 
+.dashboard-page span:not(.input-group-text):not(.donation-alert span):not(#userAssetCount):not(#defaultAssetCount):not(.goal-preview span), 
+.dashboard-page div:not(.alert):not(.badge):not(.donation-alert):not(.donation-alert div):not(.goal-preview):not(.goal-preview div), 
+.dashboard-page small:not(.donation-alert small):not(.goal-preview small) {
+    /* Dashboard styles applied but goal preview is excluded */
+}
+
+/* Remove the color overrides - inline styles should take precedence */
+
+/* Color picker styling - small like donation alert page */
+.form-control-color,
+input[type="color"] {
+    width: 50px !important;
+    height: 40px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    padding: 4px !important;
+    cursor: pointer;
+}
+
+.form-control-color:focus,
+input[type="color"]:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Switch styling */
+.form-check-input:checked {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.form-check-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+/* Progress bar settings proper vertical margins */
+.glass-card .row {
+    margin-bottom: 1rem;
+}
+
+.glass-card .row:last-child {
+    margin-bottom: 0;
+}
+
+/* Button styling */
+.btn-primary {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.btn-primary:hover {
+    background-color: #5856eb;
+    border-color: #5856eb;
+}
+
+.btn-outline-primary {
+    color: #6366f1;
+    border-color: #6366f1;
+}
+
+.btn-outline-primary:hover {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+/* Sticky preview */
+.sticky-top {
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+    .sticky-top {
+        position: relative;
+        top: 0;
+    }
+}
+
+/* Progress bar text formatting */
+.progress-text span,
+.goal-amount span {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Form text styling */
+.form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Input group text styling */
+.input-group-text {
+    background-color: #e9ecef;
+    border: 1px solid #ced4da;
+    color: #495057;
+}
+
+.input-group .form-control:focus ~ .input-group-text,
+.input-group .form-control:focus + .input-group-text {
+    border-color: #6366f1;
+}
+
+/* Animation for smooth transitions */
+.goal-preview * {
+    transition: all 0.3s ease;
+}
+
+/* Progress bar animations - copied from goal-overlay.css */
+.progress-animation-none {
+    /* No animation */
+}
+
+.progress-animation-slide {
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-animation-slide::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.3) 50%, 
+        transparent 100%);
+    animation: progress-slide 2s linear infinite;
+}
+
+.progress-animation-glow {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+    animation: progress-glow-anim 2s ease-in-out infinite alternate;
+    position: relative;
+}
+
+.progress-animation-glow::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.3) 50%, 
+        transparent 100%);
+    border-radius: inherit;
+    animation: progress-glow-sweep 2s ease-in-out infinite alternate;
+}
+
+.progress-animation-pulse {
+    animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.progress-animation-shimmer {
+    background: linear-gradient(90deg, 
+        var(--progress-color, #6366f1) 0%, 
+        var(--progress-color, #6366f1) 40%, 
+        rgba(255, 255, 255, 0.3) 50%, 
+        var(--progress-color, #6366f1) 60%, 
+        var(--progress-color, #6366f1) 100%);
+    background-size: 200% 100%;
+    animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+.progress-animation-wave {
+    background: linear-gradient(45deg, 
+        var(--progress-color, #6366f1) 25%, 
+        rgba(255, 255, 255, 0.2) 25%, 
+        rgba(255, 255, 255, 0.2) 50%, 
+        var(--progress-color, #6366f1) 50%, 
+        var(--progress-color, #6366f1) 75%, 
+        rgba(255, 255, 255, 0.2) 75%);
+    background-size: 20px 20px;
+    animation: progress-wave 3s linear infinite;
+}
+
+/* Keyframes for animations */
+@keyframes progress-slide {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes progress-glow-anim {
+    0% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.6); }
+    100% { box-shadow: 0 0 25px rgba(99, 102, 241, 1), 0 0 40px rgba(99, 102, 241, 0.6); }
+}
+
+@keyframes progress-glow-sweep {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.8; }
+}
+
+@keyframes progress-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+@keyframes progress-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes progress-wave {
+    0% { background-position: 0 0; }
+    100% { background-position: 40px 0; }
+}
+
+/* Notification positioning */
+.alert.position-fixed {
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+    .goal-preview {
+        background: rgba(30, 30, 30, 0.9);
+    }
+}

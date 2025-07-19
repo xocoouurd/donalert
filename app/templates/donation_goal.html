@@ -1,0 +1,616 @@
+{% extends "base.html" %}
+{% block title %}Хандивын зорилго - DonAlert{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donation-goal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">Хандивын зорилго тохиргоо</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetGoal()">
+                        <i class="fas fa-redo me-1"></i>Нийт болон цугласан дүнг тэглэх
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyGoalUrl(event)">
+                        <i class="fas fa-copy me-1"></i>Goal URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Settings Panel -->
+                <div class="col-xl-7 col-lg-7">
+                    <form id="goalSettingsForm">
+                        <!-- General Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Ерөнхий тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="isActive" name="is_active" 
+                                               {% if goal.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="isActive">
+                                            Зорилгыг идэвхжүүлэх
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="goalAmount" class="form-label">Зорилгын дүн</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="goalAmount" name="goal_amount" 
+                                               value="{{ goal.goal_amount|int }}" min="0" step="1000">
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="manualAdjustment" class="form-label">Гараар тохируулах</label>
+                                    <div class="input-group">
+                                        <button class="btn btn-outline-danger" type="button" onclick="adjustGoalDirect(-1000)" id="removeBtn">
+                                            <i class="fas fa-minus me-1"></i>Хасах
+                                        </button>
+                                        <input type="number" class="form-control text-center" id="manualAdjustment" 
+                                               placeholder="0" step="1000">
+                                        <button class="btn btn-outline-success" type="button" onclick="adjustGoalFromInput()" id="addBtn">
+                                            <i class="fas fa-plus me-1"></i>Нэмэх
+                                        </button>
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                    <div class="form-text mt-2">
+                                        <strong class="text-primary fs-6">
+                                            Одоогийн цугласан дүн: <span id="currentTotal">{{ "{:,}".format(goal.get_total_amount()|int) }}</span>₮
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label for="overrideAmount" class="form-label">Цугласан дүнг дарж бичих</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="overrideAmount" 
+                                               placeholder="Шинэ дүн оруулах" min="0" step="1000">
+                                        <button class="btn btn-outline-warning" type="button" onclick="overrideGoalAmount()" id="overrideBtn">
+                                            <i class="fas fa-edit me-1"></i>Өөрчлөх
+                                        </button>
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                    <div class="form-text">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Энэ нь одоогийн цугласан дүнг бүрэн солино
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Title Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-heading me-2"></i>Гарчгийн тохиргоо</h5>
+                            
+                            <div class="mb-3">
+                                <label for="title" class="form-label">Зорилгын гарчиг</label>
+                                <input type="text" class="form-control" id="title" name="title" 
+                                       value="{{ goal.title }}" placeholder="Зорилго">
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="titleFontSize" class="form-label">Үсгийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="titleFontSize" name="title_font_size" 
+                                               value="{{ goal.title_font_size }}" min="12" max="72">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="titleFontWeight" class="form-label">Үсгийн бэлдэц</label>
+                                    <select class="form-select" id="titleFontWeight" name="title_font_weight">
+                                        <option value="300" {% if goal.title_font_weight == 300 %}selected{% endif %}>Нимгэн</option>
+                                        <option value="400" {% if goal.title_font_weight == 400 %}selected{% endif %}>Энгийн</option>
+                                        <option value="500" {% if goal.title_font_weight == 500 %}selected{% endif %}>Дунд</option>
+                                        <option value="600" {% if goal.title_font_weight == 600 %}selected{% endif %}>Жирэн</option>
+                                        <option value="700" {% if goal.title_font_weight == 700 %}selected{% endif %}>Маш жирэн</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="titleColor" class="form-label">Үсгийн өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="titleColor" 
+                                           name="title_color" value="{{ goal.title_color }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-chart-line me-2"></i>Прогресс барны тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="progressHeight" class="form-label">Өндөр</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="progressHeight" name="progress_height" 
+                                               value="{{ goal.progress_height }}" min="20" max="100">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="progressTextSize" class="form-label">Текстийн хэмжээ</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="progressTextSize" name="progress_text_size" 
+                                               value="{{ goal.progress_text_size }}" min="10" max="24">
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="progressFontWeight" class="form-label">Текстийн бэлдэц</label>
+                                    <select class="form-select" id="progressFontWeight" name="progress_font_weight">
+                                        <option value="300" {% if goal.progress_font_weight == 300 %}selected{% endif %}>Нимгэн</option>
+                                        <option value="400" {% if goal.progress_font_weight == 400 %}selected{% endif %}>Энгийн</option>
+                                        <option value="500" {% if goal.progress_font_weight == 500 %}selected{% endif %}>Дунд</option>
+                                        <option value="600" {% if goal.progress_font_weight == 600 %}selected{% endif %}>Жирэн</option>
+                                        <option value="700" {% if goal.progress_font_weight == 700 %}selected{% endif %}>Маш жирэн</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="progressFontColor" class="form-label">Текстийн өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="progressFontColor" 
+                                           name="progress_font_color" value="{{ goal.progress_font_color }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="progressColor" class="form-label">Прогрессын өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="progressColor" 
+                                           name="progress_color" value="{{ goal.progress_color }}">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="progressBackgroundColor" class="form-label">Дэвсгэрийн өнгө</label>
+                                    <input type="color" class="form-control form-control-color" id="progressBackgroundColor" 
+                                           name="progress_background_color" value="{{ goal.progress_background_color }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="progressAnimation" class="form-label">Хөдөлгөөнт эффект</label>
+                                    <select class="form-select" id="progressAnimation" name="progress_animation">
+                                        <option value="none" {% if goal.progress_animation == 'none' %}selected{% endif %}>Хэрэггүй</option>
+                                        <option value="slide" {% if goal.progress_animation == 'slide' %}selected{% endif %}>Гулсах</option>
+                                        <option value="glow" {% if goal.progress_animation == 'glow' %}selected{% endif %}>Гэрэлтэх</option>
+                                        <option value="pulse" {% if goal.progress_animation == 'pulse' %}selected{% endif %}>Цохилох</option>
+                                        <option value="shimmer" {% if goal.progress_animation == 'shimmer' %}selected{% endif %}>Гялалзах</option>
+                                        <option value="wave" {% if goal.progress_animation == 'wave' %}selected{% endif %}>Долгионы</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Save Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Хадгалах
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Preview Panel -->
+                <div class="col-xl-5 col-lg-5">
+                    <div class="glass-card goal-preview-container p-3 sticky-top">
+                        <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Урьдчилан харах</h5>
+                        
+                        <div class="preview-container">
+                            <div id="goalPreview" class="goal-preview">
+                                <div class="progress-container" style="
+                                    height: {{ goal.progress_height }}px;
+                                    background-color: {{ goal.progress_background_color }};
+                                    border-radius: 8px;
+                                    position: relative;
+                                    overflow: hidden;
+                                ">
+                                    <div class="progress-bar progress-animation-{{ goal.progress_animation }}" id="previewProgressBar" style="
+                                        width: {{ goal.get_progress_percentage() }}%;
+                                        height: 100%;
+                                        background-color: {{ goal.progress_color }};
+                                        border-radius: 8px;
+                                        transition: width 0.3s ease;
+                                    "></div>
+                                    
+                                    <div class="goal-title" id="previewTitle" style="
+                                        position: absolute;
+                                        top: 50%;
+                                        left: 15px;
+                                        transform: translateY(-50%);
+                                        font-size: {{ goal.title_font_size }}px;
+                                        font-weight: {{ goal.title_font_weight }};
+                                        color: {{ goal.title_color }};
+                                        z-index: 3;
+                                    ">{{ goal.title }}</div>
+                                    
+                                    <div class="progress-text" style="
+                                        position: absolute;
+                                        top: 50%;
+                                        left: 50%;
+                                        transform: translate(-50%, -50%);
+                                        font-size: {{ goal.progress_text_size }}px;
+                                        font-weight: {{ goal.progress_font_weight }};
+                                        color: {{ goal.progress_font_color }};
+                                        z-index: 2;
+                                    ">
+                                        <span id="previewCurrentAmount">{{ "{:,}".format(goal.get_total_amount()|int) }}</span>₮ 
+                                        (<span id="previewPercentage">{{ goal.get_progress_percentage()|int }}</span>%)
+                                    </div>
+                                    
+                                    <div class="goal-amount" style="
+                                        position: absolute;
+                                        top: 50%;
+                                        right: 15px;
+                                        transform: translateY(-50%);
+                                        font-size: {{ goal.progress_text_size }}px;
+                                        font-weight: {{ goal.progress_font_weight }};
+                                        color: {{ goal.progress_font_color }};
+                                        z-index: 2;
+                                    ">
+                                        <span id="previewGoalAmount">{{ "{:,}".format(goal.goal_amount|int) }}</span>₮
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Өөрчлөлт шууд харагдана
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const goalData = {{ goal.to_dict() | tojson }};
+    const overlayToken = '{{ overlay_token }}';
+    
+    // Form submission
+    document.getElementById('goalSettingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        // Add manual adjustment if any
+        const manualAdjustment = document.getElementById('manualAdjustment').value;
+        if (manualAdjustment && manualAdjustment !== '0') {
+            formData.append('manual_adjustment', manualAdjustment);
+        }
+        
+        fetch('/donation-goal/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear manual adjustment input
+                document.getElementById('manualAdjustment').value = '';
+                
+                // Update preview
+                updatePreview();
+                
+                // Show success message on button
+                const btn = this.querySelector('button[type="submit"]');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа!';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-primary');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-primary');
+                }, 2000);
+            } else {
+                showNotification('Алдаа гарлаа: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Алдаа гарлаа', 'error');
+        });
+    });
+    
+    // Manual adjustment functions
+    function adjustGoal(amount) {
+        const input = document.getElementById('manualAdjustment');
+        const currentValue = parseInt(input.value) || 0;
+        input.value = currentValue + amount;
+    }
+    
+    // Direct goal adjustment functions
+    function adjustGoalDirect(amount) {
+        const btn = amount > 0 ? document.getElementById('addBtn') : document.getElementById('removeBtn');
+        const originalContent = btn.innerHTML;
+        
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Ачаалж байна...';
+        
+        const formData = new FormData();
+        formData.append('manual_adjustment', amount);
+        
+        fetch('/donation-goal/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed current total
+                document.getElementById('currentTotal').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update preview
+                document.getElementById('previewCurrentAmount').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update progress percentage
+                const goalAmount = parseFloat(document.getElementById('goalAmount').value) || 0;
+                const newPercentage = goalAmount > 0 ? Math.min((data.new_total / goalAmount) * 100, 100) : 0;
+                document.getElementById('previewPercentage').textContent = Math.round(newPercentage);
+                document.getElementById('previewProgressBar').style.width = newPercentage + '%';
+                
+                showNotification('Амжилттай шинэчлэгдлээ', 'success');
+            } else {
+                showNotification('Алдаа гарлаа: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Алдаа гарлаа', 'error');
+        })
+        .finally(() => {
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+    }
+    
+    // Add from input function
+    function adjustGoalFromInput() {
+        const input = document.getElementById('manualAdjustment');
+        const amount = parseFloat(input.value);
+        
+        if (!amount || amount === 0) {
+            showNotification('Дүн оруулна уу', 'error');
+            return;
+        }
+        
+        const btn = document.getElementById('addBtn');
+        const originalContent = btn.innerHTML;
+        
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Ачаалж байна...';
+        
+        const formData = new FormData();
+        formData.append('manual_adjustment', amount);
+        
+        fetch('/donation-goal/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed current total
+                document.getElementById('currentTotal').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update preview
+                document.getElementById('previewCurrentAmount').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update progress percentage
+                const goalAmount = parseFloat(document.getElementById('goalAmount').value) || 0;
+                const newPercentage = goalAmount > 0 ? Math.min((data.new_total / goalAmount) * 100, 100) : 0;
+                document.getElementById('previewPercentage').textContent = Math.round(newPercentage);
+                document.getElementById('previewProgressBar').style.width = newPercentage + '%';
+                
+                // Clear input
+                input.value = '';
+                
+                showNotification('Амжилттай нэмэгдлээ', 'success');
+            } else {
+                showNotification('Алдаа гарлаа: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Алдаа гарлаа', 'error');
+        })
+        .finally(() => {
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+    }
+    
+    // Override goal amount function
+    function overrideGoalAmount() {
+        const input = document.getElementById('overrideAmount');
+        const amount = parseFloat(input.value);
+        
+        if (isNaN(amount) || amount < 0) {
+            showNotification('Зөв дүн оруулна уу', 'error');
+            return;
+        }
+        
+        // Confirm override action
+        if (!confirm(`Та цугласан дүнг ${amount.toLocaleString()}₮ болгохдоо итгэлтэй байна уу?`)) {
+            return;
+        }
+        
+        const btn = document.getElementById('overrideBtn');
+        const originalContent = btn.innerHTML;
+        
+        // Show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Ачаалж байна...';
+        
+        const formData = new FormData();
+        formData.append('override_amount', amount);
+        
+        fetch('/donation-goal/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed current total
+                document.getElementById('currentTotal').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update preview
+                document.getElementById('previewCurrentAmount').textContent = Math.round(data.new_total).toLocaleString();
+                
+                // Update progress percentage
+                const goalAmount = parseFloat(document.getElementById('goalAmount').value) || 0;
+                const newPercentage = goalAmount > 0 ? Math.min((data.new_total / goalAmount) * 100, 100) : 0;
+                document.getElementById('previewPercentage').textContent = Math.round(newPercentage);
+                document.getElementById('previewProgressBar').style.width = newPercentage + '%';
+                
+                // Clear input
+                input.value = '';
+                
+                showNotification('Цугласан дүн амжилттай солигдлоо', 'success');
+            } else {
+                showNotification('Алдаа гарлаа: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Алдаа гарлаа', 'error');
+        })
+        .finally(() => {
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+    }
+    
+    // Reset goal
+    function resetGoal() {
+        if (confirm('Та уг зорилгыг шинэчлэхдээ итгэлтэй байна уу? Энэ үйлдэл нь бүх прогрессыг 0 болгоно.')) {
+            fetch('/donation-goal/reset', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    showNotification('Алдаа гарлаа: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Алдаа гарлаа', 'error');
+            });
+        }
+    }
+    
+    // Copy goal URL
+    function copyGoalUrl(event) {
+        const goalUrl = `${window.location.origin}/goal-overlay/${overlayToken}`;
+        navigator.clipboard.writeText(goalUrl).then(() => {
+            showNotification('Goal URL хуулагдлаа', 'success');
+        }).catch(err => {
+            console.error('Could not copy text: ', err);
+            showNotification('Хуулахад алдаа гарлаа', 'error');
+        });
+    }
+    
+    // Update preview
+    function updatePreview() {
+        const formData = new FormData(document.getElementById('goalSettingsForm'));
+        
+        // Update title
+        const title = formData.get('title') || 'Зорилго';
+        const titleFontSize = formData.get('title_font_size') || 24;
+        const titleFontWeight = formData.get('title_font_weight') || 600;
+        const titleColor = formData.get('title_color') || '#ffffff';
+        
+        document.getElementById('previewTitle').textContent = title;
+        document.getElementById('previewTitle').style.fontSize = titleFontSize + 'px';
+        document.getElementById('previewTitle').style.fontWeight = titleFontWeight;
+        document.getElementById('previewTitle').style.color = titleColor;
+        
+        // Update progress bar
+        const progressHeight = formData.get('progress_height') || 30;
+        const progressTextSize = formData.get('progress_text_size') || 14;
+        const progressFontWeight = formData.get('progress_font_weight') || 500;
+        const progressFontColor = formData.get('progress_font_color') || '#ffffff';
+        const progressColor = formData.get('progress_color') || '#6366f1';
+        const progressBackgroundColor = formData.get('progress_background_color') || '#374151';
+        
+        const progressContainer = document.querySelector('.progress-container');
+        const progressBar = document.getElementById('previewProgressBar');
+        const progressTexts = document.querySelectorAll('.progress-text, .goal-amount');
+        
+        progressContainer.style.height = progressHeight + 'px';
+        progressContainer.style.backgroundColor = progressBackgroundColor;
+        progressBar.style.backgroundColor = progressColor;
+        
+        // Update animation class
+        const progressAnimation = formData.get('progress_animation') || 'none';
+        progressBar.className = 'progress-bar progress-animation-' + progressAnimation;
+        
+        // Set CSS custom properties for animations that use them
+        progressBar.style.setProperty('--progress-color', progressColor);
+        progressContainer.style.setProperty('--progress-bg-color', progressBackgroundColor);
+        
+        progressTexts.forEach(text => {
+            text.style.fontSize = progressTextSize + 'px';
+            text.style.fontWeight = progressFontWeight;
+            text.style.color = progressFontColor;
+        });
+        
+        // Update goal amount display
+        const goalAmount = formData.get('goal_amount') || 0;
+        document.getElementById('previewGoalAmount').textContent = parseInt(goalAmount).toLocaleString();
+    }
+    
+    // Real-time preview updates
+    document.getElementById('goalSettingsForm').addEventListener('input', function(e) {
+        updatePreview();
+    });
+    
+    // Notification function
+    function showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+</script>
+{% endblock %}

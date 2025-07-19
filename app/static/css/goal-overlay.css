@@ -1,0 +1,297 @@
+/* Goal Overlay CSS */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: transparent;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+}
+
+.goal-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: auto;
+    height: auto;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.goal-content {
+    width: 800px;
+    padding: 20px;
+    position: relative;
+}
+
+.goal-title {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    transform: translateY(-50%);
+    z-index: 3;
+    /* Font properties will be set via inline styles from template */
+}
+
+.progress-container {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #374151;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    /* Height will be set via inline styles from template */
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 8px;
+    background-color: #6366f1;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+/* Progress bar animations */
+.progress-animation-none {
+    /* No animation */
+}
+
+.progress-animation-slide {
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-animation-slide::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        transparent 100%);
+    animation: progress-slide 2s linear infinite;
+}
+
+.progress-animation-glow {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+    animation: progress-glow-anim 2s ease-in-out infinite alternate;
+    position: relative;
+}
+
+.progress-animation-glow::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        transparent 100%);
+    border-radius: inherit;
+    animation: progress-glow-sweep 2s ease-in-out infinite alternate;
+}
+
+.progress-animation-pulse {
+    animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.progress-animation-shimmer {
+    background: linear-gradient(90deg, 
+        var(--progress-color, #6366f1) 0%, 
+        var(--progress-color, #6366f1) 40%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        var(--progress-color, #6366f1) 60%, 
+        var(--progress-color, #6366f1) 100%);
+    background-size: 200% 100%;
+    animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+.progress-animation-wave {
+    background: linear-gradient(45deg, 
+        var(--progress-color, #6366f1) 25%, 
+        rgba(255, 255, 255, 0.4) 25%, 
+        rgba(255, 255, 255, 0.4) 50%, 
+        var(--progress-color, #6366f1) 50%, 
+        var(--progress-color, #6366f1) 75%, 
+        rgba(255, 255, 255, 0.4) 75%);
+    background-size: 20px 20px;
+    animation: progress-wave 3s linear infinite;
+}
+
+@keyframes progress-slide {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes progress-glow-anim {
+    0% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.6); }
+    100% { box-shadow: 0 0 25px rgba(99, 102, 241, 1), 0 0 40px rgba(99, 102, 241, 0.6); }
+}
+
+@keyframes progress-glow-sweep {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.8; }
+}
+
+@keyframes progress-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+@keyframes progress-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes progress-wave {
+    0% { background-position: 0 0; }
+    100% { background-position: 40px 0; }
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    font-variant-numeric: tabular-nums;
+    /* Font properties will be set via inline styles from template */
+}
+
+.goal-amount {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    z-index: 2;
+    font-variant-numeric: tabular-nums;
+    /* Font properties will be set via inline styles from template */
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .goal-content {
+        padding: 15px;
+    }
+    
+    .goal-title {
+        font-size: 20px;
+    }
+    
+    .progress-container {
+        height: 25px;
+    }
+    
+    .progress-text,
+    .goal-amount {
+        font-size: 12px;
+    }
+    
+    .progress-text {
+        left: 10px;
+    }
+    
+    .goal-amount {
+        right: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .goal-content {
+        padding: 10px;
+    }
+    
+    .goal-title {
+        font-size: 18px;
+        margin-bottom: 8px;
+    }
+    
+    .progress-container {
+        height: 20px;
+        border-radius: 8px;
+    }
+    
+    .progress-bar {
+        border-radius: 6px;
+    }
+    
+    .progress-text,
+    .goal-amount {
+        font-size: 11px;
+    }
+    
+    .progress-text {
+        left: 8px;
+    }
+    
+    .goal-amount {
+        right: 8px;
+    }
+}
+
+/* Extra wide screen support */
+@media (min-width: 1200px) {
+    .goal-content {
+        max-width: 1000px;
+    }
+}
+
+/* Hide scrollbars */
+::-webkit-scrollbar {
+    display: none;
+}
+
+/* Smooth transitions */
+* {
+    transition: all 0.3s ease;
+}
+
+/* Default progress bar styling - no default animation */
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+}
+
+/* Dynamic CSS custom properties for runtime color changes */
+.progress-bar {
+    background-color: var(--progress-color, #6366f1);
+}
+
+.progress-container {
+    background-color: var(--progress-bg-color, #374151);
+}
+
+.goal-title {
+    color: var(--title-color, #ffffff);
+    font-size: var(--title-font-size, 24px);
+    font-weight: var(--title-font-weight, 600);
+}
+
+.progress-text,
+.goal-amount {
+    color: var(--progress-font-color, #ffffff);
+    font-size: var(--progress-text-size, 14px);
+    font-weight: var(--progress-font-weight, 500);
+}
+
+.progress-container {
+    height: var(--progress-height, 30px);
+}
