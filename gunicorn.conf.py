@@ -5,7 +5,8 @@ import multiprocessing
 import os
 
 # Server socket
-bind = "unix:/srv/www/donalert.invictamotus.com/gunicorn.sock"
+project_path = os.getenv('PROJECT_PATH', '/srv/www/donalert.invictamotus.com')
+bind = f"unix:{project_path}/gunicorn.sock"
 backlog = 2048
 
 # Worker processes
@@ -23,8 +24,8 @@ max_requests = 1000
 max_requests_jitter = 50
 
 # Logging
-accesslog = "/srv/www/donalert.invictamotus.com/logs/gunicorn_access.log"
-errorlog = "/srv/www/donalert.invictamotus.com/logs/gunicorn_error.log"
+accesslog = f"{project_path}/logs/gunicorn_access.log"
+errorlog = f"{project_path}/logs/gunicorn_error.log"
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
@@ -33,7 +34,7 @@ proc_name = "donalert"
 
 # Server mechanics
 daemon = False
-pidfile = "/srv/www/donalert.invictamotus.com/gunicorn.pid"
+pidfile = f"{project_path}/gunicorn.pid"
 user = None
 group = None
 tmp_upload_dir = None
