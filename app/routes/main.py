@@ -9,6 +9,7 @@ import csv
 import os
 import json
 import uuid
+import time
 from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
@@ -1860,6 +1861,140 @@ def set_marathon_initial_time():
         
     except Exception as e:
         current_app.logger.error(f"Error setting marathon initial time: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Admin Testing Route for Real Donation Simulation
+@main_bp.route('/admin/simulate-donations', methods=['POST'])
+@login_required
+def simulate_real_donations():
+    """Create real donation payments and mark them as paid to test the full donation flow"""
+    try:
+        from app.models.donation_payment import DonationPayment
+        
+        # Only allow if user is authenticated
+        if not current_user.is_authenticated:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+            
+        # Get the number of donations to simulate (default 3)
+        num_donations = request.json.get('count', 3)
+        delay_seconds = float(request.json.get('delay', 1))
+        
+        if num_donations > 10:  # Safety limit
+            return jsonify({'success': False, 'error': 'Maximum 10 donations allowed'}), 400
+            
+        # Sample donation data
+        test_donations = [
+            {
+                'donor_name': 'Эхний донор',
+                'amount': 1000,
+                'message': 'Эхний queue donation туршилт!'
+            },
+            {
+                'donor_name': 'Хоёрдах донор', 
+                'amount': 2500,
+                'message': 'Хоёрдах queue donation туршилт!'
+            },
+            {
+                'donor_name': 'Гуравдах донор',
+                'amount': 5000, 
+                'message': 'Гуравдах queue donation туршилт!'
+            },
+            {
+                'donor_name': 'Дөрөвдүгээр донор',
+                'amount': 10000,
+                'message': 'Дөрөвдүгээр queue donation туршилт!'
+            },
+            {
+                'donor_name': 'Тавдугаар донор',
+                'amount': 1500,
+                'message': 'Тавдугаар queue donation туршилт!'
+            }
+        ]
+        
+        # Create and process donations
+        payment_ids = []
+        for i in range(min(num_donations, len(test_donations))):
+            donation_data = test_donations[i]
+            
+            # Create donation payment (but skip the actual QPay API call)
+            donation_payment = DonationPayment(
+                streamer_user_id=current_user.id,
+                donor_name=donation_data['donor_name'],
+                donor_platform='guest',
+                donor_user_id=None,
+                amount=donation_data['amount'],
+                currency='MNT',
+                message=donation_data['message'],
+                # Skip QPay fields for simulation
+                quickpay_invoice_id=f"sim_{current_user.id}_{i}_{int(time.time())}",
+                status='pending'
+            )
+            
+            db.session.add(donation_payment)
+            db.session.flush()  # Get the ID
+            
+            payment_ids.append(donation_payment.id)
+            
+            current_app.logger.info(f"Created simulated donation payment {donation_payment.id}: {donation_data['donor_name']} - {donation_data['amount']}₮")
+        
+        # Commit all payments first
+        db.session.commit()
+        
+        # Mark the first payment as paid immediately
+        if payment_ids:
+            first_payment = DonationPayment.query.get(payment_ids[0])
+            if first_payment:
+                success = first_payment.mark_as_paid('SimulatedPayment')
+                if success:
+                    current_app.logger.info(f"✅ Simulated donation payment {payment_ids[0]} marked as paid immediately")
+                else:
+                    current_app.logger.error(f"❌ Failed to mark simulated donation payment {payment_ids[0]} as paid")
+        
+        # Schedule remaining payments to be marked as paid with delays using a background task
+        if len(payment_ids) > 1:
+            from threading import Thread
+            
+            # Capture the app instance for the background thread
+            app = current_app._get_current_object()
+            
+            def process_remaining_payments():
+                with app.app_context():
+                    for i in range(1, len(payment_ids)):
+                        payment_id = payment_ids[i]
+                        delay = i * delay_seconds
+                        current_app.logger.info(f"⏰ Processing payment {payment_id} after {delay}s delay")
+                        
+                        time.sleep(delay)
+                        
+                        try:
+                            payment = DonationPayment.query.get(payment_id)
+                            if payment and payment.status == 'pending':
+                                success = payment.mark_as_paid('SimulatedPayment')
+                                if success:
+                                    current_app.logger.info(f"✅ Simulated donation payment {payment_id} marked as paid after {delay}s delay")
+                                else:
+                                    current_app.logger.error(f"❌ Failed to mark simulated donation payment {payment_id} as paid")
+                            else:
+                                current_app.logger.warning(f"⚠️ Payment {payment_id} not found or not pending")
+                        except Exception as e:
+                            current_app.logger.error(f"Error processing delayed payment {payment_id}: {str(e)}")
+            
+            # Start background thread for delayed payments
+            thread = Thread(target=process_remaining_payments)
+            thread.daemon = True
+            thread.start()
+            current_app.logger.info(f"🚀 Started background thread to process {len(payment_ids)-1} delayed payments")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'{num_donations} real donation payments created and will be processed with {delay_seconds}s delays (rapid donation simulation)',
+            'payment_ids': payment_ids
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error simulating donations: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

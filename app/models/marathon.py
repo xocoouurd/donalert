@@ -138,8 +138,8 @@ class Marathon(db.Model):
         self.updated_at = datetime.utcnow()
         db.session.commit()
         
-        # Send real-time update
-        self._send_marathon_update()
+        # Send real-time update (skip time recalculation for donations to preserve added time)
+        self._send_marathon_update(skip_time_calc=(source == 'donation'))
         
         # Send notification about time change
         self._send_time_notification(minutes, source)
@@ -225,6 +225,15 @@ class Marathon(db.Model):
     def get_current_remaining_time(self):
         """Get current remaining time accounting for elapsed time if running"""
         if not self.started_at or self.is_paused:
+            return self.remaining_time_minutes
+        
+        # Check if time was recently updated by donation (within last 10 seconds)
+        # If so, don't recalculate to preserve donation time additions
+        from datetime import timedelta
+        recent_update_threshold = datetime.utcnow() - timedelta(seconds=10)
+        if self.updated_at > recent_update_threshold:
+            from flask import current_app
+            current_app.logger.info(f"MARATHON TIME: Skipping recalculation - recent update at {self.updated_at}")
             return self.remaining_time_minutes
         
         # Calculate elapsed time since last database update

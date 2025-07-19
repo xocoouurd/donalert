@@ -17,8 +17,6 @@
     <!-- Main alert container -->
     <div id="alertContainer"></div>
     
-    <!-- Alert queue for upcoming donations -->
-    <div id="alertQueue" class="alert-queue"></div>
 
     <!-- Audio element for sound effects -->
     <audio id="alertSound" preload="auto"></audio>
@@ -62,14 +60,23 @@
                 rememberUpgrade: true
             });
             
-            // Join user's room for personalized alerts
+            // Room name for joining after connection
             const roomName = `user_${userId}`;
-            console.log('🏠 Attempting to join room:', roomName);
-            socket.emit('join', {room: roomName});
+            console.log('🏠 Room prepared for joining:', roomName);
             
             // Listen for donation alerts
             socket.on('donation_alert', function(data) {
+                console.log('💰 OVERLAY: Real donation alert received!', data);
                 queueAlert(data);
+            });
+            
+            // Listen for global donation alerts (backup method)
+            socket.on('donation_alert_global', function(data) {
+                console.log('🌍 OVERLAY: Global donation alert received (backup)!', data);
+                // Only process if it's for this user
+                if (data.user_id == userId || data.streamer_user_id == userId) {
+                    queueAlert(data);
+                }
             });
             
             // Listen for test alerts
@@ -100,17 +107,20 @@
             
             // Listen for room join acknowledgments
             socket.on('room_joined', function(data) {
-                console.log('🏠 OVERLAY: Successfully joined room:', data);
+                console.log('🏠 OVERLAY: Successfully joined room:', JSON.stringify(data), data);
             });
             
             // Connection status logging
             socket.on('connect', function() {
                 console.log('✅ OVERLAY: Socket connected!', socket.id);
                 
-                // Re-join room after connection
-                const roomName = `user_${userId}`;
-                console.log('🏠 OVERLAY: Re-joining room after connection:', roomName);
-                socket.emit('join', {room: roomName});
+                // Small delay to ensure connection is fully ready
+                setTimeout(() => {
+                    // Re-join room after connection
+                    const roomName = `user_${userId}`;
+                    console.log('🏠 OVERLAY: Re-joining room after connection:', roomName);
+                    socket.emit('join', {room: roomName});
+                }, 100);
                 
                 // Preload initial sound after connection
                 preloadSound(settings.sound_url);
@@ -149,7 +159,6 @@
             
             // Add to queue
             alertQueue.push(alertData);
-            updateQueueDisplay();
             
             // Process queue if not currently showing alert
             if (!isShowingAlert) {
@@ -165,26 +174,10 @@
             
             isShowingAlert = true;
             const alertData = alertQueue.shift();
-            updateQueueDisplay();
             
             showAlert(alertData);
         }
         
-        function updateQueueDisplay() {
-            const queueContainer = document.getElementById('alertQueue');
-            queueContainer.innerHTML = '';
-            
-            // Show next few alerts in queue
-            alertQueue.slice(0, 3).forEach((alert, index) => {
-                const queueItem = document.createElement('div');
-                queueItem.className = 'queue-item';
-                queueItem.innerHTML = `
-                    <div style="font-weight: bold;">${alert.donator_name || 'Анонимус'}</div>
-                    <div>${alert.amount.toLocaleString()}₮</div>
-                `;
-                queueContainer.appendChild(queueItem);
-            });
-        }
         
         function showAlert(alertData) {
             console.log('🎯 OVERLAY: showAlert() called with data:', alertData);

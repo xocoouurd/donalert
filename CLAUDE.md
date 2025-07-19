@@ -2,17 +2,52 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## Environment Management
 
-**Environment Setup:**
+**CRITICAL: Dual Environment Setup**
+This server runs both **Development** and **Production** environments simultaneously:
+
+### Development Environment (DEV)
+- **Domain**: `donalert.invictamotus.com`
+- **Database**: `py_donalert` (development database)
+- **Execution**: Manual `python run.py` (easier debugging)
+- **Config**: `.env` (original development config)
+- **Purpose**: Testing, development, and staging
+
+### Production Environment (PROD) 
+- **Domain**: `donalert.com` (LIVE production site)
+- **Database**: `py_donalert_prod` (production database)
+- **Service**: `donalert-production.service`
+- **Config**: `.env.production` (production-specific config)
+- **Purpose**: Live site for actual users
+
+**⚠️ CRITICAL SAFETY RULES:**
+- **NEVER** modify production files directly
+- **ALWAYS** test changes in development first
+- **NEVER** run commands on production service without confirmation
+- **ALWAYS** specify which environment you're working with
+
+**Development Commands:**
 ```bash
-source venv/bin/activate  # Activate virtual environment
-pip install -r requirements.txt  # Install dependencies
+# Development environment (MANUAL MODE)
+cd /srv/www/donalert.invictamotus.com
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run development server manually (easier debugging)
+python run.py  # Starts on localhost:5000 with live logs
+
+# Test development site
+curl https://donalert.invictamotus.com  # Via nginx proxy
+curl http://localhost:5000  # Direct access
 ```
 
-**Running the Application:**
+**Production Commands (USE WITH EXTREME CAUTION):**
 ```bash
-python run.py  # Start Flask development server on localhost:5000
+# Production environment
+sudo systemctl status donalert-production.service  # PROD service
+curl https://donalert.com  # Test PROD site
+mysql -u xocoo -p py_donalert_prod  # PROD database (CAREFUL!)
 ```
 
 **Database Operations:**
@@ -539,6 +574,8 @@ python -m discord_integration.cli
 ```
 
 **Important**: When posting Discord updates, always write messages in **Mongolian**, not English, as this is a platform for Mongolian content creators.
+
+**🚨 CRITICAL DISCORD POLICY**: **NEVER mention the development server (donalert.invictamotus.com) in any Discord messages.** Only reference the production site: https://donalert.com
 
 # System Overview Summary
 

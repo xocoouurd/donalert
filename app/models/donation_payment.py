@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-from app.extensions import db
+from app.extensions import db, socketio
 from app.utils.quickpay_payment import create_donation_invoice
 import logging
 
@@ -176,7 +176,6 @@ class DonationPayment(db.Model):
     def _send_donation_alert(self, donation):
         """Send real-time donation alert to streamer"""
         try:
-            from app.extensions import socketio
             from app.models.donation_alert_settings import DonationAlertSettings
             from flask import current_app
             
@@ -241,7 +240,19 @@ class DonationPayment(db.Model):
             
             # Send to streamer's room for overlay alerts
             room = f"user_{self.streamer_user_id}"
-            socketio.emit('donation_alert', alert_data, room=room)
+            current_app.logger.info(f"SOCKET: Emitting donation_alert to room '{room}' with data: {alert_data['donor_name']} - {alert_data['amount']}")
+            
+            # Try multiple emission approaches to ensure delivery
+            try:
+                socketio.emit('donation_alert', alert_data, room=room)
+                current_app.logger.info(f"SOCKET: donation_alert emitted successfully to room '{room}'")
+                
+                # Also emit to all connected clients as a backup
+                socketio.emit('donation_alert_global', alert_data, broadcast=True)
+                current_app.logger.info(f"SOCKET: donation_alert_global broadcasted as backup")
+                
+            except Exception as e:
+                current_app.logger.error(f"SOCKET: Failed to emit donation_alert: {str(e)}")
             
             # Send to donation feed room for public donation page updates
             donation_feed_room = f"donation_feed_{self.streamer_user_id}"

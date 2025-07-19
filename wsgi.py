@@ -1,6 +1,10 @@
 """
 WSGI Entry Point for Production Deployment with Socket.IO Support
 """
+# Fix gevent monkey patching warning by patching early
+import gevent.monkey
+gevent.monkey.patch_all()
+
 from app import create_app
 from app.extensions import socketio
 
