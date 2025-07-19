@@ -10,6 +10,7 @@ logs/
 *.log
 *.pid
 *.sock
+gunicorn.conf.py
 .DS_Store
 .vscode/
 .idea/
