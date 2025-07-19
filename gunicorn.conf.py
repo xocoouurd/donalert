@@ -10,8 +10,9 @@ bind = f"unix:{project_path}/gunicorn.sock"
 backlog = 2048
 
 # Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
+# For Socket.IO support, use eventlet worker class with 1 worker
+workers = 1  # Socket.IO requires single worker with eventlet/gevent
+worker_class = "eventlet"
 worker_connections = 1000
 max_requests = 1000
 max_requests_jitter = 100
