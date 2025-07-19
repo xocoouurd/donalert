@@ -11,6 +11,7 @@ logs/
 *.pid
 *.sock
 gunicorn.conf.py
+app/extensions.py
 .DS_Store
 .vscode/
 .idea/
