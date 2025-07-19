@@ -179,7 +179,7 @@ class Subscription(db.Model):
             # User has already used their free trial
             raise ValueError(f"User {user_id} has already used their free trial")
         
-        trial_end = datetime.utcnow() + timedelta(days=7)  # 7 days free trial
+        trial_end = datetime.utcnow() + timedelta(days=3)  # 3 days free trial
         
         subscription = Subscription(
             user_id=user_id,
