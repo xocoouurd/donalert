@@ -1,0 +1,15 @@
+bind = "127.0.0.1:5013"
+workers = 1
+worker_class = "gevent"
+worker_connections = 1000
+timeout = 30
+keepalive = 60
+max_requests = 1000
+max_requests_jitter = 100
+preload_app = True
+daemon = False
+pidfile = "/srv/www/donalert.com/gunicorn.pid"
+accesslog = "/srv/www/donalert.com/logs/gunicorn_access.log"
+errorlog = "/srv/www/donalert.com/logs/gunicorn_error.log"
+loglevel = "info"
+capture_output = True
