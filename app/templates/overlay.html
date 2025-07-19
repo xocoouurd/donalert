@@ -32,6 +32,11 @@
         const userId = {{ user.id }};
         const settings = {{ settings.to_dict() | tojson }};
         
+        console.log('=== OVERLAY PAGE INITIALIZATION ===');
+        console.log('User ID:', userId);
+        console.log('Settings loaded:', !!settings);
+        console.log('typeof io:', typeof io);
+        
         // Alert queue management
         let alertQueue = [];
         let isShowingAlert = false;
@@ -40,10 +45,16 @@
         let socket = null;
         
         if (typeof io !== 'undefined') {
+            console.log('✅ Socket.IO library available');
             // Connect to the development server when running locally
             const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
                 ? undefined  // Use default (current domain) for production
                 : 'http://localhost:5013';  // Use local dev server
+            
+            console.log('Socket URL:', socketUrl || 'default (current domain)');
+            console.log('Current hostname:', window.location.hostname);
+            console.log('Current port:', window.location.port);
+            console.log('Expected server name:', '{{ config.SERVER_NAME }}');
             
             socket = io(socketUrl, {
                 transports: ['websocket', 'polling'],
@@ -53,6 +64,7 @@
             
             // Join user's room for personalized alerts
             const roomName = `user_${userId}`;
+            console.log('🏠 Attempting to join room:', roomName);
             socket.emit('join', {room: roomName});
             
             // Listen for donation alerts
@@ -62,12 +74,15 @@
             
             // Listen for test alerts
             socket.on('test_alert', function(data) {
+                console.log('🧪 OVERLAY: Test alert received!', data);
                 
                 // If already showing an alert, ignore additional test alerts
                 if (isShowingAlert) {
+                    console.log('⚠️ OVERLAY: Ignored test alert - already showing alert');
                     return;
                 }
                 
+                console.log('✅ OVERLAY: Processing test alert...');
                 showAlert(data);
             });
 
@@ -85,13 +100,16 @@
             
             // Listen for room join acknowledgments
             socket.on('room_joined', function(data) {
+                console.log('🏠 OVERLAY: Successfully joined room:', data);
             });
             
             // Connection status logging
             socket.on('connect', function() {
+                console.log('✅ OVERLAY: Socket connected!', socket.id);
                 
                 // Re-join room after connection
                 const roomName = `user_${userId}`;
+                console.log('🏠 OVERLAY: Re-joining room after connection:', roomName);
                 socket.emit('join', {room: roomName});
                 
                 // Preload initial sound after connection
@@ -99,15 +117,21 @@
             });
             
             socket.on('disconnect', function() {
+                console.log('❌ OVERLAY: Socket disconnected');
             });
             
             socket.on('error', function(error) {
+                console.log('❌ OVERLAY: Socket error:', error);
             });
             
             // Auto-reconnection
             socket.on('connect_error', function(error) {
+                console.log('❌ OVERLAY: Socket connection error:', error);
             });
+            
+            console.log('✅ OVERLAY: Socket setup complete, waiting for connection...');
         } else {
+            console.log('❌ OVERLAY: Socket.IO library not available!');
         }
 
         // Preload initial sound (fallback if no socket connection)
@@ -163,6 +187,8 @@
         }
         
         function showAlert(alertData) {
+            console.log('🎯 OVERLAY: showAlert() called with data:', alertData);
+            console.log('Current isShowingAlert state:', isShowingAlert);
             
             // Set showing flag
             isShowingAlert = true;
