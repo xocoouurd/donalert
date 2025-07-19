@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+*.env
 instance/donalert.db
 logs/
 *.log
@@ -14,3 +15,7 @@ logs/
 .idea/
 gunicorn.pid
 gunicorn.sock
+*.md
+!README.md
+docs/
+discord_integration/
