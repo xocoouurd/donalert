@@ -988,10 +988,10 @@ function forceDropdownStyling() {
 
 // Initialize WebSocket for real-time updates
 function initializeSocket() {
-    // Connect to the development server when running locally
+    // Connect to the correct Socket.IO server based on environment
     const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
         ? undefined  // Use default (current domain) for production
-        : 'http://localhost:5013';  // Use local dev server
+        : '{{ config.SOCKETIO_URL }}';  // Configurable dev server
     
     socket = io(socketUrl);
     

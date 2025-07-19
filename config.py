@@ -36,6 +36,7 @@ class Config:
     # Socket.IO will work with proper client configuration
     SERVER_NAME = os.environ.get('SERVER_NAME', 'donalert.invictamotus.com')
     PREFERRED_URL_SCHEME = os.environ.get('PREFERRED_URL_SCHEME', 'https')
+    SOCKETIO_URL = os.environ.get('SOCKETIO_URL', 'http://localhost:5013')
     
     # OAuth Configuration
     TWITCH_CLIENT_ID = os.environ.get('TWITCH_CLIENT_ID')
