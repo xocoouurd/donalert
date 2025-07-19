@@ -152,7 +152,7 @@ class QuickPayClient:
                 callback_url = url_for('main.subscription_callback', token=webhook_token, _external=True)
             except (RuntimeError, Exception):
                 # Fallback for when not in request context
-                server_name = os.getenv('SERVER_NAME', 'donalert.invictamotus.com')
+                server_name = os.getenv('SERVER_NAME', 'donalert.com')
                 callback_url = f"https://{server_name}/subscription/callback?token={webhook_token}"
             
             # Extract account number from IBAN (last 10 digits)
@@ -357,7 +357,7 @@ class QuickPayClient:
                 callback_url = url_for('main.donation_callback', token=webhook_token, _external=True)
             except (RuntimeError, Exception):
                 # Fallback for when not in request context
-                server_name = os.getenv('SERVER_NAME', 'donalert.invictamotus.com')
+                server_name = os.getenv('SERVER_NAME', 'donalert.com')
                 callback_url = f"https://{server_name}/donation/callback?token={webhook_token}"
             
             # Extract account number from streamer's IBAN (last 10 digits)

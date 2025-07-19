@@ -134,9 +134,9 @@ def connect_platform(platform):
     # Build authorization URL with explicit redirect URI
     # Use test route if testing parameter is provided
     if request.args.get('test') == '1':
-        redirect_uri = f"https://donalert.invictamotus.com/oauth/test-userinfo/{platform}"
+        redirect_uri = f"https://{current_app.config['SERVER_NAME']}/oauth/test-userinfo/{platform}"
     else:
-        redirect_uri = f"https://donalert.invictamotus.com/oauth/callback/{platform}"
+        redirect_uri = f"https://{current_app.config['SERVER_NAME']}/oauth/callback/{platform}"
     
     params = {
         'client_id': config['client_id'],

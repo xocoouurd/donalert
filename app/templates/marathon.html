@@ -989,7 +989,7 @@ function forceDropdownStyling() {
 // Initialize WebSocket for real-time updates
 function initializeSocket() {
     // Connect to the development server when running locally
-    const socketUrl = window.location.hostname === 'donalert.invictamotus.com' && window.location.port === '' 
+    const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
         ? undefined  // Use default (current domain) for production
         : 'http://localhost:5013';  // Use local dev server
     

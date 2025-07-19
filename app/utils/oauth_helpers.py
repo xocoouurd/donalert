@@ -46,7 +46,7 @@ def exchange_code_for_token(platform, code):
         'client_secret': config['client_secret'],
         'code': code,
         'grant_type': 'authorization_code',
-        'redirect_uri': f"https://donalert.invictamotus.com/oauth/callback/{platform}"
+        'redirect_uri': f"https://{current_app.config['SERVER_NAME']}/oauth/callback/{platform}"
     }
     
     # Add PKCE code verifier for Kick
@@ -331,7 +331,7 @@ def handle_oauth_login_or_signup(platform, token_data, user_data):
         if not email:
             # For platforms like Kick that don't provide email, generate a unique fallback
             if platform == 'kick':
-                email = f"kick_{user_data['user_id']}@donalert.local"
+                email = f"kick_{user_data['user_id']}@{current_app.config['SERVER_NAME']}.local"
                 current_app.logger.info(f'Generated fallback email for Kick user: {email}')
             else:
                 current_app.logger.error(f'OAuth signup failed: No email for {platform} user: {user_data}')
