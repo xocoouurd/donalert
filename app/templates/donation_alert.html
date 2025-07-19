@@ -1856,7 +1856,18 @@ console.log('typeof io:', typeof io);
 
 if (typeof io !== 'undefined') {
     console.log('✅ Socket.IO library available, creating connection...');
-    socket = io({
+    
+    // Connect to the development server when running locally
+    const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
+        ? undefined  // Use default (current domain) for production
+        : 'http://localhost:5013';  // Use local dev server
+    
+    console.log('Socket URL:', socketUrl || 'default (current domain)');
+    console.log('Current hostname:', window.location.hostname);
+    console.log('Current port:', window.location.port);
+    console.log('Expected server name:', '{{ config.SERVER_NAME }}');
+    
+    socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         upgrade: true,
         rememberUpgrade: true
