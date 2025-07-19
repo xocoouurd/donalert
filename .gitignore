@@ -10,8 +10,8 @@ logs/
 *.log
 *.pid
 *.sock
-gunicorn.conf.py
-app/extensions.py
+# gunicorn.conf.py - REMOVED, this file should be tracked
+# app/extensions.py - REMOVED, this file should be tracked
 .DS_Store
 .vscode/
 .idea/
