@@ -61,7 +61,7 @@ def exchange_code_for_token(platform, code):
     
     current_app.logger.info(f'Exchanging code for token - Platform: {platform}, URL: {config["token_url"]}')
     
-    response = requests.post(config['token_url'], data=data)
+    response = requests.post(config['token_url'], data=data, timeout=30)
     
     if response.status_code != 200:
         current_app.logger.error(f'Token exchange failed - Status: {response.status_code}, Response: {response.text}')
@@ -126,7 +126,8 @@ def get_platform_user_data(platform, access_token, token_data=None):
         headers['Client-Id'] = config['client_id']
     
     current_app.logger.info(f'Fetching user data from {platform} API: {config["userinfo_url"]}')
-    response = requests.get(config['userinfo_url'], headers=headers)
+    
+    response = requests.get(config['userinfo_url'], headers=headers, timeout=30)
     
     if response.status_code != 200:
         current_app.logger.error(f'User data fetch failed - Status: {response.status_code}, Response: {response.text}')

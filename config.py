@@ -58,6 +58,11 @@ class Config:
             }
         },
         'handlers': {
+            'console': {
+                'level': 'INFO',
+                'class': 'logging.StreamHandler',
+                'formatter': 'detailed'
+            },
             'file': {
                 'level': 'INFO',
                 'class': 'logging.FileHandler',
@@ -90,7 +95,7 @@ class Config:
             }
         },
         'root': {
-            'handlers': ['file'],
+            'handlers': ['console', 'file'],
             'level': 'INFO'
         }
     }

@@ -18,6 +18,10 @@
                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="testAlert()">
                         <i class="fas fa-play me-1"></i>Туршилт
                     </button>
+                    <!-- Real money simulation button commented out for production -->
+                    <!-- <button type="button" class="btn btn-outline-success btn-sm" onclick="realDonationTest()">
+                        <i class="fas fa-coins me-1"></i>Бодит донейт
+                    </button> -->
                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyOverlayUrl(event)">
                         <i class="fas fa-copy me-1"></i>Overlay URL
                     </button>
@@ -993,6 +997,67 @@ function testAlert() {
     
     // Don't play sound on settings page - only send to overlay
 }
+
+// Real donation simulation function - creates actual monetary donation
+function realDonationTest() {
+    console.log('=== REAL DONATION SIMULATION STARTED ===');
+    
+    const testButton = document.querySelector('button[onclick="realDonationTest()"]');
+    
+    // Disable button during processing
+    testButton.disabled = true;
+    testButton.innerHTML = '<i class="fas fa-clock me-1"></i>Үүсгэж байна...';
+    testButton.classList.add('btn-secondary');
+    testButton.classList.remove('btn-outline-success');
+    
+    // Call the admin simulation endpoint for a single real donation
+    fetch('/admin/simulate-donations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            count: 1,
+            delay: 0
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Real donation created successfully:', data.message);
+            console.log('Payment ID:', data.payment_ids);
+            
+            // Re-enable button after processing
+            setTimeout(() => {
+                testButton.disabled = false;
+                testButton.innerHTML = '<i class="fas fa-coins me-1"></i>Бодит донейт';
+                testButton.classList.remove('btn-secondary');
+                testButton.classList.add('btn-outline-success');
+                console.log('✅ Real donation test completed');
+            }, 2000); // 2 seconds
+        } else {
+            console.log('❌ Real donation simulation failed:', data.error);
+            alert('Бодит донейт алдаатай: ' + data.error);
+            
+            // Re-enable button on error
+            testButton.disabled = false;
+            testButton.innerHTML = '<i class="fas fa-coins me-1"></i>Бодит донейт';
+            testButton.classList.remove('btn-secondary');
+            testButton.classList.add('btn-outline-success');
+        }
+    })
+    .catch(error => {
+        console.log('❌ Error calling real donation simulation:', error);
+        alert('Бодит донейтын холболтод алдаа гарлаа');
+        
+        // Re-enable button on error
+        testButton.disabled = false;
+        testButton.innerHTML = '<i class="fas fa-coins me-1"></i>Бодит донейт';
+        testButton.classList.remove('btn-secondary');
+        testButton.classList.add('btn-outline-success');
+    });
+}
+
 
 
 

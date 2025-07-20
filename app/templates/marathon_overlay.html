@@ -464,6 +464,14 @@
                     console.log('OVERLAY: Forced save completed');
                 });
                 
+                this.socket.on('force_countdown_save', (data) => {
+                    console.log('OVERLAY: Received force countdown save (donation time added):', data);
+                    console.log('OVERLAY: Current countdown state before forced save:', this.currentMarathon?.remaining_time);
+                    // Immediately save current countdown state to database
+                    this.saveCountdownState();
+                    console.log('OVERLAY: Force countdown save completed - state synchronized');
+                });
+                
                 this.socket.on('connect_error', (error) => {
                     console.error('Socket connection error:', error);
                 });
