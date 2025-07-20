@@ -4,7 +4,21 @@ from sqlalchemy import Enum
 from app.extensions import db
 import enum
 
+# Feature-based subscription tiers (what features user gets)
 class SubscriptionTier(enum.Enum):
+    BASIC = "basic"
+    ADVANCED = "advanced"
+
+# Duration-based billing cycles (how often user pays)
+class BillingCycle(enum.Enum):
+    TRIAL = "trial"          # Free trial period
+    MONTHLY = "monthly"      # 1 month
+    QUARTERLY = "quarterly"  # 3 months
+    BIANNUAL = "biannual"    # 6 months  
+    ANNUAL = "annual"        # 12 months
+
+# Legacy enum for backward compatibility during migration
+class LegacySubscriptionTier(enum.Enum):
     FREE_TRIAL = "free_trial"
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"  # 3 months
@@ -26,8 +40,13 @@ class Subscription(db.Model):
     # Foreign key to user
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
-    # Subscription details
-    tier = db.Column(Enum(SubscriptionTier), nullable=False)
+    # New subscription details (separated concepts)
+    feature_tier = db.Column(Enum(SubscriptionTier), nullable=True)  # basic, advanced
+    billing_cycle = db.Column(Enum(BillingCycle), nullable=True)     # monthly, quarterly, etc.
+    
+    # Legacy field for backward compatibility during migration
+    tier = db.Column(Enum(LegacySubscriptionTier), nullable=True)    # old mixed concept
+    
     status = db.Column(Enum(SubscriptionStatus), nullable=False, default=SubscriptionStatus.ACTIVE)
     
     # Pricing (in MNT - Mongolian Tugrik)
@@ -53,25 +72,71 @@ class Subscription(db.Model):
     user = db.relationship('User', backref='subscriptions')
     
     @staticmethod
-    def get_pricing():
-        """Get subscription pricing in MNT"""
+    def get_tier_monthly_price():
+        """Get monthly price for each feature tier in MNT"""
         return {
-            SubscriptionTier.FREE_TRIAL: 0,
-            SubscriptionTier.MONTHLY: 40000,     # 40,000 MNT per month
-            SubscriptionTier.QUARTERLY: 110000,  # 110,000 MNT for 3 months (save ~8%)
-            SubscriptionTier.BIANNUAL: 200000,   # 200,000 MNT for 6 months (save ~17%)
-            SubscriptionTier.ANNUAL: 380000,     # 380,000 MNT for 12 months (save ~20%)
+            SubscriptionTier.BASIC: 40000,       # 40,000 MNT per month
+            SubscriptionTier.ADVANCED: 80000,    # 80,000 MNT per month
+        }
+    
+    @staticmethod
+    def get_billing_cycle_months():
+        """Get duration in months for each billing cycle"""
+        return {
+            BillingCycle.TRIAL: 0,
+            BillingCycle.MONTHLY: 1,
+            BillingCycle.QUARTERLY: 3,
+            BillingCycle.BIANNUAL: 6,
+            BillingCycle.ANNUAL: 12,
+        }
+    
+    @staticmethod
+    def calculate_price(feature_tier, billing_cycle):
+        """Calculate total price for feature tier + billing cycle combination"""
+        monthly_prices = Subscription.get_tier_monthly_price()
+        cycle_months = Subscription.get_billing_cycle_months()
+        
+        if feature_tier not in monthly_prices or billing_cycle not in cycle_months:
+            return None
+            
+        monthly_price = monthly_prices[feature_tier]
+        months = cycle_months[billing_cycle]
+        
+        if billing_cycle == BillingCycle.TRIAL:
+            return 0
+        
+        # Apply bulk discounts for longer billing cycles
+        total_price = monthly_price * months
+        if billing_cycle == BillingCycle.QUARTERLY:
+            total_price = int(total_price * 0.92)  # 8% discount
+        elif billing_cycle == BillingCycle.BIANNUAL:
+            total_price = int(total_price * 0.83)  # 17% discount  
+        elif billing_cycle == BillingCycle.ANNUAL:
+            total_price = int(total_price * 0.80)  # 20% discount
+            
+        return total_price
+    
+    # Legacy methods for backward compatibility
+    @staticmethod
+    def get_pricing():
+        """Legacy method - maps old tier enum to pricing"""
+        return {
+            LegacySubscriptionTier.FREE_TRIAL: 0,
+            LegacySubscriptionTier.MONTHLY: 40000,
+            LegacySubscriptionTier.QUARTERLY: 110000,
+            LegacySubscriptionTier.BIANNUAL: 200000,
+            LegacySubscriptionTier.ANNUAL: 380000,
         }
     
     @staticmethod
     def get_duration_months():
-        """Get duration in months for each tier"""
+        """Legacy method - maps old tier enum to months"""
         return {
-            SubscriptionTier.FREE_TRIAL: 0,
-            SubscriptionTier.MONTHLY: 1,
-            SubscriptionTier.QUARTERLY: 3,
-            SubscriptionTier.BIANNUAL: 6,
-            SubscriptionTier.ANNUAL: 12,
+            LegacySubscriptionTier.FREE_TRIAL: 0,
+            LegacySubscriptionTier.MONTHLY: 1,
+            LegacySubscriptionTier.QUARTERLY: 3,
+            LegacySubscriptionTier.BIANNUAL: 6,
+            LegacySubscriptionTier.ANNUAL: 12,
         }
     
     @staticmethod
@@ -79,10 +144,8 @@ class Subscription(db.Model):
         """Calculate subscription cost based on tier and months"""
         if tier == 'basic':
             return 40000 * months  # 40,000 MNT per month
-        elif tier == 'premium':
+        elif tier == 'advanced':
             return 80000 * months  # 80,000 MNT per month
-        elif tier == 'enterprise':
-            return 120000 * months  # 120,000 MNT per month
         else:
             return None
     
@@ -169,10 +232,13 @@ class Subscription(db.Model):
             # User already has a subscription, don't create another trial
             return existing_subscription
         
-        # Check if user has ever had a free trial before
-        previous_trial = Subscription.query.filter_by(
-            user_id=user_id,
-            tier=SubscriptionTier.FREE_TRIAL
+        # Check if user has ever had a free trial before (check both systems)
+        previous_trial = Subscription.query.filter(
+            (Subscription.user_id == user_id) &
+            (
+                (Subscription.tier == LegacySubscriptionTier.FREE_TRIAL) |
+                (Subscription.billing_cycle == BillingCycle.TRIAL)
+            )
         ).first()
         
         if previous_trial:
@@ -183,7 +249,11 @@ class Subscription(db.Model):
         
         subscription = Subscription(
             user_id=user_id,
-            tier=SubscriptionTier.FREE_TRIAL,
+            # Use new separated system
+            feature_tier=SubscriptionTier.BASIC,
+            billing_cycle=BillingCycle.TRIAL,
+            # Keep legacy field for backward compatibility
+            tier=LegacySubscriptionTier.FREE_TRIAL,
             status=SubscriptionStatus.ACTIVE,
             price_mnt=0,
             start_date=datetime.utcnow(),
@@ -196,28 +266,55 @@ class Subscription(db.Model):
         return subscription
     
     @staticmethod
-    def create_paid_subscription(user_id, tier, payment_id=None, payment_method=None):
-        """Create a paid subscription with calendar month calculation"""
+    def create_paid_subscription(user_id, feature_tier, billing_cycle, payment_id=None, payment_method=None):
+        """Create a paid subscription with separated feature tier and billing cycle"""
         from app.models.user import User
         
-        pricing = Subscription.get_pricing()
-        duration_months = Subscription.get_duration_months()
+        # Convert string parameters to enums if needed
+        if isinstance(feature_tier, str):
+            feature_tier = SubscriptionTier.BASIC if feature_tier == 'basic' else SubscriptionTier.ADVANCED
+        if isinstance(billing_cycle, str):
+            billing_cycle_map = {
+                'monthly': BillingCycle.MONTHLY,
+                'quarterly': BillingCycle.QUARTERLY,
+                'biannual': BillingCycle.BIANNUAL,
+                'annual': BillingCycle.ANNUAL
+            }
+            billing_cycle = billing_cycle_map.get(billing_cycle, BillingCycle.MONTHLY)
         
-        if tier not in pricing:
-            raise ValueError(f"Invalid subscription tier: {tier}")
+        # Calculate subscription cost using new system
+        subscription_cost = Subscription.calculate_price(feature_tier, billing_cycle)
+        if subscription_cost is None:
+            raise ValueError(f"Invalid subscription configuration: {feature_tier}, {billing_cycle}")
         
         user = User.query.get(user_id)
         if not user:
             raise ValueError(f"User not found: {user_id}")
         
-        # Calculate start and end dates based on current subscription status
-        start_date, end_date = Subscription._calculate_subscription_dates(user, tier)
+        # Calculate start and end dates
+        current_time = datetime.utcnow()
+        start_date = current_time
+        months = Subscription.get_billing_cycle_months()[billing_cycle]
+        end_date = current_time + relativedelta(months=months)
+        
+        # Map to legacy tier for backward compatibility
+        legacy_tier_map = {
+            BillingCycle.MONTHLY: LegacySubscriptionTier.MONTHLY,
+            BillingCycle.QUARTERLY: LegacySubscriptionTier.QUARTERLY,
+            BillingCycle.BIANNUAL: LegacySubscriptionTier.BIANNUAL,
+            BillingCycle.ANNUAL: LegacySubscriptionTier.ANNUAL
+        }
+        legacy_tier = legacy_tier_map.get(billing_cycle, LegacySubscriptionTier.MONTHLY)
         
         subscription = Subscription(
             user_id=user_id,
-            tier=tier,
+            # New separated system
+            feature_tier=feature_tier,
+            billing_cycle=billing_cycle,
+            # Legacy field for backward compatibility
+            tier=legacy_tier,
             status=SubscriptionStatus.PENDING,  # Will be activated after payment
-            price_mnt=pricing[tier],
+            price_mnt=subscription_cost,
             start_date=start_date,
             end_date=end_date,
             payment_id=payment_id,
@@ -228,6 +325,15 @@ class Subscription(db.Model):
         db.session.add(subscription)
         db.session.commit()
         return subscription
+    
+    # Legacy method for backward compatibility
+    @staticmethod
+    def create_paid_subscription_legacy(user_id, tier, payment_id=None, payment_method=None):
+        """Legacy method that assumes basic tier and monthly billing"""
+        feature_tier = SubscriptionTier.BASIC if tier == 'basic' else SubscriptionTier.ADVANCED
+        return Subscription.create_paid_subscription(
+            user_id, feature_tier, BillingCycle.MONTHLY, payment_id, payment_method
+        )
     
     @staticmethod
     def _calculate_subscription_dates(user, tier):
@@ -305,16 +411,55 @@ class Subscription(db.Model):
         self.updated_at = datetime.utcnow()
         db.session.commit()
     
-    def get_tier_display_name(self):
-        """Get display name for subscription tier"""
+    def get_feature_tier_display_name(self):
+        """Get display name for feature tier"""
+        if not self.feature_tier:
+            return "Тодорхойгүй"
+        
         display_names = {
-            SubscriptionTier.FREE_TRIAL: "Үнэгүй туршилт",
-            SubscriptionTier.MONTHLY: "Сарын",
-            SubscriptionTier.QUARTERLY: "3 сарын",
-            SubscriptionTier.BIANNUAL: "6 сарын",
-            SubscriptionTier.ANNUAL: "Жилийн",
+            SubscriptionTier.BASIC: "Үндсэн",
+            SubscriptionTier.ADVANCED: "Дэвшилтэт",
         }
-        return display_names.get(self.tier, self.tier.value)
+        return display_names.get(self.feature_tier, self.feature_tier.value)
+    
+    def get_billing_cycle_display_name(self):
+        """Get display name for billing cycle"""
+        if not self.billing_cycle:
+            return "Тодорхойгүй"
+            
+        display_names = {
+            BillingCycle.TRIAL: "Үнэгүй туршилт",
+            BillingCycle.MONTHLY: "Сарын",
+            BillingCycle.QUARTERLY: "3 сарын", 
+            BillingCycle.BIANNUAL: "6 сарын",
+            BillingCycle.ANNUAL: "Жилийн",
+        }
+        return display_names.get(self.billing_cycle, self.billing_cycle.value)
+    
+    def get_full_display_name(self):
+        """Get combined display name (e.g. 'Дэвшилтэт - Жилийн')"""
+        if self.feature_tier and self.billing_cycle:
+            feature_name = self.get_feature_tier_display_name()
+            cycle_name = self.get_billing_cycle_display_name()
+            return f"{feature_name} - {cycle_name}"
+        else:
+            # Fallback to legacy display for backward compatibility
+            return self.get_tier_display_name()
+    
+    # Legacy method for backward compatibility
+    def get_tier_display_name(self):
+        """Legacy display name method"""
+        if self.tier:
+            display_names = {
+                LegacySubscriptionTier.FREE_TRIAL: "Үнэгүй туршилт",
+                LegacySubscriptionTier.MONTHLY: "Сарын",
+                LegacySubscriptionTier.QUARTERLY: "3 сарын",
+                LegacySubscriptionTier.BIANNUAL: "6 сарын",
+                LegacySubscriptionTier.ANNUAL: "Жилийн",
+            }
+            return display_names.get(self.tier, self.tier.value)
+        else:
+            return self.get_full_display_name()
     
     def __repr__(self):
         return f'<Subscription {self.user_id}:{self.tier.value}>'

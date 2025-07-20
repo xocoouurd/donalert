@@ -18,7 +18,7 @@ class SubscriptionPayment(db.Model):
     
     # Payment details
     payment_reference = db.Column(db.String(100), unique=True, nullable=False)
-    tier = db.Column(db.String(20), nullable=False)  # 'basic', 'premium', 'enterprise'
+    tier = db.Column(db.String(20), nullable=False)  # 'basic', 'advanced'
     months = db.Column(db.Integer, nullable=False, default=1)
     amount = db.Column(Numeric(10, 2), nullable=False)
     currency = db.Column(db.String(3), nullable=False, default='MNT')

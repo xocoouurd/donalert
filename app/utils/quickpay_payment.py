@@ -99,7 +99,7 @@ class QuickPayClient:
         
         Args:
             user_id: ID of the user
-            tier: Subscription tier ('basic', 'premium', 'enterprise')
+            tier: Subscription tier ('basic', 'advanced')
             months: Number of months (default 1)
             
         Returns:
@@ -127,8 +127,7 @@ class QuickPayClient:
             # Create description
             tier_names = {
                 'basic': 'Үндсэн',
-                'premium': 'Дэвшилтэт', 
-                'enterprise': 'Байгууллагын'
+                'advanced': 'Дэвшилтэт'
             }
             tier_display = tier_names.get(tier, tier)
             
@@ -447,7 +446,7 @@ def create_subscription_invoice(user_id, tier, months=1):
     
     Args:
         user_id: ID of the user
-        tier: Subscription tier ('basic', 'premium', 'enterprise')
+        tier: Subscription tier ('basic', 'advanced')
         months: Number of months (default 1)
         
     Returns:

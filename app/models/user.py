@@ -258,8 +258,12 @@ class User(UserMixin, db.Model):
                 'tier_display': 'Багц байхгүй'
             }
         
-        from app.models.subscription import SubscriptionTier
-        is_trial = subscription.tier == SubscriptionTier.FREE_TRIAL
+        from app.models.subscription import LegacySubscriptionTier, BillingCycle
+        # Check for trial using new or legacy system
+        is_trial = (
+            subscription.billing_cycle == BillingCycle.TRIAL if subscription.billing_cycle 
+            else subscription.tier == LegacySubscriptionTier.FREE_TRIAL
+        )
         
         return {
             'has_subscription': True,
@@ -281,16 +285,19 @@ class User(UserMixin, db.Model):
     
     def can_create_free_trial(self):
         """Check if user is eligible for a free trial"""
-        from app.models.subscription import Subscription, SubscriptionTier
+        from app.models.subscription import Subscription, LegacySubscriptionTier, BillingCycle
         
         # Check if user already has a subscription
         if self.get_current_subscription():
             return False
         
-        # Check if user has ever had a free trial before
-        previous_trial = Subscription.query.filter_by(
-            user_id=self.id,
-            tier=SubscriptionTier.FREE_TRIAL
+        # Check if user has ever had a free trial before (check both systems)
+        previous_trial = Subscription.query.filter(
+            (Subscription.user_id == self.id) &
+            (
+                (Subscription.tier == LegacySubscriptionTier.FREE_TRIAL) |
+                (Subscription.billing_cycle == BillingCycle.TRIAL)
+            )
         ).first()
         
         return previous_trial is None

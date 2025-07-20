@@ -270,19 +270,37 @@ def purchase_subscription():
     try:
         data = request.get_json()
         
-        # Validate request data
-        tier = data.get('tier')
-        months = data.get('months', 1)
+        # Validate request data - support both old and new API formats
+        tier = data.get('tier')  # Legacy: 'basic', 'advanced'
+        months = data.get('months', 1)  # Legacy: number of months
         
-        if not tier or tier not in ['basic']:
+        # New format (optional for now)
+        feature_tier = data.get('feature_tier', tier)  # 'basic', 'advanced'
+        billing_cycle = data.get('billing_cycle')  # 'monthly', 'quarterly', etc.
+        
+        # Convert legacy months to billing cycle if not provided
+        if not billing_cycle:
+            if months == 1:
+                billing_cycle = 'monthly'
+            elif months == 3:
+                billing_cycle = 'quarterly'
+            elif months == 6:
+                billing_cycle = 'biannual'
+            elif months == 12:
+                billing_cycle = 'annual'
+            else:
+                billing_cycle = 'monthly'  # Default fallback
+        
+        # Validate feature tier
+        if not feature_tier or feature_tier not in ['basic', 'advanced']:
             return jsonify({'error': 'Invalid subscription tier'}), 400
         
-        # Validate months
-        if not isinstance(months, int) or months < 1 or months > 12:
-            return jsonify({'error': 'Invalid months value'}), 400
+        # Validate billing cycle
+        if billing_cycle not in ['monthly', 'quarterly', 'biannual', 'annual']:
+            return jsonify({'error': 'Invalid billing cycle'}), 400
         
-        # Create QuickPay invoice
-        invoice_result = create_subscription_invoice(current_user.id, tier, months)
+        # Create QuickPay invoice using legacy method for now
+        invoice_result = create_subscription_invoice(current_user.id, feature_tier, months)
         
         if not invoice_result.get('success'):
             return jsonify({'error': invoice_result.get('error', 'Failed to create invoice')}), 500
