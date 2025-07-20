@@ -2016,6 +2016,47 @@ def simulate_real_donations():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# DEV: Tier Toggle Endpoint (Remove in production)
+@main_bp.route('/dev/toggle-tier', methods=['POST'])
+@login_required
+def toggle_tier():
+    """Toggle user's subscription tier for development testing"""
+    try:
+        from app.models.subscription import SubscriptionTier
+        
+        # Get current subscription
+        current_subscription = current_user.get_current_subscription()
+        
+        if not current_subscription:
+            return jsonify({'success': False, 'error': 'No active subscription found'}), 400
+        
+        # Toggle between basic and advanced
+        if current_subscription.feature_tier == SubscriptionTier.BASIC:
+            new_tier = SubscriptionTier.ADVANCED
+            new_tier_display = "Дэвшилтэт"
+        else:
+            new_tier = SubscriptionTier.BASIC  
+            new_tier_display = "Үндсэн"
+        
+        # Update the subscription
+        current_subscription.feature_tier = new_tier
+        db.session.commit()
+        
+        current_app.logger.info(f"DEV: User {current_user.id} tier toggled to {new_tier.value}")
+        
+        return jsonify({
+            'success': True,
+            'new_tier': new_tier.value,
+            'new_tier_display': new_tier_display,
+            'message': f'Tier солигдлоо: {new_tier_display}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling tier: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Marathon SocketIO handlers
 @socketio.on('join_marathon_room')
 def handle_join_marathon_room(data):

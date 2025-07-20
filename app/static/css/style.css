@@ -702,3 +702,32 @@ h6 {
         max-width: 2000px !important;
     }
 }
+
+/* DEV: Tier Toggle Button Styles (Remove in production) */
+#tierToggleBtn {
+    transition: all 0.2s ease;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#tierToggleBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+#tierToggleBtn:active {
+    transform: translateY(0);
+}
+
+#tierToggleBtn.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-color: #1d4ed8;
+}
+
+#tierToggleBtn.btn-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-color: #d97706;
+}

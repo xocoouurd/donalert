@@ -12,6 +12,11 @@
                     <span class="text-muted fs-5"
                         >{{ current_user.get_display_name() }}</span
                     >
+                    <!-- DEV: Tier Toggle Button (Remove in production) -->
+                    <button id="tierToggleBtn" class="btn btn-sm ms-2 me-2" style="font-size: 10px; padding: 2px 8px;" onclick="toggleTier()">
+                        <i class="fas fa-crown me-1"></i>
+                        <span id="currentTier">Үндсэн</span>
+                    </button>
                     <img
                         src="{{ current_user.get_profile_picture_or_default() }}"
                         alt="Profile"
@@ -463,6 +468,91 @@ document.addEventListener('DOMContentLoaded', function() {
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Хаах</button>
         `;
     }
+    
+    // DEV: Tier Toggle functionality (Remove in production)
+    window.toggleTier = function() {
+        const btn = document.getElementById('tierToggleBtn');
+        const tierSpan = document.getElementById('currentTier');
+        
+        // Disable button during request
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Өөрчилж байна...';
+        
+        fetch('/dev/toggle-tier', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update button text and style
+                tierSpan.textContent = data.new_tier_display;
+                updateTierButtonStyle(data.new_tier);
+                
+                // Show success feedback
+                showTierChangeSuccess(data.new_tier_display);
+            } else {
+                alert('Tier солиход алдаа гарлаа: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling tier:', error);
+            alert('Tier солиход алдаа гарлаа: ' + error);
+        })
+        .finally(() => {
+            // Re-enable button
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-crown me-1"></i><span id="currentTier">' + tierSpan.textContent + '</span>';
+        });
+    };
+    
+    function updateTierButtonStyle(tier) {
+        const btn = document.getElementById('tierToggleBtn');
+        btn.className = 'btn btn-sm ms-2 me-2'; // Reset classes
+        
+        if (tier === 'basic') {
+            btn.classList.add('btn-primary');
+        } else if (tier === 'advanced') {
+            btn.classList.add('btn-warning');
+        }
+        btn.style.fontSize = '10px';
+        btn.style.padding = '2px 8px';
+    }
+    
+    function showTierChangeSuccess(tierDisplay) {
+        // Create a small toast notification
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success position-fixed';
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 200px;';
+        toast.innerHTML = `<i class="fas fa-check-circle me-2"></i>Tier солигдлоо: ${tierDisplay}`;
+        
+        document.body.appendChild(toast);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
+    
+    // Initialize tier button style on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get current tier from subscription status and update button
+        {% if current_user.get_current_subscription() %}
+            {% set current_sub = current_user.get_current_subscription() %}
+            {% if current_sub.feature_tier %}
+                updateTierButtonStyle('{{ current_sub.feature_tier.value }}');
+                document.getElementById('currentTier').textContent = '{{ current_sub.get_feature_tier_display_name() }}';
+            {% else %}
+                updateTierButtonStyle('basic');  // Default for legacy subscriptions
+            {% endif %}
+        {% else %}
+            updateTierButtonStyle('basic');  // Default for no subscription
+        {% endif %}
+    });
 });
 </script>
 
