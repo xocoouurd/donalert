@@ -178,10 +178,33 @@ class DonationPayment(db.Model):
         try:
             from app.extensions import socketio
             from app.models.donation_alert_settings import DonationAlertSettings
+            from app.models.alert_configuration import AlertConfiguration
+            from app.models.user import User
             from flask import current_app
             
-            # Get donation alert settings
-            settings = DonationAlertSettings.get_or_create_for_user(self.streamer_user_id)
+            # Get user to check subscription tier
+            streamer = User.query.get(self.streamer_user_id)
+            
+            # Check if user has advanced tier
+            subscription = streamer.get_current_subscription()
+            has_advanced_tier = (subscription and 
+                                subscription.feature_tier and 
+                                subscription.feature_tier.value == 'advanced')
+            
+            if has_advanced_tier:
+                # Use new alert configuration system
+                settings = AlertConfiguration.get_config_for_amount(self.streamer_user_id, donation.amount)
+                if not settings:
+                    # Fallback to any configuration if none match the amount
+                    configs = AlertConfiguration.get_user_configs(self.streamer_user_id)
+                    settings = configs[0] if configs else None
+                
+                if not settings:
+                    current_app.logger.warning(f"No alert configuration found for user {self.streamer_user_id}")
+                    return
+            else:
+                # Use legacy settings for basic tier
+                settings = DonationAlertSettings.get_or_create_for_user(self.streamer_user_id)
             
             # Check if donation meets minimum amount for alert (0 = no minimum)
             if settings.minimum_amount > 0 and donation.amount < settings.minimum_amount:
@@ -238,6 +261,13 @@ class DonationPayment(db.Model):
                 'is_guest': self.donor_user_id is None,  # True for guest users
                 'has_avatar': donator_avatar is not None  # True only if avatar exists
             }
+            
+            # Add tab configuration info for advanced tier
+            if has_advanced_tier and hasattr(settings, 'tab_number'):
+                alert_data['tab_number'] = settings.tab_number
+                alert_data['config_id'] = settings.id
+            else:
+                alert_data['tab_number'] = 1  # Default tab for basic tier
             
             # Send to streamer's room for overlay alerts
             room = f"user_{self.streamer_user_id}"

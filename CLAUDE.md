@@ -425,6 +425,50 @@ class PlatformConnection(db.Model):
 - **Security**: Input validation and SQL injection prevention
 - **Performance**: Optimized queries and caching strategies
 
+## Recent Development Work
+
+### 2025-07-20: Asset State Persistence Fix
+
+**Issue**: Multi-tab alert system was losing saved image and sound asset states when switching between tabs or reloading the page.
+
+**Root Cause**: The new `AlertConfiguration` model was missing `default_gif_name` and `default_sound_name` fields that the legacy `DonationAlertSettings` model had, causing asset state to be lost during the transition to the multi-tab system.
+
+**Solution Implemented**:
+1. **Backend Changes**:
+   - Added `default_gif_name` and `default_sound_name` fields to `AlertConfiguration` model
+   - Created database migration `95a60029a756` to add the missing fields
+   - Updated `get_gif_url()` and `get_sound_url()` helper methods
+   - Enhanced `to_dict()` method to include asset URLs and legacy field compatibility
+   - Fixed JSON serialization issues by converting AlertConfiguration objects to dictionaries in routes
+
+2. **Frontend Changes**:
+   - Enhanced `populateTabForm()` function with comprehensive asset loading logic
+   - Added debugging logs to track asset loading process
+   - Improved initialization code to properly load tab 1 configuration with assets
+   - Updated route handlers to pass alert configurations as serializable dictionaries
+
+3. **Database Schema Updates**:
+   ```sql
+   ALTER TABLE alert_configurations 
+   ADD COLUMN default_gif_name VARCHAR(100),
+   ADD COLUMN default_sound_name VARCHAR(100);
+   ```
+
+**Current Status**: Implementation completed but needs testing. The asset loading logic now supports both ID-based user assets and name-based default assets, maintaining compatibility with both the new multi-tab system and legacy single-tab configurations.
+
+**Known Issue**: JSON serialization error when passing AlertConfiguration objects to templates - **FIXED** by converting to dictionaries in routes.
+
+**Files Modified**:
+- `app/models/alert_configuration.py` - Added asset name fields and helper methods
+- `app/routes/main.py` - Fixed JSON serialization in donation alert and overlay routes  
+- `app/templates/donation_alert.html` - Enhanced asset loading and initialization
+- `migrations/versions/95a60029a756_*.py` - Database migration for new fields
+
+**Next Steps**: 
+- Test the complete asset state persistence solution
+- Verify that saved assets display correctly in all tabs
+- Ensure overlay system receives correct asset URLs
+
 ## Production Status
 
 **Current Status**: Fully operational donation alert platform

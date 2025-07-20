@@ -1,13 +1,156 @@
-.asset-gallery {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
-    max-height: 200px;
+/* Alert Tabs Styling */
+.alert-tabs-container {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.alert-tabs {
+    border: none;
+    background: none;
+}
+
+.alert-tabs .nav-link {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    color: white;
+    font-weight: 500;
+    padding: 10px 15px;
+    margin-right: 10px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.alert-tabs .nav-link:hover {
+    background: rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(20px);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: white;
+}
+
+.alert-tabs .nav-link.active {
+    background: rgba(99, 102, 241, 0.8);
+    backdrop-filter: blur(20px);
+    border-color: #6366f1;
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.add-tab-btn {
+    background: rgba(255, 255, 255, 0.25) !important;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: black !important;
+    width: 45px;
+    height: 45px;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.add-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+    backdrop-filter: blur(20px);
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    color: black !important;
+    transform: scale(1.05);
+}
+
+.alert-tabs .nav-item {
+    position: relative;
+}
+
+.alert-tabs .nav-item .btn-close {
+    background: rgba(220, 53, 69, 0.6) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    opacity: 1 !important;
+    font-size: 12px !important;
+    position: absolute !important;
+    top: -11px !important;
+    right: -1px !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: white !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.alert-tabs .nav-item .btn-close::before {
+    content: "×" !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    color: white !important;
+}
+
+.alert-tabs .nav-item .btn-close:hover {
+    opacity: 1 !important;
+    background: rgba(220, 53, 69, 0.8) !important;
+    border: none !important;
+    transform: scale(1.15) !important;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Tab Content Styling */
+.tab-content {
+    background: none;
+}
+
+.tab-pane {
+    border: none;
+    background: none;
+}
+
+/* Upload area drag and drop styling */
+.upload-area {
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.upload-area:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.upload-area.drag-over {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.asset-gallery,
+.asset-modal-gallery,
+#modalAssetGallery {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 10px !important;
+    max-height: 400px;
     overflow-y: auto;
     padding: 10px;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.1);
+}
+
+/* Modal gallery gets more height since it's in a modal */
+.asset-modal-gallery,
+#modalAssetGallery {
+    max-height: 400px !important;
+    min-height: 200px;
 }
 
 .asset-item {
@@ -19,6 +162,9 @@
     cursor: pointer;
     background: rgba(255, 255, 255, 0.2);
     transition: all 0.3s ease;
+    width: auto !important;
+    max-width: none !important;
+    flex: none !important;
 }
 
 .asset-item:hover {
@@ -61,12 +207,29 @@
 }
 
 .asset-name {
-    font-size: 11px;
-    font-weight: 500;
-    color: #374151;
-    white-space: nowrap;
-    overflow: hidden;
+    font-size: 0.75rem;
+    color: #333333;
     text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-top: 5px;
+    font-weight: 500;
+}
+
+/* Asset items in modal should be properly sized */
+.asset-modal-gallery .asset-item {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.asset-modal-gallery .asset-item img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
 }
 
 .asset-delete, .asset-play {

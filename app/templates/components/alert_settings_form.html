@@ -1,0 +1,457 @@
+<!-- Alert Message Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-edit me-2"></i>Алерт мессежийн тохиргоо</h5>
+    
+    <div class="mb-3">
+        <label for="textTemplate" class="form-label">Алерт мессежийн загвар</label>
+        <textarea class="form-control" id="textTemplate" name="text_template" rows="2" 
+                 placeholder="{name}-ээс **[{amount}₮]** donation орж ирлээ!">{{ settings.text_template }}</textarea>
+        <div class="form-text">
+            <strong>Тэмдэглэгээ:</strong> {name} - Хандивлагчийн нэр, {amount} - Хандивын дүн, **текст** - Тод үсэг, *текст* - Налуу үсэг, [текст] - Онцлох өнгө
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <label for="minimumAmount" class="form-label">Хамгийн бага хандивын дүн</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="minimumAmount" name="minimum_amount" 
+                       value="{{ settings.minimum_amount }}" min="0">
+                <span class="input-group-text">₮</span>
+            </div>
+            <div class="form-text">0 = бүх хандивыг харуулах</div>
+        </div>
+    </div>
+</div>
+
+<!-- Animation Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-magic me-2"></i>Хөдөлгөөнт эффектийн тохиргоо</h5>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <label for="visibleTime" class="form-label">Алерт харагдах хугацаа</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="visibleTime" name="visible_time" 
+                       value="{{ (settings.visible_time / 1000) | round(1) }}" min="1" max="30" step="0.5">
+                <span class="input-group-text">секунд</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label for="animationSpeed" class="form-label">Хөдөлгөөний хурд</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="animationSpeed" name="animation_speed" 
+                       value="{{ (settings.animation_speed / 1000) | round(1) }}" min="0.2" max="3" step="0.1">
+                <span class="input-group-text">секунд</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label for="transitionType" class="form-label">Хөдөлгөөнт эффектийн төрөл</label>
+            <select class="form-select" id="transitionType" name="transition_type">
+                <option value="fade-in" {{ 'selected' if settings.transition_type == 'fade-in' }}>Fade In</option>
+                <option value="slide-up" {{ 'selected' if settings.transition_type == 'slide-up' }}>Slide Up</option>
+                <option value="slide-down" {{ 'selected' if settings.transition_type == 'slide-down' }}>Slide Down</option>
+                <option value="slide-left" {{ 'selected' if settings.transition_type == 'slide-left' }}>Slide Left</option>
+                <option value="slide-right" {{ 'selected' if settings.transition_type == 'slide-right' }}>Slide Right</option>
+                <option value="zoom-in" {{ 'selected' if settings.transition_type == 'zoom-in' }}>Zoom In</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Image Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-image me-2"></i>Зураг болон байршлын тохиргоо</h5>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="imagePosition" class="form-label">Зургийн байрлал</label>
+            <select class="form-select" id="imagePosition" name="image_position">
+                <option value="left" {{ 'selected' if settings.image_position == 'left' }}>Зүүн</option>
+                <option value="right" {{ 'selected' if settings.image_position == 'right' }}>Баруун</option>
+                <option value="top" {{ 'selected' if settings.image_position == 'top' }}>Дээд</option>
+                <option value="bottom" {{ 'selected' if settings.image_position == 'bottom' }}>Доод</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="imageSize" class="form-label">Зургийн хэмжээ</label>
+            <div class="input-group">
+                <input type="range" class="form-range" id="imageSize" name="image_size" 
+                       min="50" max="200" value="{{ settings.image_size }}">
+                <span class="input-group-text" id="imageSizeDisplay">{{ settings.image_size }}%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Зураг сонгох</label>
+        <div class="d-flex align-items-center gap-2">
+            <div class="selected-asset-preview" id="selectedGifPreview">
+                <img id="selectedGifImage" src="" alt="Selected GIF" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; display: none;">
+                <span id="selectedGifName" class="text-muted">Зураг сонгогдоогүй</span>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openAssetModal('gif')">
+                <i class="fas fa-images me-1"></i>Зураг сонгох
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Sound Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-volume-up me-2"></i>Дуу болон TTS дуу холлолтын тохиргоо</h5>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="soundVolume" class="form-label">Дууны дуудлага</label>
+            <div class="input-group">
+                <input type="range" class="form-range" id="soundVolume" name="sound_volume" 
+                       min="0" max="100" value="{{ settings.sound_volume }}">
+                <span class="input-group-text" id="soundVolumeDisplay">{{ settings.sound_volume }}%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Дуу сонгох</label>
+        <div class="d-flex align-items-center gap-2">
+            <div class="selected-asset-preview" id="selectedSoundPreview">
+                <i class="fas fa-music me-2" id="selectedSoundIcon" style="font-size: 24px; color: #6366f1; display: none;"></i>
+                <span id="selectedSoundName" class="text-muted">Дуу сонгогдоогүй</span>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="playSoundBtn" onclick="playSelectedSound()" style="display: none;">
+                <i class="fas fa-play"></i>
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openAssetModal('sound')">
+                <i class="fas fa-volume-up me-1"></i>Дуу сонгох
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Text to Speech Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-microphone me-2"></i>Text to Speech тохиргоо</h5>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="ttsEnabled" name="tts_enabled" 
+                       {{ 'checked' if settings.tts_enabled }}>
+                <label class="form-check-label" for="ttsEnabled">Монгол дуу холлолт асаах</label>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label for="ttsMinAmount" class="form-label">Дуу холлолт хамгийн бага дүн</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="ttsMinAmount" name="tts_minimum_amount" 
+                       value="{{ settings.tts_minimum_amount }}" min="0">
+                <span class="input-group-text">₮</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label for="ttsSpeed" class="form-label">Уншигчийн хурд</label>
+            <select class="form-select" id="ttsSpeed" name="tts_speed">
+                <option value="0.5" {{ 'selected' if settings.tts_speed == 0.5 }}>Удаан</option>
+                <option value="0.75" {{ 'selected' if settings.tts_speed == 0.75 }}>Бага удаан</option>
+                <option value="1.0" {{ 'selected' if settings.tts_speed == 1.0 }}>Хэвийн</option>
+                <option value="1.25" {{ 'selected' if settings.tts_speed == 1.25 }}>Бага хурдан</option>
+                <option value="1.5" {{ 'selected' if settings.tts_speed == 1.5 }}>Хурдан</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <label for="ttsVoice" class="form-label">Хоолойн сонголт</label>
+            <select class="form-select" id="ttsVoice" name="tts_voice">
+                <optgroup label="Эмэгтэй хоолой">
+                    <option value="FEMALE1" {{ 'selected' if settings.tts_voice == 'FEMALE1' }}>Эмэгтэй 1</option>
+                    <option value="FEMALE1v2" {{ 'selected' if settings.tts_voice == 'FEMALE1v2' }}>Эмэгтэй 1v2</option>
+                    <option value="FEMALE2v2" {{ 'selected' if settings.tts_voice == 'FEMALE2v2' }}>Эмэгтэй 2v2</option>
+                    <option value="FEMALE3v2" {{ 'selected' if settings.tts_voice == 'FEMALE3v2' }}>Эмэгтэй 3v2</option>
+                    <option value="FEMALE4v2" {{ 'selected' if settings.tts_voice == 'FEMALE4v2' }}>Эмэгтэй 4v2</option>
+                    <option value="FEMALE5v2" {{ 'selected' if settings.tts_voice == 'FEMALE5v2' }}>Эмэгтэй 5v2</option>
+                </optgroup>
+                <optgroup label="Эрэгтэй хоолой">
+                    <option value="MALE1" {{ 'selected' if settings.tts_voice == 'MALE1' }}>Эрэгтэй 1</option>
+                    <option value="MALE1v2" {{ 'selected' if settings.tts_voice == 'MALE1v2' }}>Эрэгтэй 1v2</option>
+                    <option value="MALE2v2" {{ 'selected' if settings.tts_voice == 'MALE2v2' }}>Эрэгтэй 2v2</option>
+                    <option value="MALE3v2" {{ 'selected' if settings.tts_voice == 'MALE3v2' }}>Эрэгтэй 3v2</option>
+                    <option value="MALE4v2" {{ 'selected' if settings.tts_voice == 'MALE4v2' }}>Эрэгтэй 4v2</option>
+                </optgroup>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label for="ttsPitch" class="form-label">Хоолойн өндөр</label>
+            <select class="form-select" id="ttsPitch" name="tts_pitch">
+                <option value="0.5" {{ 'selected' if settings.tts_pitch == 0.5 }}>Маш доод</option>
+                <option value="0.75" {{ 'selected' if settings.tts_pitch == 0.75 }}>Доод</option>
+                <option value="1.0" {{ 'selected' if settings.tts_pitch == 1.0 }}>Хэвийн</option>
+                <option value="1.25" {{ 'selected' if settings.tts_pitch == 1.25 }}>Өндөр</option>
+                <option value="1.5" {{ 'selected' if settings.tts_pitch == 1.5 }}>Маш өндөр</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Voice Sample Preview Section -->
+    <div class="mt-3">
+        <!-- Usage Limitation Notice -->
+        <div class="alert alert-warning py-2 mb-3" style="font-size: 0.9rem;">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Анхаарулга:</strong> Chimege нь төлбөртэй загвар тул одоогоор хэрэглээ хязгаарлагдмал байгаа бөгөөд ирээдүйд энэ өөрчлөгдөх болно.
+        </div>
+        
+        <!-- Usage Statistics -->
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadTTSUsage()">
+                    <i class="fas fa-chart-bar me-1"></i>Хэрэглээ харах
+                </button>
+            </div>
+        </div>
+        
+        <!-- TTS Usage Display -->
+        <div id="ttsUsageDisplay" class="mb-3" style="display: none;">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>TTS хэрэглээний статистик</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Өнөөдөр:</strong><br>
+                        <span id="dailyUsage">-</span> хүсэлт / <span id="dailyLimit">-</span><br>
+                        <span id="dailyChars">-</span> тэмдэгт / <span id="dailyCharLimit">-</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Энэ сар:</strong><br>
+                        <span id="monthlyUsage">-</span> хүсэлт / <span id="monthlyLimit">-</span><br>
+                        <span id="monthlyChars">-</span> тэмдэгт / <span id="monthlyCharLimit">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h6 class="mb-2">
+            <i class="fas fa-microphone me-2"></i>Монгол дуу хоолойн жишээ
+        </h6>
+        
+        <!-- Pre-recording Explanation -->
+        <div class="alert alert-info py-2 mb-3" style="font-size: 0.9rem;">
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Тайлбар:</strong> Эдгээр нь урьдчилан бичигдсэн жишээ дуулгалт юм. Бодит цагт үүсгэх дуу хоолой таны тохируулгаас хамаарч өөр сонсогдож болно.
+        </div>
+        
+        <!-- Female Voices -->
+        <div class="mb-3">
+            <h6 class="text-muted mb-2">
+                <i class="fas fa-female me-1"></i>Эмэгтэй дуу хоолой
+            </h6>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female1')">
+                        <i class="fas fa-play me-1"></i>FEMALE1
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female1v2')">
+                        <i class="fas fa-play me-1"></i>FEMALE1v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female2v2')">
+                        <i class="fas fa-play me-1"></i>FEMALE2v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female3v2')">
+                        <i class="fas fa-play me-1"></i>FEMALE3v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female4v2')">
+                        <i class="fas fa-play me-1"></i>FEMALE4v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="playVoiceSample('female5v2')">
+                        <i class="fas fa-play me-1"></i>FEMALE5v2
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Male Voices -->
+        <div class="mb-3">
+            <h6 class="text-muted mb-2">
+                <i class="fas fa-male me-1"></i>Эрэгтэй дуу хоолой
+            </h6>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male1')">
+                        <i class="fas fa-play me-1"></i>MALE1
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male1v2')">
+                        <i class="fas fa-play me-1"></i>MALE1v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male2v2')">
+                        <i class="fas fa-play me-1"></i>MALE2v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male3v2')">
+                        <i class="fas fa-play me-1"></i>MALE3v2
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="playVoiceSample('male4v2')">
+                        <i class="fas fa-play me-1"></i>MALE4v2
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <div class="alert alert-success mt-3">
+        <i class="fas fa-check-circle me-2"></i>
+        Чимэгэ TTS идэвхжсэн - Монгол хэлний мэргэжлийн уншигч
+        <br><small class="text-muted">Үнэгүй хязгаарлалт: Өдөрт 5 хүсэлт, сард 150 хүсэлт</small>
+    </div>
+</div>
+
+<!-- Donator Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-user me-2"></i>Донейтер тохиргоо</h5>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <label for="donatorImageSize" class="form-label">Зургийн хэмжээ</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="donatorImageSize" name="donator_image_size" 
+                       value="{{ settings.donator_image_size }}" min="20" max="100">
+                <span class="input-group-text">px</span>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label for="donatorNameSize" class="form-label">Нэрийн хэмжээ</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="donatorNameSize" name="donator_name_size" 
+                       value="{{ settings.donator_name_size }}" min="12" max="48">
+                <span class="input-group-text">px</span>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label for="donatorNameWeight" class="form-label">Нэрийн зузаан</label>
+            <select class="form-select" id="donatorNameWeight" name="donator_name_weight">
+                <option value="normal" {{ 'selected' if settings.donator_name_weight == 'normal' }}>Хэвийн</option>
+                <option value="bold" {{ 'selected' if settings.donator_name_weight == 'bold' }}>Тод</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="donatorAlignment" class="form-label">Байрлал</label>
+            <select class="form-select" id="donatorAlignment" name="donator_alignment">
+                <option value="left" {{ 'selected' if settings.donator_alignment == 'left' }}>Зүүн</option>
+                <option value="center" {{ 'selected' if settings.donator_alignment == 'center' }}>Төв</option>
+                <option value="right" {{ 'selected' if settings.donator_alignment == 'right' }}>Баруун</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <label for="donatorColor" class="form-label">Нэрийн өнгө</label>
+            <input type="color" class="form-control form-control-color" id="donatorColor" name="donator_color" 
+                   value="{{ settings.donator_color }}">
+        </div>
+    </div>
+</div>
+
+<!-- Text Template Style Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-font me-2"></i>Текст загварын дизайн</h5>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <label for="templateSize" class="form-label">Үсгийн хэмжээ</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="templateSize" name="template_size" 
+                       value="{{ settings.template_size }}" min="12" max="48">
+                <span class="input-group-text">px</span>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label for="templateWeight" class="form-label">Үсгийн зузаан</label>
+            <select class="form-select" id="templateWeight" name="template_weight">
+                <option value="normal" {{ 'selected' if settings.template_weight == 'normal' }}>Хэвийн</option>
+                <option value="bold" {{ 'selected' if settings.template_weight == 'bold' }}>Тод</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="templateAlignment" class="form-label">Байрлал</label>
+            <select class="form-select" id="templateAlignment" name="template_alignment">
+                <option value="left" {{ 'selected' if settings.template_alignment == 'left' }}>Зүүн</option>
+                <option value="center" {{ 'selected' if settings.template_alignment == 'center' }}>Төв</option>
+                <option value="right" {{ 'selected' if settings.template_alignment == 'right' }}>Баруун</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <label for="templateBaseColor" class="form-label">Үндсэн өнгө</label>
+            <input type="color" class="form-control form-control-color" id="templateBaseColor" name="template_base_color" 
+                   value="{{ settings.template_base_color }}">
+        </div>
+        <div class="col-md-6">
+            <label for="templateAccentColor" class="form-label">Онцлох өнгө [текст]</label>
+            <input type="color" class="form-control form-control-color" id="templateAccentColor" name="template_accent_color" 
+                   value="{{ settings.template_accent_color }}">
+        </div>
+    </div>
+</div>
+
+<!-- Message Style Settings -->
+<div class="glass-card p-3 mb-3">
+    <h5 class="mb-3"><i class="fas fa-comment me-2"></i>Мессежийн дизайн</h5>
+    
+    <div class="row">
+        <div class="col-md-2">
+            <label for="messageSize" class="form-label">Үсгийн хэмжээ</label>
+            <div class="input-group">
+                <input type="number" class="form-control" id="messageSize" name="message_size" 
+                       value="{{ settings.message_size }}" min="12" max="32">
+                <span class="input-group-text">px</span>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label for="messageWeight" class="form-label">Үсгийн зузаан</label>
+            <select class="form-select" id="messageWeight" name="message_weight">
+                <option value="normal" {{ 'selected' if settings.message_weight == 'normal' }}>Хэвийн</option>
+                <option value="bold" {{ 'selected' if settings.message_weight == 'bold' }}>Тод</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="messageStyle" class="form-label">Үсгийн хэв</label>
+            <select class="form-select" id="messageStyle" name="message_style">
+                <option value="normal" {{ 'selected' if settings.message_style == 'normal' }}>Хэвийн</option>
+                <option value="italic" {{ 'selected' if settings.message_style == 'italic' }}>Налуу</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="messageAlignment" class="form-label">Байрлал</label>
+            <select class="form-select" id="messageAlignment" name="message_alignment">
+                <option value="left" {{ 'selected' if settings.message_alignment == 'left' }}>Зүүн</option>
+                <option value="center" {{ 'selected' if settings.message_alignment == 'center' }}>Төв</option>
+                <option value="right" {{ 'selected' if settings.message_alignment == 'right' }}>Баруун</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="messageColor" class="form-label">Өнгө</label>
+            <input type="color" class="form-control form-control-color" id="messageColor" name="message_color" 
+                   value="{{ settings.message_color }}">
+        </div>
+    </div>
+</div>

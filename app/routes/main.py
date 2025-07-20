@@ -132,14 +132,75 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
+# DEV: Tier Toggle Endpoint (Remove in production)
+@main_bp.route('/dev/toggle-tier', methods=['POST'])
+@login_required
+def toggle_tier():
+    """Toggle user's subscription tier for development testing"""
+    try:
+        from app.models.subscription import SubscriptionTier
+        
+        # Get current subscription
+        current_subscription = current_user.get_current_subscription()
+        
+        if not current_subscription:
+            return jsonify({'success': False, 'error': 'No active subscription found'}), 400
+        
+        # Toggle between basic and advanced
+        if current_subscription.feature_tier == SubscriptionTier.BASIC:
+            new_tier = SubscriptionTier.ADVANCED
+            new_tier_display = "Дэвшилтэт"
+        else:
+            new_tier = SubscriptionTier.BASIC  
+            new_tier_display = "Үндсэн"
+        
+        # Update the subscription
+        current_subscription.feature_tier = new_tier
+        db.session.commit()
+        
+        current_app.logger.info(f"DEV: User {current_user.id} tier toggled to {new_tier.value}")
+        
+        return jsonify({
+            'success': True,
+            'new_tier': new_tier.value,
+            'new_tier_display': new_tier_display,
+            'message': f'Tier солигдлоо: {new_tier_display}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling tier: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/donation-alert')
 @login_required
 def donation_alert():
     from app.models.donation_alert_settings import DonationAlertSettings
+    from app.models.alert_configuration import AlertConfiguration
     from app.models.user_asset import UserAsset
     
-    # Get or create settings for user
-    settings = DonationAlertSettings.get_or_create_for_user(current_user.id)
+    # Check if user has advanced tier
+    subscription = current_user.get_current_subscription()
+    has_advanced_tier = (subscription and 
+                        subscription.feature_tier and 
+                        subscription.feature_tier.value == 'advanced')
+    
+    if has_advanced_tier:
+        # For advanced tier, get all alert configurations
+        alert_configs = AlertConfiguration.get_user_configs(current_user.id)
+        
+        # If no configurations exist, create default one
+        if not alert_configs:
+            default_config = AlertConfiguration.create_default_config(current_user.id, 1)
+            db.session.add(default_config)
+            db.session.commit()
+            alert_configs = [default_config]
+        
+        # Use first config as default for template compatibility
+        settings = alert_configs[0]
+    else:
+        # For basic tier, use legacy settings
+        settings = DonationAlertSettings.get_or_create_for_user(current_user.id)
     
     # Ensure user has an overlay token
     overlay_token = current_user.get_overlay_token()
@@ -152,13 +213,20 @@ def donation_alert():
     default_gifs = get_default_assets('gifs')
     default_sounds = get_default_assets('sounds')
     
-    return render_template('donation_alert.html', 
-                         settings=settings,
-                         user_gifs=user_gifs,
-                         user_sounds=user_sounds,
-                         default_gifs=default_gifs,
-                         default_sounds=default_sounds,
-                         overlay_token=overlay_token)
+    template_vars = {
+        'settings': settings,
+        'user_gifs': user_gifs,
+        'user_sounds': user_sounds,
+        'default_gifs': default_gifs,
+        'default_sounds': default_sounds,
+        'overlay_token': overlay_token
+    }
+    
+    # For advanced tier, also pass alert configurations
+    if has_advanced_tier:
+        template_vars['alert_configurations'] = [config.to_dict() for config in alert_configs]
+    
+    return render_template('donation_alert.html', **template_vars)
 
 @main_bp.route('/donation-goal')
 @login_required
@@ -709,12 +777,211 @@ def delete_alert_asset(asset_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# New API endpoints for multi-tab alert system
+
+@main_bp.route('/donation-alert/configurations', methods=['GET'])
+@login_required
+def get_alert_configurations():
+    """Get all alert configurations for the current user"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        configs = AlertConfiguration.get_user_configs(current_user.id)
+        return jsonify({
+            'success': True,
+            'configurations': [config.to_dict() for config in configs]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting alert configurations: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['GET'])
+@login_required
+def get_alert_configuration(tab_number):
+    """Get specific alert configuration by tab number"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not config:
+            return jsonify({'success': False, 'error': 'Configuration not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'configuration': config.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['POST'])
+@login_required
+def update_alert_configuration(tab_number):
+    """Update or create alert configuration for specific tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        from app.extensions import socketio
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        data = request.get_json()
+        current_app.logger.info(f"SETTINGS UPDATE: Tab {tab_number} - Received data: {data}")
+        
+        # Get or create configuration
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not config:
+            config = AlertConfiguration.create_default_config(current_user.id, tab_number)
+            db.session.add(config)
+        
+        # Update configuration
+        config.update_from_dict(data)
+        db.session.commit()
+        
+        current_app.logger.info(f"SETTINGS UPDATE: Tab {tab_number} - Settings updated successfully")
+        
+        # Emit settings update to user's overlay
+        socketio.emit('settings_updated', {
+            'tab_number': tab_number,
+            'config': config.to_dict()
+        }, room=f'user_{current_user.id}')
+        
+        return jsonify({'success': True, 'message': 'Configuration updated successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"SETTINGS UPDATE: Error updating tab {tab_number}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['DELETE'])
+@login_required
+def delete_alert_configuration(tab_number):
+    """Delete alert configuration for specific tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        # Cannot delete tab 1
+        if tab_number == 1:
+            return jsonify({'success': False, 'error': 'Cannot delete default tab'}), 400
+        
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not config:
+            return jsonify({'success': False, 'error': 'Configuration not found'}), 404
+        
+        # Soft delete by setting is_active to False
+        config.is_active = False
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Configuration deleted successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>/duplicate', methods=['POST'])
+@login_required
+def duplicate_alert_configuration(tab_number):
+    """Duplicate alert configuration to a new tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        data = request.get_json()
+        new_tab_number = data.get('new_tab_number')
+        
+        if not new_tab_number:
+            return jsonify({'success': False, 'error': 'New tab number required'}), 400
+        
+        # Check if new tab number already exists
+        existing = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=new_tab_number,
+            is_active=True
+        ).first()
+        
+        if existing:
+            return jsonify({'success': False, 'error': 'Tab number already exists'}), 400
+        
+        # Get source configuration
+        source_config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not source_config:
+            return jsonify({'success': False, 'error': 'Source configuration not found'}), 404
+        
+        # Duplicate configuration
+        new_config = source_config.duplicate_to_tab(new_tab_number)
+        db.session.add(new_config)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Configuration duplicated successfully',
+            'configuration': new_config.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error duplicating alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/overlay/<token>')
 def overlay(token):
     """Donation alert overlay page for OBS"""
     try:
         from app.models.user import User
         from app.models.donation_alert_settings import DonationAlertSettings
+        from app.models.alert_configuration import AlertConfiguration
         
         # Get user by overlay token
         user = User.query.filter_by(overlay_token=token).first()
@@ -722,9 +989,28 @@ def overlay(token):
             current_app.logger.warning(f"Invalid overlay token attempted: {token}")
             abort(404)
         
-        settings = DonationAlertSettings.get_or_create_for_user(user.id)
+        # Check if user has advanced tier
+        subscription = user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
         
-        return render_template('overlay.html', user=user, settings=settings)
+        if has_advanced_tier:
+            # Get all alert configurations for advanced tier
+            configs = AlertConfiguration.get_user_configs(user.id)
+            # Use first config as default settings for template compatibility
+            settings = configs[0] if configs else AlertConfiguration.create_default_config(user.id, 1)
+            if not configs:
+                db.session.add(settings)
+                db.session.commit()
+            
+            return render_template('overlay.html', user=user, settings=settings, 
+                                 alert_configurations=[config.to_dict() for config in configs], has_advanced_tier=True)
+        else:
+            # Use legacy settings for basic tier
+            settings = DonationAlertSettings.get_or_create_for_user(user.id)
+            return render_template('overlay.html', user=user, settings=settings, 
+                                 has_advanced_tier=False)
         
     except Exception as e:
         current_app.logger.error(f"Error loading overlay for token {token}: {str(e)}")
