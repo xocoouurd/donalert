@@ -141,12 +141,18 @@ def dashboard():
 @login_required
 def dev_page():
     """Development tools and utilities page"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
     return render_template('dev.html')
 
 @main_bp.route('/dev/simulate-donation', methods=['POST'])
 @login_required
 def simulate_donation():
     """Simulate a donation for testing all systems"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
     try:
         data = request.get_json()
         
@@ -251,6 +257,9 @@ def simulate_donation():
 @login_required
 def toggle_tier():
     """Toggle user's subscription tier for development testing"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
     try:
         from app.models.subscription import SubscriptionTier
         

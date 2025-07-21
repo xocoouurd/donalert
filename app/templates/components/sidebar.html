@@ -45,7 +45,8 @@
                 </a>
             </li>
             
-            <!-- Development Tools (only show in development) -->
+            <!-- Development Tools (only show for users with dev access) -->
+            {% if current_user.dev_access %}
             <li class="nav-item mt-3 border-top pt-3">
                 <a class="nav-link {{ 'active' if request.endpoint == 'main.dev_page' }}" 
                    href="{{ url_for('main.dev_page') }}" 
@@ -54,6 +55,7 @@
                     <i class="fas fa-code"></i>
                 </a>
             </li>
+            {% endif %}
         </ul>
     </nav>
 </div>
