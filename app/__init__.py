@@ -36,6 +36,7 @@ def create_app():
     # Import all models for Flask-Migrate
     from app import models
     from app.models import subscription, subscription_payment, user_asset, donation_alert_settings, alert_configuration, tts_usage, donation_payment, donation_goal, marathon
+    from app.models import sound_effect, user_sound_settings, sound_effect_donation
     
     # Register blueprints
     from app.routes import main_bp, auth_bp, oauth_bp

@@ -23,6 +23,10 @@ class DonationPayment(db.Model):
     currency = db.Column(db.String(3), nullable=False, default='MNT')
     message = db.Column(db.Text, nullable=True)
     
+    # Sound effect integration
+    type = db.Column(db.Enum('alert', 'sound_effect', name='payment_type'), default='alert')
+    sound_effect_id = db.Column(db.Integer, db.ForeignKey('sound_effects.id'), nullable=True)
+    
     # QuickPay details
     quickpay_invoice_id = db.Column(db.String(100), nullable=True, unique=True)
     quickpay_merchant_id = db.Column(db.String(100), nullable=True)
@@ -51,12 +55,13 @@ class DonationPayment(db.Model):
     # Relationships
     streamer = db.relationship('User', foreign_keys=[streamer_user_id], backref='received_donation_payments')
     donor_user = db.relationship('User', foreign_keys=[donor_user_id], backref='sent_donation_payments')
+    sound_effect = db.relationship('SoundEffect', backref='payment_records')
     
     def __repr__(self):
         return f'<DonationPayment {self.id}: {self.donor_name} -> {self.streamer.username} ({self.amount} {self.currency})>'
     
     @classmethod
-    def create_donation_payment(cls, streamer_user_id, donor_name, amount, message="", donor_platform="guest", donor_user_id=None):
+    def create_donation_payment(cls, streamer_user_id, donor_name, amount, message="", donor_platform="guest", donor_user_id=None, payment_type="alert", sound_effect_id=None):
         """
         Create a new donation payment and QPay invoice
         
@@ -67,6 +72,8 @@ class DonationPayment(db.Model):
             message: Optional donation message
             donor_platform: Platform of the donor ('guest', 'twitch', 'youtube', 'kick')
             donor_user_id: ID of the donor if authenticated
+            payment_type: Type of payment ('alert' or 'sound_effect')
+            sound_effect_id: ID of sound effect if payment_type is 'sound_effect'
             
         Returns:
             dict: Payment creation response
@@ -87,6 +94,8 @@ class DonationPayment(db.Model):
                 amount=amount,
                 currency='MNT',
                 message=message,
+                type=payment_type,
+                sound_effect_id=sound_effect_id,
                 quickpay_invoice_id=invoice_result.get('invoice_id'),
                 quickpay_merchant_id=invoice_result.get('raw_response', {}).get('merchant_id'),
                 quickpay_terminal_id=invoice_result.get('raw_response', {}).get('terminal_id'),
@@ -151,6 +160,8 @@ class DonationPayment(db.Model):
                 donor_platform_id=self.donor_user_id,
                 donation_id=donation_id,
                 donation_payment_id=self.id,
+                type=getattr(self, 'type', 'alert'),
+                sound_effect_id=getattr(self, 'sound_effect_id', None),
                 is_test=False,
                 created_at=datetime.utcnow(),
                 processed_at=datetime.utcnow()
@@ -160,9 +171,13 @@ class DonationPayment(db.Model):
             db.session.commit()
             current_app.logger.info(f"REAL DONATION: Created donation record {donation.id} with donation_id {donation_id}")
             
-            # Trigger real-time alert to streamer
-            current_app.logger.info(f"REAL DONATION: Sending alert for donation {donation.id}")
-            self._send_donation_alert(donation)
+            # Route based on donation type
+            if getattr(self, 'type', 'alert') == 'sound_effect':
+                current_app.logger.info(f"REAL DONATION: Sending sound effect for donation {donation.id}")
+                self._send_sound_effect(donation)
+            else:
+                current_app.logger.info(f"REAL DONATION: Sending donation alert for donation {donation.id}")
+                self._send_donation_alert(donation)
             
             # Update donation goal if active
             current_app.logger.info(f"REAL DONATION: Updating donation goal for donation {donation.id}")
@@ -311,6 +326,62 @@ class DonationPayment(db.Model):
         except Exception as e:
             from flask import current_app
             current_app.logger.error(f"Failed to send donation alert: {str(e)}")
+    
+    def _send_sound_effect(self, donation):
+        """Send sound effect to overlay queue"""
+        try:
+            from app.extensions import socketio
+            from flask import current_app
+            
+            current_app.logger.info(f"SOUND EFFECT: Processing sound effect donation {donation.id}")
+            
+            # Get sound effect details
+            if not self.sound_effect_id:
+                current_app.logger.warning(f"SOUND EFFECT: No sound effect ID for donation {donation.id}")
+                return
+            
+            from app.models.sound_effect import SoundEffect
+            sound_effect = SoundEffect.query.get(self.sound_effect_id)
+            if not sound_effect:
+                current_app.logger.warning(f"SOUND EFFECT: Sound effect {self.sound_effect_id} not found")
+                return
+            
+            # Create sound effect donation record for analytics
+            from app.models.sound_effect_donation import SoundEffectDonation
+            sound_donation = SoundEffectDonation(
+                sound_effect_id=self.sound_effect_id,
+                streamer_user_id=self.streamer_user_id,
+                donor_name=self.donor_name,
+                donor_user_id=self.donor_user_id,
+                amount=self.amount,
+                donation_payment_id=self.id
+            )
+            db.session.add(sound_donation)
+            db.session.commit()
+            
+            # Prepare sound effect data for overlay
+            sound_data = {
+                'type': 'sound_effect',
+                'id': donation.id,
+                'sound_effect_id': sound_effect.id,
+                'sound_filename': sound_effect.filename,
+                'sound_name': sound_effect.name,
+                'duration_seconds': float(sound_effect.duration_seconds),
+                'donor_name': donation.donor_name,
+                'amount': donation.amount,
+                'created_at': donation.created_at.isoformat(),
+                'file_url': sound_effect.get_file_url()
+            }
+            
+            # Send to streamer's room for overlay playback
+            room = f"user_{self.streamer_user_id}"
+            socketio.emit('sound_effect_alert', sound_data, room=room)
+            
+            current_app.logger.info(f"SOUND EFFECT: Sent sound effect {sound_effect.name} to streamer {self.streamer_user_id}")
+            
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"SOUND EFFECT: Failed to send sound effect: {str(e)}")
     
     def _update_donation_goal(self, donation):
         """Update donation goal with new donation amount"""
