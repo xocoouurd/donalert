@@ -37,6 +37,7 @@ def create_app():
     from app import models
     from app.models import subscription, subscription_payment, user_asset, donation_alert_settings, alert_configuration, tts_usage, donation_payment, donation_goal, marathon
     from app.models import sound_effect, user_sound_settings, sound_effect_donation
+    from app.models import donor_leaderboard, donor_leaderboard_settings
     
     # Register blueprints
     from app.routes import main_bp, auth_bp, oauth_bp
