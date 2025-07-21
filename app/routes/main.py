@@ -1775,6 +1775,69 @@ def donations_history():
         flash('Хандивын түүх ачаалахад алдаа гарлаа.', 'error')
         return redirect(url_for('main.dashboard'))
 
+@main_bp.route('/api/donations/history')
+@login_required
+def donations_history_api():
+    """AJAX API endpoint for donation history table"""
+    try:
+        from app.models.donation import Donation
+        
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Validate per_page
+        if per_page not in [20, 50, 100]:
+            per_page = 20
+        
+        # Get donations with pagination
+        donations = Donation.get_user_donations(
+            user_id=current_user.id,
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        
+        # Convert donations to JSON-serializable format
+        donations_data = []
+        for donation in donations.items:
+            donations_data.append({
+                'id': donation.id,
+                'donor_name': donation.donor_name,
+                'amount': float(donation.amount),
+                'message': donation.message,
+                'platform': donation.platform,
+                'created_at': donation.created_at.strftime('%Y-%m-%d %H:%M'),
+                'created_at_display': {
+                    'date': donation.created_at.strftime('%Y-%m-%d'),
+                    'time': donation.created_at.strftime('%H:%M')
+                }
+            })
+        
+        return jsonify({
+            'success': True,
+            'donations': donations_data,
+            'pagination': {
+                'page': donations.page,
+                'pages': donations.pages,
+                'total': donations.total,
+                'per_page': donations.per_page,
+                'has_prev': donations.has_prev,
+                'has_next': donations.has_next,
+                'prev_num': donations.prev_num,
+                'next_num': donations.next_num
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error loading donations history API: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/api/donations/analytics')
 @login_required
 def donations_analytics():
