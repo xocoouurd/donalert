@@ -245,6 +245,10 @@ def save_platform_connection(platform, token_data, user_data, user):
             )
     else:
         # Create new connection
+        # Check if this is the user's first platform connection
+        existing_connections_count = PlatformConnection.query.filter_by(user_id=user.id).count()
+        is_first_connection = existing_connections_count == 0
+        
         connection = PlatformConnection(
             user_id=user.id,
             platform_type=platform_type,
@@ -253,7 +257,8 @@ def save_platform_connection(platform, token_data, user_data, user):
             platform_email=user_data.get('email'),
             access_token=token_data['access_token'],
             refresh_token=token_data.get('refresh_token'),
-            platform_data=user_data.get('platform_data', {})
+            platform_data=user_data.get('platform_data', {}),
+            is_primary=is_first_connection  # Set as primary if it's the first connection
         )
         
         if 'expires_in' in token_data:
@@ -363,7 +368,7 @@ def handle_oauth_login_or_signup(platform, token_data, user_data):
                 # User already has a subscription or has used their trial
                 current_app.logger.info(f'Free trial not created for {user.username}: {str(e)}')
             
-            # Create platform connection
+            # Create platform connection (first connection for new user, so set as primary)
             connection = PlatformConnection(
                 user_id=user.id,
                 platform_type=platform_type,
@@ -372,7 +377,8 @@ def handle_oauth_login_or_signup(platform, token_data, user_data):
                 platform_email=user_data.get('email'),
                 access_token=token_data['access_token'],
                 refresh_token=token_data.get('refresh_token'),
-                platform_data=user_data.get('platform_data', {})
+                platform_data=user_data.get('platform_data', {}),
+                is_primary=True  # Set as primary since it's the first connection for a new user
             )
             
             if 'expires_in' in token_data:

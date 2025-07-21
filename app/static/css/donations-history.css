@@ -101,6 +101,7 @@
     color: #fff;
     font-weight: 500;
     transition: all 0.3s ease;
+    height: 40px;
 }
 
 #copyUrlBtn:hover {
@@ -173,7 +174,7 @@
 
 /* Hide background image when select dropdown is open */
 .filters-section .form-select:active,
-.filters-section .form-select[size]:not([size="1"]) {
+.filters-section .form-select[size]:not([size='1']) {
     background-image: none !important;
     background: rgba(255, 255, 255, 0.15) !important;
     background-repeat: no-repeat !important;
@@ -304,12 +305,10 @@
 
 .date-primary {
     font-weight: 600;
-    color: #fff;
 }
 
 .date-secondary {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.7);
 }
 
 /* Donor Info */
@@ -326,7 +325,6 @@
 
 .donor-name {
     font-weight: 500;
-    color: #fff;
 }
 
 /* Donation Message */
@@ -335,7 +333,6 @@
 }
 
 .message-content {
-    color: #fff;
     line-height: 1.4;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -362,15 +359,22 @@
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #fff;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.platform-twitch { background: rgba(145, 70, 255, 0.3); }
-.platform-youtube { background: rgba(255, 0, 0, 0.3); }
-.platform-kick { background: rgba(83, 255, 26, 0.3); }
-.platform-guest { background: rgba(255, 255, 255, 0.2); }
+.platform-twitch {
+    background: rgba(145, 70, 255, 0.3);
+}
+.platform-youtube {
+    background: rgba(255, 0, 0, 0.3);
+}
+.platform-kick {
+    background: rgba(83, 255, 26, 0.3);
+}
+.platform-guest {
+    background: rgba(255, 255, 255, 0.2);
+}
 
 /* No Donations */
 .no-donations {
@@ -438,33 +442,33 @@
         gap: 1rem;
         align-items: center;
     }
-    
+
     .stat-item {
         min-width: 100px;
     }
-    
+
     .page-header h1 {
         font-size: 2rem;
     }
-    
+
     .filters-section .row {
         gap: 1rem;
     }
-    
+
     .filters-section .col-md-2,
     .filters-section .col-md-4 {
         width: 100%;
         margin-bottom: 1rem;
     }
-    
+
     .table-responsive {
         font-size: 0.85rem;
     }
-    
+
     .donation-message {
         max-width: 200px;
     }
-    
+
     .donation-stats {
         justify-content: center;
     }
@@ -474,23 +478,23 @@
     .donations-history-container {
         padding: 0 0.5rem;
     }
-    
+
     .page-header,
     .donation-link-card,
     .filters-section,
     .table-section {
         padding: 1rem;
     }
-    
+
     .table thead th,
     .table tbody td {
         padding: 0.75rem 0.5rem;
     }
-    
+
     .donation-link-card .input-group {
         flex-direction: column;
     }
-    
+
     .donation-link-card .input-group .form-control {
         margin-bottom: 0.5rem;
     }
@@ -738,7 +742,6 @@
 }
 
 .donor-name {
-    color: #fff;
     font-weight: 600;
     font-size: 1rem;
     margin-bottom: 0.25rem;
@@ -773,11 +776,11 @@
     .analytics-dashboard {
         padding: 1.5rem;
     }
-    
+
     .stats-value {
         font-size: 1.5rem;
     }
-    
+
     .stats-icon {
         width: 45px;
         height: 45px;
@@ -789,28 +792,28 @@
     .analytics-dashboard {
         padding: 1rem;
     }
-    
+
     .analytics-dashboard h4 {
         font-size: 1.2rem;
         margin-bottom: 1rem;
     }
-    
+
     .analytics-controls {
         margin-top: 1rem;
     }
-    
+
     .stats-card {
         padding: 1rem;
     }
-    
+
     .stats-value {
         font-size: 1.3rem;
     }
-    
+
     .chart-container {
         padding: 1rem;
     }
-    
+
     .chart-container canvas {
         max-height: 250px;
     }

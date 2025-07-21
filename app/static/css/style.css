@@ -545,7 +545,6 @@ h6 {
     color: #333333 !important;
 }
 
-
 .dashboard-page .text-muted:not(.donation-alert .text-muted) {
     color: #888888 !important;
 }
@@ -696,12 +695,12 @@ h6 {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border: 2px solid transparent;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 #tierToggleBtn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 #tierToggleBtn:active {
@@ -716,4 +715,8 @@ h6 {
 #tierToggleBtn.btn-warning {
     background: linear-gradient(135deg, #f59e0b, #d97706);
     border-color: #d97706;
+}
+
+.dashboard-page table {
+    color: #333333;
 }
