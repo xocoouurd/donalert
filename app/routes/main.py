@@ -3309,3 +3309,163 @@ def admin_clear_all_sound_effects():
         current_app.logger.error(f"Error clearing all sound effects: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@main_bp.route('/donor-leaderboard')
+@login_required
+def donor_leaderboard_settings():
+    """Donor leaderboard settings page"""
+    try:
+        from app.models.donor_leaderboard import DonorLeaderboard
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get or create settings for user
+        settings = DonorLeaderboardSettings.get_or_create_for_user(current_user.id)
+        
+        # Get current leaderboard data
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=10)
+        
+        # Get leaderboard statistics
+        total_donors = DonorLeaderboard.query.filter_by(user_id=current_user.id).count()
+        
+        if top_donors:
+            total_leaderboard_amount = sum(float(donor.total_amount) for donor in top_donors)
+            total_leaderboard_donations = sum(donor.donation_count for donor in top_donors)
+        else:
+            total_leaderboard_amount = 0
+            total_leaderboard_donations = 0
+        
+        # Generate overlay URL
+        overlay_url = url_for('main.leaderboard_overlay', username=current_user.username, _external=True)
+        
+        return render_template('donor_leaderboard.html',
+                             settings=settings,
+                             top_donors=top_donors,
+                             total_donors=total_donors,
+                             total_amount=total_leaderboard_amount,
+                             total_donations=total_leaderboard_donations,
+                             overlay_url=overlay_url)
+                             
+    except Exception as e:
+        current_app.logger.error(f"Error loading donor leaderboard settings: {str(e)}")
+        flash('Хандивчдын жагсаалт ачаалахад алдаа гарлаа', 'error')
+        return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/donor-leaderboard/update', methods=['POST'])
+@login_required
+def update_donor_leaderboard_settings():
+    """Update donor leaderboard settings"""
+    try:
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get or create settings
+        settings = DonorLeaderboardSettings.get_or_create_for_user(current_user.id)
+        
+        # Get form data
+        is_enabled = request.form.get('is_enabled') == 'on'
+        positions_count = request.form.get('positions_count', 3, type=int)
+        show_amounts = request.form.get('show_amounts') == 'on'
+        show_donation_counts = request.form.get('show_donation_counts') == 'on'
+        
+        # Update settings
+        settings.update_settings(
+            is_enabled=is_enabled,
+            positions_count=positions_count,
+            show_amounts=show_amounts,
+            show_donation_counts=show_donation_counts
+        )
+        
+        # Handle styling updates if provided
+        if request.form.get('throne_background_color'):
+            throne_styling = settings.get_throne_styling()
+            throne_styling['background_color'] = request.form.get('throne_background_color')
+            throne_styling['text_color'] = request.form.get('throne_text_color', '#1A1A1A')
+            settings.set_throne_styling(throne_styling)
+        
+        if request.form.get('podium_background_color'):
+            podium_styling = settings.get_podium_styling()
+            podium_styling['background_color'] = request.form.get('podium_background_color')
+            podium_styling['text_color'] = request.form.get('podium_text_color', '#1A1A1A')
+            settings.set_podium_styling(podium_styling)
+        
+        if request.form.get('standard_background_color'):
+            standard_styling = settings.get_standard_styling()
+            standard_styling['background_color'] = request.form.get('standard_background_color')
+            standard_styling['text_color'] = request.form.get('standard_text_color', '#FFFFFF')
+            settings.set_standard_styling(standard_styling)
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"Updated donor leaderboard settings for user {current_user.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Тохиргоо амжилттай хадгалагдлаа',
+            'settings': settings.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating donor leaderboard settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/donor-leaderboard/refresh', methods=['POST'])
+@login_required
+def refresh_leaderboard_data():
+    """Force recalculation of leaderboard data"""
+    try:
+        current_app.logger.info(f"Manual leaderboard refresh requested by user {current_user.id}")
+        
+        # For now, just return current data
+        # In the future, this could trigger a background recalculation
+        from app.models.donor_leaderboard import DonorLeaderboard
+        
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=10)
+        total_donors = DonorLeaderboard.query.filter_by(user_id=current_user.id).count()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Мэдээлэл шинэчлэгдлээ',
+            'total_donors': total_donors,
+            'top_donors': [donor.to_dict() for donor in top_donors]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error refreshing leaderboard data: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/leaderboard-overlay/<username>')
+def leaderboard_overlay(username):
+    """Public leaderboard overlay page for OBS integration"""
+    try:
+        from app.models.user import User
+        from app.models.donor_leaderboard import DonorLeaderboard
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get user by username
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            abort(404)
+        
+        # Get settings
+        settings = DonorLeaderboardSettings.get_or_create_for_user(user.id)
+        
+        # If leaderboard is disabled, show empty page
+        if not settings.is_enabled:
+            return render_template('leaderboard_overlay.html',
+                                 user=user,
+                                 settings=settings,
+                                 top_donors=[],
+                                 enabled=False)
+        
+        # Get top donors based on position count
+        top_donors = DonorLeaderboard.get_top_donors(user.id, limit=settings.positions_count)
+        
+        return render_template('leaderboard_overlay.html',
+                             user=user,
+                             settings=settings,
+                             top_donors=top_donors,
+                             enabled=True)
+                             
+    except Exception as e:
+        current_app.logger.error(f"Error loading leaderboard overlay for {username}: {str(e)}")
+        abort(500)
+

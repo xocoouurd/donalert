@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}Хандивчдын жагсаалт{% endblock %}
+
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donor-leaderboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="donor-leaderboard-container">
+            <!-- Header Section -->
+            <div class="page-header glass-card">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1><i class="fas fa-trophy"></i> Хандивчдын жагсаалт</h1>
+                        <p class="subtitle">Шилдэг хандивчдын жагсаалт тохируулах</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="leaderboard-stats">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ total_donors }}</div>
+                                <div class="stat-label">Нийт хандивч</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ "{:,.0f}".format(total_amount) }}₮</div>
+                                <div class="stat-label">Нийт дүн</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ total_donations }}</div>
+                                <div class="stat-label">Нийт хандив</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overlay URL Card -->
+            <div class="overlay-link-card glass-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5><i class="fas fa-external-link-alt"></i> OBS Overlay холбоос</h5>
+                        <p class="mb-0">Энэ холбоосыг OBS-д Browser Source болгон нэмээд жагсаалт харуулаарай</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="overlayUrl" value="{{ overlay_url }}" readonly>
+                            <button class="btn btn-primary" type="button" id="copyOverlayBtn">
+                                <i class="fas fa-copy"></i> Хуулах
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Settings -->
+            <div class="settings-section glass-card">
+                <form id="leaderboardSettingsForm">
+                    <div class="row">
+                        <!-- Left Column: Basic Settings -->
+                        <div class="col-lg-6">
+                            <h4 class="section-title">
+                                <i class="fas fa-cog"></i> Үндсэн тохиргоо
+                            </h4>
+
+                            <!-- Enable/Disable Toggle -->
+                            <div class="setting-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="isEnabled" name="is_enabled" 
+                                           {% if settings.is_enabled %}checked{% endif %}>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Жагсаалт идэвхжүүлэх</span>
+                                </label>
+                                <p class="setting-description">Хандивчдын жагсаалтыг overlay-д харуулах эсэх</p>
+                            </div>
+
+                            <!-- Position Count -->
+                            <div class="setting-group">
+                                <label for="positionsCount" class="form-label">Харуулах байрны тоо</label>
+                                <div class="position-selector">
+                                    <input type="range" class="form-range" id="positionsCount" name="positions_count" 
+                                           min="1" max="10" step="1" value="{{ settings.positions_count }}" 
+                                           oninput="updatePositionDisplay(this.value)">
+                                    <div class="position-display">
+                                        <span id="positionValue">{{ settings.positions_count }}</span> байр
+                                    </div>
+                                </div>
+                                <div class="position-labels">
+                                    <small>1 = Зөвхөн дэд</small>
+                                    <small>2-3 = Подиум</small>
+                                    <small>4+ = Жагсаалт</small>
+                                </div>
+                            </div>
+
+                            <!-- Display Options -->
+                            <div class="setting-group">
+                                <h5>Харуулах мэдээлэл</h5>
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="show_amounts" 
+                                               {% if settings.show_amounts %}checked{% endif %}>
+                                        <span class="checkbox-custom"></span>
+                                        <span class="checkbox-text">Хандивын дүн харуулах</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="show_donation_counts" 
+                                               {% if settings.show_donation_counts %}checked{% endif %}>
+                                        <span class="checkbox-custom"></span>
+                                        <span class="checkbox-text">Хандивын тоо харуулах</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="setting-group">
+                                <div class="button-group">
+                                    <button type="button" class="btn btn-success" id="saveSettingsBtn">
+                                        <i class="fas fa-save"></i> Тохиргоо хадгалах
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" id="refreshDataBtn">
+                                        <i class="fas fa-sync-alt"></i> Мэдээлэл шинэчлэх
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Visual Customization -->
+                        <div class="col-lg-6">
+                            <h4 class="section-title">
+                                <i class="fas fa-palette"></i> Дизайн тохиргоо
+                            </h4>
+
+                            <!-- Throne Styling (#1 Position) -->
+                            <div class="styling-group">
+                                <h5><i class="fas fa-crown"></i> Дэд байр (#1)</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label for="throneBackgroundColor" class="form-label">Арын өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="throneBackgroundColor" name="throne_background_color" 
+                                               value="{{ settings.get_throne_styling().get('background_color', '#FFD700') }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="throneTextColor" class="form-label">Текстийн өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="throneTextColor" name="throne_text_color" 
+                                               value="{{ settings.get_throne_styling().get('text_color', '#1A1A1A') }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Podium Styling (#2-3 Positions) -->
+                            <div class="styling-group">
+                                <h5><i class="fas fa-medal"></i> Подиум (#2-3)</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label for="podiumBackgroundColor" class="form-label">Арын өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="podiumBackgroundColor" name="podium_background_color" 
+                                               value="{{ settings.get_podium_styling().get('background_color', '#C0C0C0') }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="podiumTextColor" class="form-label">Текстийн өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="podiumTextColor" name="podium_text_color" 
+                                               value="{{ settings.get_podium_styling().get('text_color', '#1A1A1A') }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Standard Styling (#4+ Positions) -->
+                            <div class="styling-group">
+                                <h5><i class="fas fa-list-ol"></i> Энгийн жагсаалт (#4+)</h5>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label for="standardBackgroundColor" class="form-label">Арын өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="standardBackgroundColor" name="standard_background_color" 
+                                               value="{{ settings.get_standard_styling().get('background_color', 'rgba(255, 255, 255, 0.1)') }}" 
+                                               data-default="rgba(255, 255, 255, 0.1)">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="standardTextColor" class="form-label">Текстийн өнгө</label>
+                                        <input type="color" class="form-control color-input" 
+                                               id="standardTextColor" name="standard_text_color" 
+                                               value="{{ settings.get_standard_styling().get('text_color', '#FFFFFF') }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Live Preview Section -->
+            <div class="preview-section glass-card">
+                <h4 class="section-title">
+                    <i class="fas fa-eye"></i> Жагсаалт урьдчилан үзэх
+                    <button type="button" class="btn btn-sm btn-outline-primary float-end" id="updatePreviewBtn">
+                        <i class="fas fa-sync-alt"></i> Шинэчлэх
+                    </button>
+                </h4>
+                
+                <div class="preview-container" id="leaderboardPreview">
+                    <!-- Preview will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Current Top Donors -->
+            {% if top_donors %}
+            <div class="current-donors glass-card">
+                <h4 class="section-title">
+                    <i class="fas fa-users"></i> Одоогийн шилдэг хандивчид
+                </h4>
+                <div class="donors-list">
+                    {% for donor in top_donors %}
+                    <div class="donor-item">
+                        <div class="donor-rank">#{{ loop.index }}</div>
+                        <div class="donor-info">
+                            <div class="donor-name">{{ donor.donor_name }}</div>
+                            <div class="donor-stats">
+                                {{ "{:,.0f}".format(donor.total_amount) }}₮
+                                • {{ donor.donation_count }} хандив
+                                • Хамгийн их: {{ "{:,.0f}".format(donor.biggest_single_donation) }}₮
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Copy overlay URL to clipboard
+document.getElementById('copyOverlayBtn').addEventListener('click', function() {
+    const urlInput = document.getElementById('overlayUrl');
+    urlInput.select();
+    urlInput.setSelectionRange(0, 99999);
+    
+    try {
+        document.execCommand('copy');
+        
+        // Show success feedback
+        const btn = this;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Хуулагдлаа';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-primary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 2000);
+    } catch (err) {
+        console.error('Copy failed:', err);
+    }
+});
+
+// Update position display
+function updatePositionDisplay(value) {
+    document.getElementById('positionValue').textContent = value;
+    updatePreview();
+}
+
+// Save settings
+document.getElementById('saveSettingsBtn').addEventListener('click', function() {
+    const form = document.getElementById('leaderboardSettingsForm');
+    const formData = new FormData(form);
+    
+    // Show loading state
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Хадгалж байна...';
+    btn.disabled = true;
+    
+    fetch('/donor-leaderboard/update', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success
+            btn.innerHTML = '<i class="fas fa-check"></i> Хадгалагдлаа';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-success');
+            
+            // Update preview
+            updatePreview();
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-success');
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Алдаа гарлаа');
+        }
+    })
+    .catch(error => {
+        console.error('Settings save error:', error);
+        btn.innerHTML = '<i class="fas fa-times"></i> Алдаа гарлаа';
+        btn.classList.add('btn-danger');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-success');
+            btn.disabled = false;
+        }, 3000);
+    });
+});
+
+// Refresh leaderboard data
+document.getElementById('refreshDataBtn').addEventListener('click', function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Шинэчилж байна...';
+    btn.disabled = true;
+    
+    fetch('/api/donor-leaderboard/refresh', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success and reload page to update data
+            btn.innerHTML = '<i class="fas fa-check"></i> Шинэчлэгдлээ';
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            throw new Error(data.error || 'Алдаа гарлаа');
+        }
+    })
+    .catch(error => {
+        console.error('Refresh error:', error);
+        btn.innerHTML = '<i class="fas fa-times"></i> Алдаа гарлаа';
+        btn.classList.add('btn-danger');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-outline-primary');
+            btn.disabled = false;
+        }, 3000);
+    });
+});
+
+// Live preview functionality
+function updatePreview() {
+    const isEnabled = document.getElementById('isEnabled').checked;
+    const positionsCount = parseInt(document.getElementById('positionsCount').value);
+    const showAmounts = document.querySelector('input[name="show_amounts"]').checked;
+    const showCounts = document.querySelector('input[name="show_donation_counts"]').checked;
+    
+    // Get styling values
+    const throneBackground = document.getElementById('throneBackgroundColor').value;
+    const throneText = document.getElementById('throneTextColor').value;
+    const podiumBackground = document.getElementById('podiumBackgroundColor').value;
+    const podiumText = document.getElementById('podiumTextColor').value;
+    const standardBackground = document.getElementById('standardBackgroundColor').value;
+    const standardText = document.getElementById('standardTextColor').value;
+    
+    const previewContainer = document.getElementById('leaderboardPreview');
+    
+    if (!isEnabled) {
+        previewContainer.innerHTML = '<p class="text-muted text-center py-4">Жагсаалт идэвхгүй байна</p>';
+        return;
+    }
+    
+    // Sample data for preview
+    const sampleDonors = {{ top_donors|tojson|safe }};
+    const displayDonors = sampleDonors.slice(0, positionsCount);
+    
+    if (displayDonors.length === 0) {
+        previewContainer.innerHTML = '<p class="text-muted text-center py-4">Хандивч байхгүй байна</p>';
+        return;
+    }
+    
+    let previewHTML = '<div class="leaderboard-preview-wrapper">';
+    
+    // Different layouts based on position count
+    if (positionsCount === 1) {
+        // Single throne display
+        const donor = displayDonors[0];
+        previewHTML += `
+            <div class="throne-display" style="background-color: ${throneBackground}; color: ${throneText};">
+                <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                <div class="throne-content">
+                    <div class="donor-name">${donor.donor_name}</div>
+                    ${showAmounts ? `<div class="donor-amount">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                    ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
+                </div>
+            </div>
+        `;
+    } else if (positionsCount <= 3) {
+        // Podium layout
+        previewHTML += '<div class="podium-layout">';
+        displayDonors.forEach((donor, index) => {
+            const isThrone = index === 0;
+            const bgColor = isThrone ? throneBackground : podiumBackground;
+            const textColor = isThrone ? throneText : podiumText;
+            const icon = isThrone ? 'crown' : 'medal';
+            
+            previewHTML += `
+                <div class="podium-position ${isThrone ? 'throne' : 'podium'}" 
+                     style="background-color: ${bgColor}; color: ${textColor};">
+                    <div class="position-icon"><i class="fas fa-${icon}"></i></div>
+                    <div class="position-number">#${index + 1}</div>
+                    <div class="donor-name">${donor.donor_name}</div>
+                    ${showAmounts ? `<div class="donor-amount">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                    ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
+                </div>
+            `;
+        });
+        previewHTML += '</div>';
+    } else {
+        // List layout
+        previewHTML += '<div class="list-layout">';
+        displayDonors.forEach((donor, index) => {
+            const isThrone = index === 0;
+            const isPodium = index <= 2;
+            let bgColor, textColor;
+            
+            if (isThrone) {
+                bgColor = throneBackground;
+                textColor = throneText;
+            } else if (isPodium) {
+                bgColor = podiumBackground;
+                textColor = podiumText;
+            } else {
+                bgColor = standardBackground;
+                textColor = standardText;
+            }
+            
+            previewHTML += `
+                <div class="list-item ${isThrone ? 'throne' : isPodium ? 'podium' : 'standard'}" 
+                     style="background-color: ${bgColor}; color: ${textColor};">
+                    <div class="position-number">#${index + 1}</div>
+                    <div class="donor-info">
+                        <div class="donor-name">${donor.donor_name}</div>
+                        ${showAmounts || showCounts ? `<div class="donor-stats">
+                            ${showAmounts ? `${Math.round(donor.total_amount).toLocaleString()}₮` : ''}
+                            ${showAmounts && showCounts ? ' • ' : ''}
+                            ${showCounts ? `${donor.donation_count} хандив` : ''}
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        previewHTML += '</div>';
+    }
+    
+    previewHTML += '</div>';
+    previewContainer.innerHTML = previewHTML;
+}
+
+// Update preview button
+document.getElementById('updatePreviewBtn').addEventListener('click', updatePreview);
+
+// Auto-update preview when settings change
+document.addEventListener('DOMContentLoaded', function() {
+    updatePreview();
+    
+    // Listen for changes on form elements
+    const form = document.getElementById('leaderboardSettingsForm');
+    form.addEventListener('change', updatePreview);
+    form.addEventListener('input', updatePreview);
+});
+</script>
+{% endblock %}
