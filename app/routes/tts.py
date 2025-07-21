@@ -31,7 +31,7 @@ def synthesize_tts():
         current_app.logger.info(f"TTS SYNTHESIZE: Text='{text}', Voice={voice}, Speed={speed}, Pitch={pitch}, Type={request_type}")
         
         # Initialize limiter
-        limiter = TTSLimiter()
+        limiter = TTSLimiter(current_user)
         current_app.logger.info("TTS SYNTHESIZE: Checking usage limits")
         
         # Check usage limits
@@ -142,7 +142,7 @@ def test_tts():
         current_app.logger.info(f"TTS TEST: Text='{test_text}', Voice={voice}, Speed={speed}, Pitch={pitch}")
         
         # Initialize limiter
-        limiter = TTSLimiter()
+        limiter = TTSLimiter(current_user)
         
         # Check usage limits for test requests
         limit_check = limiter.check_limits(current_user.id, test_text, 'test')
@@ -204,7 +204,7 @@ def test_tts():
 def get_usage():
     """Get user's TTS usage statistics"""
     try:
-        limiter = TTSLimiter()
+        limiter = TTSLimiter(current_user)
         usage_summary = limiter.get_usage_summary(current_user.id)
         return jsonify(usage_summary)
     except Exception as e:

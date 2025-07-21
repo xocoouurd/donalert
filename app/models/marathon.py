@@ -16,7 +16,6 @@ class Marathon(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
     # Marathon settings
-    is_active = db.Column(db.Boolean, nullable=False, default=True)
     minute_price = db.Column(db.Numeric(precision=10, scale=2), nullable=False, default=1000)  # MNT per minute
     
     # Time settings (stored in total minutes for easier calculation)
@@ -369,7 +368,6 @@ class Marathon(db.Model):
             marathon_data = {
                 'id': self.id,
                 'user_id': self.user_id,
-                'is_active': True,  # Always active - controlled by timer state
                 'minute_price': float(self.minute_price),
                 'remaining_time': time_breakdown,
                 'time_breakdown': time_breakdown,  # For consistency with to_dict()
@@ -457,7 +455,6 @@ class Marathon(db.Model):
         return {
             'id': self.id,
             'user_id': self.user_id,
-            'is_active': True,  # Always active - controlled by timer state
             'minute_price': float(self.minute_price),
             'initial_time_minutes': self.initial_time_minutes,
             'remaining_time_minutes': self.remaining_time_minutes,

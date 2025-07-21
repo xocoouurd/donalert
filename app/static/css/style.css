@@ -553,9 +553,9 @@ h6 {
 .dashboard-page
     span:not(.input-group-text):not(.donation-alert span):not(.goal-preview span):not(
         #userAssetCount
-    ):not(#defaultAssetCount),
+    ):not(#defaultAssetCount):not(#basicTabAmount),
 .dashboard-page
-    div:not(.alert):not(.badge):not(.donation-alert):not(.donation-alert div):not(.goal-preview):not(.goal-preview div),
+    div:not(.alert):not(.badge):not(.donation-alert):not(.donation-alert div):not(.goal-preview):not(.goal-preview div):not(.tooltip-inner),
 .dashboard-page small:not(.donation-alert small):not(.goal-preview small) {
     color: #333333 !important;
 }

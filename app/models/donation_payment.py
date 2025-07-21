@@ -128,6 +128,9 @@ class DonationPayment(db.Model):
         try:
             from app.models.donation import Donation
             import uuid
+            from flask import current_app
+            
+            current_app.logger.info(f"REAL DONATION: Starting mark_as_paid for {self.amount}₮ from {self.donor_name} to streamer {self.streamer_user_id}")
             
             # Update payment status
             self.status = 'paid'
@@ -155,22 +158,29 @@ class DonationPayment(db.Model):
             
             db.session.add(donation)
             db.session.commit()
+            current_app.logger.info(f"REAL DONATION: Created donation record {donation.id} with donation_id {donation_id}")
             
             # Trigger real-time alert to streamer
+            current_app.logger.info(f"REAL DONATION: Sending alert for donation {donation.id}")
             self._send_donation_alert(donation)
             
             # Update donation goal if active
+            current_app.logger.info(f"REAL DONATION: Updating donation goal for donation {donation.id}")
             self._update_donation_goal(donation)
             
             # Add time to marathon if active
+            current_app.logger.info(f"REAL DONATION: Updating marathon for donation {donation.id}")
             self._update_marathon_time(donation)
             
+            current_app.logger.info(f"REAL DONATION: Successfully processed donation {donation.id}")
             return True
             
         except Exception as e:
             db.session.rollback()
             from flask import current_app
-            current_app.logger.error(f"Failed to mark donation payment as paid: {str(e)}")
+            current_app.logger.error(f"REAL DONATION: Failed to mark donation payment as paid: {str(e)}")
+            import traceback
+            current_app.logger.error(f"REAL DONATION: Traceback: {traceback.format_exc()}")
             return False
     
     def _send_donation_alert(self, donation):
@@ -213,12 +223,22 @@ class DonationPayment(db.Model):
             
             # Generate TTS audio if enabled and amount meets threshold
             tts_audio_url = None
-            if (settings.tts_enabled and 
-                donation.amount >= settings.tts_minimum_amount and 
-                donation.message):  # Only if there's a message
+            # Debug each TTS condition separately
+            has_message = bool(donation.message and donation.message.strip())
+            amount_meets_threshold = donation.amount >= settings.tts_minimum_amount
+            
+            current_app.logger.info(f"TTS CHECK: Tab {getattr(settings, 'tab_number', 'legacy')}")
+            current_app.logger.info(f"  - TTS enabled: {settings.tts_enabled}")
+            current_app.logger.info(f"  - Amount {donation.amount}₮ >= TTS minimum {settings.tts_minimum_amount}₮: {amount_meets_threshold}")
+            current_app.logger.info(f"  - Has message: {has_message} (message: '{donation.message}')")
+            current_app.logger.info(f"  - All conditions met: {settings.tts_enabled and amount_meets_threshold and has_message}")
+            
+            if (settings.tts_enabled and amount_meets_threshold and has_message):
                 
                 # Use only the donation message for TTS
                 tts_text = donation.message.strip()
+                
+                current_app.logger.info(f"TTS GENERATION: Tab {getattr(settings, 'tab_number', 'legacy')}, Text: '{tts_text}', Voice: {settings.tts_voice}, Speed: {settings.tts_speed}, Pitch: {settings.tts_pitch}")
                 
                 # Generate TTS audio with usage limits checking
                 from app.routes.main import generate_tts_audio
@@ -230,6 +250,11 @@ class DonationPayment(db.Model):
                     settings.tts_pitch,
                     request_type='donation'
                 )
+                
+                if tts_audio_url:
+                    current_app.logger.info(f"TTS SUCCESS: Tab {getattr(settings, 'tab_number', 'legacy')}, Generated: {tts_audio_url}")
+                else:
+                    current_app.logger.warning(f"TTS FAILED: Tab {getattr(settings, 'tab_number', 'legacy')}, No audio URL returned")
                 
                 if not tts_audio_url:
                     current_app.logger.warning(f"TTS generation failed for donation {donation.id} - possibly hit usage limits")
@@ -291,6 +316,9 @@ class DonationPayment(db.Model):
         """Update donation goal with new donation amount"""
         try:
             from app.models.donation_goal import DonationGoal
+            from flask import current_app
+            
+            current_app.logger.info(f"GOAL UPDATE: Starting goal update for streamer {self.streamer_user_id}, donation {donation.amount}₮")
             
             # Get active goal for streamer
             goal = DonationGoal.query.filter_by(
@@ -299,18 +327,20 @@ class DonationPayment(db.Model):
             ).first()
             
             if goal:
+                current_app.logger.info(f"GOAL UPDATE: Found active goal {goal.id}, current amount: {goal.get_total_amount()}₮, target: {goal.target_amount}₮")
+                
                 # Add donation amount to goal
                 goal.add_donation(donation.amount)
                 
-                from flask import current_app
-                current_app.logger.info(f"Updated donation goal {goal.id} with {donation.amount}₮ - new total: {goal.get_total_amount()}₮")
+                current_app.logger.info(f"GOAL UPDATE: Successfully updated goal {goal.id} with {donation.amount}₮ - new total: {goal.get_total_amount()}₮")
             else:
-                from flask import current_app
-                current_app.logger.info(f"No active donation goal found for streamer {self.streamer_user_id}")
+                current_app.logger.info(f"GOAL UPDATE: No active donation goal found for streamer {self.streamer_user_id}")
                 
         except Exception as e:
             from flask import current_app
-            current_app.logger.error(f"Failed to update donation goal: {str(e)}")
+            current_app.logger.error(f"GOAL UPDATE: Failed to update donation goal: {str(e)}")
+            import traceback
+            current_app.logger.error(f"GOAL UPDATE: Traceback: {traceback.format_exc()}")
     
     def _update_marathon_time(self, donation):
         """Add time to marathon based on donation amount - only if marathon is running"""

@@ -16,9 +16,6 @@
 <body>
     <!-- Main alert container -->
     <div id="alertContainer"></div>
-    
-    <!-- Alert queue for upcoming donations -->
-    <div id="alertQueue" class="alert-queue"></div>
 
     <!-- Audio element for sound effects -->
     <audio id="alertSound" preload="auto"></audio>
@@ -32,7 +29,7 @@
         const userId = {{ user.id }};
         const settings = {{ settings.to_dict() | tojson }};
         {% if has_advanced_tier %}
-        const alertConfigurations = {{ alert_configurations | map('to_dict') | list | tojson }};
+        const alertConfigurations = {{ alert_configurations | tojson }};
         const hasAdvancedTier = true;
         {% else %}
         const alertConfigurations = null;
@@ -48,20 +45,40 @@
         
         // Get configuration for alert based on tab number or amount
         function getConfigForAlert(alertData) {
+            console.log('🔍 Finding config for alert:', alertData);
+            console.log('🔍 Has advanced tier:', hasAdvancedTier);
+            console.log('🔍 Available configurations:', alertConfigurations?.length || 0);
+            
             if (!hasAdvancedTier || !alertConfigurations) {
+                console.log('🔍 Using basic tier settings');
                 return settings;
             }
             
             // If alert has tab_number, use that specific configuration
             if (alertData.tab_number) {
+                console.log(`🔍 Looking for tab ${alertData.tab_number}`);
+                console.log('🔍 Available configurations:', alertConfigurations.map(c => ({ tab_number: c.tab_number, id: c.id, colors: { base: c.template_base_color, accent: c.template_accent_color } })));
                 const config = alertConfigurations.find(c => c.tab_number === alertData.tab_number);
-                if (config) return config;
+                if (config) {
+                    console.log(`🔍 Found config for tab ${alertData.tab_number}:`, config);
+                    console.log(`🔍 Using colors: base=${config.template_base_color}, accent=${config.template_accent_color}`);
+                    return config;
+                } else {
+                    console.log(`🔍 No config found for tab ${alertData.tab_number}`);
+                    console.log('🔍 Available tab numbers:', alertConfigurations.map(c => c.tab_number));
+                }
             }
             
             // If alert has config_id, use that specific configuration
             if (alertData.config_id) {
+                console.log(`🔍 Looking for config ID ${alertData.config_id}`);
                 const config = alertConfigurations.find(c => c.id === alertData.config_id);
-                if (config) return config;
+                if (config) {
+                    console.log(`🔍 Found config by ID ${alertData.config_id}:`, config);
+                    return config;
+                } else {
+                    console.log(`🔍 No config found for ID ${alertData.config_id}`);
+                }
             }
             
             // Find configuration based on amount (get highest minimum_amount that's <= donation amount)
@@ -117,26 +134,60 @@
             socket.on('test_alert', function(data) {
                 console.log('🧪 OVERLAY: Test alert received!', data);
                 
-                // If already showing an alert, ignore additional test alerts
-                if (isShowingAlert) {
-                    console.log('⚠️ OVERLAY: Ignored test alert - already showing alert');
-                    return;
-                }
-                
-                console.log('✅ OVERLAY: Processing test alert...');
-                showAlert(data);
+                // Use the same queueing system as real donations
+                queueAlert(data);
             });
 
             // Listen for settings updates
-            socket.on('settings_updated', function(newSettings) {
+            socket.on('settings_updated', function(data) {
+                console.log('🔄 OVERLAY: Settings update received:', data);
                 
-                // Check if sound changed
-                if (newSettings.sound_url !== settings.sound_url) {
-                    preloadSound(newSettings.sound_url);
+                // Handle advanced tier configuration updates (has tab_number and config)
+                if (data.tab_number && data.config && hasAdvancedTier && alertConfigurations) {
+                    console.log(`🔄 OVERLAY: Updating configuration for tab ${data.tab_number}`);
+                    
+                    // Find and update the specific tab configuration
+                    const configIndex = alertConfigurations.findIndex(c => c.tab_number === data.tab_number);
+                    if (configIndex !== -1) {
+                        const oldConfig = alertConfigurations[configIndex];
+                        
+                        // Check if sound changed for this tab
+                        if (data.config.sound_url !== oldConfig.sound_url) {
+                            console.log(`🔄 OVERLAY: Sound changed for tab ${data.tab_number}: ${oldConfig.sound_url} → ${data.config.sound_url}`);
+                            // Preload the new sound
+                            preloadSound(data.config.sound_url);
+                        }
+                        
+                        // Check if volume changed
+                        if (data.config.sound_volume !== oldConfig.sound_volume) {
+                            console.log(`🔄 OVERLAY: Volume changed for tab ${data.tab_number}: ${oldConfig.sound_volume}% → ${data.config.sound_volume}%`);
+                        }
+                        
+                        // Update the configuration
+                        alertConfigurations[configIndex] = data.config;
+                        console.log(`🔄 OVERLAY: Tab ${data.tab_number} configuration updated successfully`);
+                    } else {
+                        console.log(`🔄 OVERLAY: Adding new configuration for tab ${data.tab_number}`);
+                        alertConfigurations.push(data.config);
+                    }
                 }
-                
-                // Update all settings
-                Object.assign(settings, newSettings);
+                // Handle basic tier settings updates (legacy format)
+                else if (!data.tab_number && !data.config) {
+                    console.log('🔄 OVERLAY: Updating basic tier settings');
+                    
+                    // Check if sound changed
+                    if (data.sound_url !== settings.sound_url) {
+                        console.log(`🔄 OVERLAY: Basic tier sound changed: ${settings.sound_url} → ${data.sound_url}`);
+                        preloadSound(data.sound_url);
+                    }
+                    
+                    // Update all settings
+                    Object.assign(settings, data);
+                    console.log('🔄 OVERLAY: Basic tier settings updated successfully');
+                }
+                else {
+                    console.warn('🔄 OVERLAY: Unknown settings update format:', data);
+                }
             });
             
             // Listen for room join acknowledgments
@@ -190,7 +241,6 @@
             
             // Add to queue
             alertQueue.push(alertData);
-            updateQueueDisplay();
             
             // Process queue if not currently showing alert
             if (!isShowingAlert) {
@@ -206,26 +256,10 @@
             
             isShowingAlert = true;
             const alertData = alertQueue.shift();
-            updateQueueDisplay();
             
             showAlert(alertData);
         }
         
-        function updateQueueDisplay() {
-            const queueContainer = document.getElementById('alertQueue');
-            queueContainer.innerHTML = '';
-            
-            // Show next few alerts in queue
-            alertQueue.slice(0, 3).forEach((alert, index) => {
-                const queueItem = document.createElement('div');
-                queueItem.className = 'queue-item';
-                queueItem.innerHTML = `
-                    <div style="font-weight: bold;">${alert.donator_name || 'Анонимус'}</div>
-                    <div>${alert.amount.toLocaleString()}₮</div>
-                `;
-                queueContainer.appendChild(queueItem);
-            });
-        }
         
         function showAlert(alertData) {
             console.log('🎯 OVERLAY: showAlert() called with data:', alertData);
@@ -234,6 +268,8 @@
             // Get the correct configuration for this alert
             const alertConfig = getConfigForAlert(alertData);
             console.log('Using configuration for tab:', alertConfig.tab_number || 1);
+            console.log(`⏱️ TIMING: animation_speed=${alertConfig.animation_speed}ms, visible_time=${alertConfig.visible_time}ms`);
+            console.log(`⏱️ TOTAL DURATION: ${alertConfig.animation_speed + alertConfig.visible_time + alertConfig.animation_speed}ms`);
             
             // Set showing flag
             isShowingAlert = true;
@@ -241,14 +277,13 @@
             const container = document.getElementById('alertContainer');
             
             // Play sound if configured
-            if (alertConfig.sound_url && alertData.amount >= alertConfig.tts_minimum_amount) {
+            if (alertConfig.sound_url && alertData.amount >= alertConfig.minimum_amount) {
                 playAlertSound(alertConfig);
             }
             
             // Play TTS if backend provided audio URL
             if (alertData.tts_audio_url) {
-                playTTSFromURL(alertData.tts_audio_url);
-            } else {
+                playTTSFromURL(alertData.tts_audio_url, alertConfig);
             }
             
             // Create alert HTML using the correct configuration
@@ -262,11 +297,14 @@
             const alertElement = container.querySelector('.donation-alert');
             alertElement.classList.add(alertConfig.transition_type);
             
-            // Wait for entrance animation to complete, then show for visible duration
+            // RELIABLE TIMING SEQUENCE: entrance → visible → exit
+            // Phase 1: Entrance animation (animation_speed ms)
             setTimeout(() => {
+                console.log('⏱️ PHASE 1: Entrance animation complete');
                 
-                // Wait for the full visibility duration, then start exit animation
+                // Phase 2: Visible time (visible_time ms)
                 setTimeout(() => {
+                    console.log('⏱️ PHASE 2: Visible time complete, starting exit');
                     hideAlert(alertElement, alertConfig);
                 }, alertConfig.visible_time);
                 
@@ -350,6 +388,7 @@
         }
         
         function hideAlert(alertElement, alertConfig = settings) {
+            console.log('⏱️ PHASE 3: Starting exit animation');
             
             // Get the opposite exit animation based on entrance animation
             const exitAnimation = getExitAnimation(alertConfig.transition_type);
@@ -358,17 +397,18 @@
             alertElement.classList.remove(alertConfig.transition_type);
             alertElement.classList.add(exitAnimation);
             
-            // Wait for exit animation to complete
+            // Phase 3: Exit animation (animation_speed ms) - then immediately process next
             setTimeout(() => {
+                console.log('⏱️ PHASE 3: Exit animation complete');
+                console.log('⏱️ ALERT SEQUENCE COMPLETE - clearing container and processing queue');
+                
                 document.getElementById('alertContainer').innerHTML = '';
                 
                 // Reset showing flag
                 isShowingAlert = false;
                 
-                // Process next alert in queue
-                setTimeout(() => {
-                    processQueue();
-                }, 500);
+                // IMMEDIATELY process next alert in queue (no extra delay)
+                processQueue();
             }, alertConfig.animation_speed);
         }
         
@@ -394,20 +434,30 @@
             }
         }
 
-        function playAlertSound() {
+        function playAlertSound(alertConfig = settings) {
             const audio = document.getElementById('alertSound');
+            
+            // Set the correct sound URL from the tab-specific config
+            audio.src = alertConfig.sound_url;
             audio.currentTime = 0; // Reset to start
-            audio.volume = settings.sound_volume / 100;
+            
+            // Use tab-specific volume setting
+            audio.volume = alertConfig.sound_volume / 100;
+            
+            console.log(`🔊 Playing sound: ${alertConfig.sound_url} at volume ${alertConfig.sound_volume}%`);
+            
             audio.play().catch(e => {
-                // Silent audio play failure
+                console.error('🔊 Failed to play sound:', e);
             });
         }
         
-        function playTTSFromURL(audioUrl) {
+        function playTTSFromURL(audioUrl, alertConfig = settings) {
             
             const ttsAudio = document.getElementById('ttsAudio');
             ttsAudio.src = audioUrl;
-            ttsAudio.volume = settings.sound_volume / 100;
+            ttsAudio.volume = 1.0; // TTS always plays at 100% volume
+            
+            console.log(`🔊 Playing TTS: ${audioUrl} at 100% volume (TTS ignores sound volume setting)`);
             
             // Play TTS after a short delay to avoid overlapping with alert sound
             setTimeout(() => {

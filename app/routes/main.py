@@ -57,11 +57,15 @@ def generate_tts_audio(user_id, text, voice, speed, pitch, request_type='donatio
     try:
         from app.utils.chimege_tts import ChimegeTTS
         from app.utils.tts_limiter import TTSLimiter
+        from app.models.user import User
         
         current_app.logger.info(f"TTS GENERATION: Starting for user {user_id}, text: '{text}'")
         
+        # Get user object for tier checking
+        user = User.query.get(user_id)
+        
         # Check usage limits
-        limiter = TTSLimiter()
+        limiter = TTSLimiter(user)
         limit_check = limiter.check_limits(user_id, text, request_type)
         
         if not limit_check['allowed']:
@@ -133,6 +137,116 @@ def dashboard():
     return render_template('dashboard.html')
 
 # DEV: Tier Toggle Endpoint (Remove in production)
+@main_bp.route('/dev')
+@login_required
+def dev_page():
+    """Development tools and utilities page"""
+    return render_template('dev.html')
+
+@main_bp.route('/dev/simulate-donation', methods=['POST'])
+@login_required
+def simulate_donation():
+    """Simulate a donation for testing all systems"""
+    try:
+        data = request.get_json()
+        
+        # Validate input
+        amount = float(data.get('amount', 0))
+        message = data.get('message', 'Туршилтын хандив')
+        donator_name = data.get('donator_name', 'Туршилтын хэрэглэгч')
+        
+        if amount <= 0:
+            return jsonify({'success': False, 'error': 'Invalid amount'}), 400
+        
+        current_app.logger.info(f"DEV: Simulating donation for user {current_user.id}: {amount}₮")
+        
+        # Import required models and services
+        from app.models.donation import Donation
+        from app.models.donation_payment import DonationPayment
+        from app.models.marathon import Marathon
+        from app.models.donation_goal import DonationGoal
+        
+        # Create a test donation record
+        donation = Donation.create_donation(
+            user_id=current_user.id,
+            amount=amount,
+            donor_name=donator_name,
+            message=message,
+            platform='test',
+            is_test=True  # Mark as test donation
+        )
+        
+        response_data = {
+            'success': True,
+            'donation_id': donation.id,
+            'alert_triggered': False,
+            'marathon_updated': False,
+            'goal_updated': False
+        }
+        
+        # Trigger donation alert (like real donations do)
+        try:
+            # Create a temporary donation payment to trigger the alert system
+            temp_payment = DonationPayment(
+                streamer_user_id=current_user.id,
+                donor_name=donator_name,
+                amount=amount,
+                message=message,
+                status='paid'
+            )
+            
+            # Use the payment's alert method
+            temp_payment._send_donation_alert(donation)
+            response_data['alert_triggered'] = True
+            current_app.logger.info(f"DEV: Alert triggered for {amount}₮")
+        except Exception as e:
+            current_app.logger.warning(f"DEV: Alert trigger failed: {str(e)}")
+        
+        # Update marathon if running
+        try:
+            marathon = Marathon.query.filter_by(user_id=current_user.id).first()
+            if marathon:
+                # Debug marathon state
+                current_app.logger.info(f"DEV: Marathon found - started_at: {marathon.started_at}, is_paused: {marathon.is_paused}, remaining_time: {marathon.remaining_time_minutes}min")
+                
+                if marathon.started_at and not marathon.is_paused:
+                    # Add donation amount to accumulated donations
+                    if marathon.add_donation_amount(amount):
+                        current_app.logger.info(f"DEV: Added {amount}₮ to marathon donations")
+                    
+                    # Calculate and add time based on donation amount
+                    minutes_to_add = marathon.calculate_minutes_from_donation(amount)
+                    if minutes_to_add > 0:
+                        marathon.add_time_minutes(minutes_to_add, source='donation')
+                        current_app.logger.info(f"DEV: Added {minutes_to_add} minutes to marathon from {amount}₮ donation")
+                        response_data['marathon_updated'] = True
+                        response_data['marathon_time_added'] = minutes_to_add
+                    else:
+                        current_app.logger.info(f"DEV: Donation {amount}₮ too small to add time (price: {marathon.minute_price}₮/min)")
+                else:
+                    current_app.logger.info(f"DEV: Marathon not running - started_at: {marathon.started_at}, is_paused: {marathon.is_paused}")
+            else:
+                current_app.logger.info(f"DEV: No marathon found for user {current_user.id}")
+        except Exception as e:
+            current_app.logger.warning(f"DEV: Marathon update failed: {str(e)}")
+        
+        # Update donation goal if active
+        try:
+            goal = DonationGoal.query.filter_by(user_id=current_user.id).first()
+            if goal and goal.is_active:
+                goal.add_donation(amount)
+                db.session.commit()
+                response_data['goal_updated'] = True
+                current_app.logger.info(f"DEV: Goal updated with {amount}₮")
+        except Exception as e:
+            current_app.logger.warning(f"DEV: Goal update failed: {str(e)}")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        current_app.logger.error(f"DEV: Donation simulation failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/dev/toggle-tier', methods=['POST'])
 @login_required
 def toggle_tier():
@@ -850,16 +964,40 @@ def update_alert_configuration(tab_number):
         data = request.get_json()
         current_app.logger.info(f"SETTINGS UPDATE: Tab {tab_number} - Received data: {data}")
         
-        # Get or create configuration
+        # Validate minimum_amount for duplicates and provide suggestions
+        if 'minimum_amount' in data:
+            min_amount = data['minimum_amount']
+            duplicate_config = AlertConfiguration.query.filter_by(
+                user_id=current_user.id,
+                is_active=True
+            ).filter(
+                AlertConfiguration.tab_number != tab_number,
+                AlertConfiguration.minimum_amount == min_amount
+            ).first()
+            
+            if duplicate_config:
+                suggested_amount = AlertConfiguration.find_next_available_amount(
+                    current_user.id, min_amount, exclude_tab_number=tab_number
+                )
+                return jsonify({
+                    'success': False, 
+                    'error': f'₮{min_amount} дүнг Алерт {duplicate_config.tab_number}-д ашигласан байна.',
+                    'suggestion': float(suggested_amount),
+                    'suggestion_message': f'Санал болгох: ₮{suggested_amount}'
+                }), 400
+        
+        # Get or create configuration (check for ANY existing config, not just active ones)
         config = AlertConfiguration.query.filter_by(
             user_id=current_user.id,
-            tab_number=tab_number,
-            is_active=True
+            tab_number=tab_number
         ).first()
         
         if not config:
             config = AlertConfiguration.create_default_config(current_user.id, tab_number)
             db.session.add(config)
+        else:
+            # If config exists but was inactive, reactivate it
+            config.is_active = True
         
         # Update configuration
         config.update_from_dict(data)

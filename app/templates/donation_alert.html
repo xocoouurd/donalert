@@ -4,6 +4,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/donation-alert.css') }}">
+<script src="https://cdn.socket.io/4.6.2/socket.io.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -49,7 +50,7 @@
                     <div class="row">
                         <!-- Settings Panel -->
                         <div class="col-xl-7 col-lg-7">
-                            <form id="alertSettingsForm">
+                            <form id="alertSettingsForm" onsubmit="return false;">
                                 {% include 'components/alert_settings_form.html' %}
                                 
                                 <!-- Save Button -->
@@ -87,12 +88,31 @@
             </div>
             {% endif %}
             
-            <!-- Basic Tier - Direct Content (No Tabs) -->
+            <!-- Basic Tier - Imitation Tabs -->
             {% if not (current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced') %}
+            <div class="alert-tabs-container mb-4">
+                <ul class="nav nav-tabs alert-tabs">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" type="button" disabled id="basicTierTab">
+                            <i class="fas fa-bell me-1"></i>Алерт 1 (<span id="basicTabAmount">₮0</span>+)
+                        </button>
+                    </li>
+                    <li class="nav-item add-tab-item" role="presentation">
+                        <button class="nav-link add-tab-btn" type="button" 
+                                data-bs-toggle="tooltip" 
+                                data-bs-placement="top" 
+                                data-bs-title="Дэвшилтэт хэрэглэгч болон түүнээс дээш түвшинтэй байх хэрэгтэй. Олон төрлийн алерт хэрэглэхийн тулд дэвшилтэт буюу премиум багцаас сонгон авна уу."
+                                id="basicTierAddBtn">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
             <div class="row">
                 <!-- Settings Panel -->
                 <div class="col-xl-7 col-lg-7">
-                    <form id="alertSettingsForm">
+                    <form id="alertSettingsForm" onsubmit="return false;">
                         {% include 'components/alert_settings_form.html' %}
                         
                         <!-- Save Button -->
@@ -201,6 +221,94 @@ let tabAssetSelections = {
 let selectedGif = null;
 let selectedSound = null;
 
+// Form State Manager - preserves unsaved changes when switching tabs
+const formStateManager = {
+    states: {}, // Store form data for each tab
+    
+    // Save current form state for a tab
+    saveTabState: function(tabNumber) {
+        const tabPane = document.getElementById(`alert-${tabNumber}`);
+        if (!tabPane) return;
+        
+        const form = tabPane.querySelector('form');
+        if (!form) return;
+        
+        // Collect all form data
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Handle checkboxes explicitly (they won't appear in FormData if unchecked)
+        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            data[checkbox.name] = checkbox.checked;
+        });
+        
+        // Handle select elements explicitly to ensure correct values
+        const ttsSpeedSelect = form.querySelector('[name="tts_speed"]');
+        const ttsPitchSelect = form.querySelector('[name="tts_pitch"]');
+        const ttsVoiceSelect = form.querySelector('[name="tts_voice"]');
+        
+        if (ttsSpeedSelect) {
+            data.tts_speed = ttsSpeedSelect.value;
+        }
+        if (ttsPitchSelect) {
+            data.tts_pitch = ttsPitchSelect.value;
+        }
+        if (ttsVoiceSelect) {
+            data.tts_voice = ttsVoiceSelect.value;
+        }
+        
+        // Store the state
+        this.states[tabNumber] = data;
+        console.log(`📝 Saved form state for tab ${tabNumber}:`, data);
+        console.log(`📝 TTS values saved - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}`);
+    },
+    
+    // Restore form state for a tab
+    restoreTabState: function(tabNumber) {
+        const savedState = this.states[tabNumber];
+        if (!savedState) return false; // No saved state
+        
+        const tabPane = document.getElementById(`alert-${tabNumber}`);
+        if (!tabPane) return false;
+        
+        const form = tabPane.querySelector('form');
+        if (!form) return false;
+        
+        console.log(`📋 Restoring form state for tab ${tabNumber}:`, savedState);
+        console.log(`📋 TTS values to restore - Speed: ${savedState.tts_speed}, Pitch: ${savedState.tts_pitch}`);
+        
+        // Restore all form fields
+        Object.keys(savedState).forEach(fieldName => {
+            const field = form.querySelector(`[name="${fieldName}"]`);
+            if (field) {
+                if (field.type === 'checkbox') {
+                    field.checked = savedState[fieldName];
+                } else {
+                    field.value = savedState[fieldName];
+                }
+                
+                // Trigger change event to update any connected displays (like range sliders)
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+        
+        return true; // State was restored
+    },
+    
+    // Clear saved state for a tab (call when form is successfully saved)
+    clearTabState: function(tabNumber) {
+        delete this.states[tabNumber];
+        console.log(`🗑️ Cleared saved state for tab ${tabNumber}`);
+    },
+    
+    // Check if tab has unsaved changes
+    hasUnsavedChanges: function(tabNumber) {
+        return this.states.hasOwnProperty(tabNumber);
+    }
+};
+
 // Alert tabs management
 let alertTabCounter = 1;
 let maxAlertTabs = 5; // Maximum number of alert tabs allowed
@@ -212,6 +320,13 @@ window.userSounds = {{ user_sounds | tojson }};
 window.defaultGifs = {{ default_gifs | tojson }};
 window.defaultSounds = {{ default_sounds | tojson }};
 
+// alertTabCounter will be initialized from backend data when needed
+
+// Helper function to format amount for tab labels
+function formatAmount(amount) {
+    return amount > 0 ? `₮${amount.toLocaleString()}+` : '₮0+';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize asset selections
     initializeAssetSelections();
@@ -220,24 +335,119 @@ document.addEventListener('DOMContentLoaded', function() {
     updateRangeDisplay('imageSize', 'imageSizeDisplay', '%');
     updateRangeDisplay('soundVolume', 'soundVolumeDisplay', '%');
     
-    // Add event listeners for live preview
-    document.getElementById('alertSettingsForm').addEventListener('input', updatePreview);
-    document.getElementById('alertSettingsForm').addEventListener('change', updatePreview);
+    // Note: Event listeners are now handled by setupFormEventListeners() to prevent duplicates
     
     {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
-    // Add real-time minimum amount updates for tab labels
+    // Add real-time minimum amount updates for tab labels with duplicate validation
     function setupMinimumAmountListeners() {
         const forms = document.querySelectorAll('form[id^="alertSettingsForm"]');
         forms.forEach(form => {
             const minimumAmountInput = form.querySelector('[name="minimum_amount"]');
             if (minimumAmountInput) {
                 minimumAmountInput.addEventListener('input', function() {
-                    const tabNumber = getCurrentActiveTabNumber();
+                    // Get tab number from input's parent tab pane (more reliable than UI state)
+                    const tabPane = this.closest('.tab-pane');
+                    const tabNumber = tabPane ? parseInt(tabPane.id.replace('alert-', '')) : getCurrentActiveTabNumber();
                     const value = parseFloat(this.value) || 0;
+                    
+                    // Check for duplicate amounts and validate
+                    validateMinimumAmount(tabNumber, value, this);
+                    
+                    // Update tab label
                     updateTabLabel(tabNumber, value);
                 });
             }
         });
+    }
+    
+    // Validate minimum amount for duplicates and provide suggestions
+    function validateMinimumAmount(currentTabNumber, amount, inputElement) {
+        // Get all other tab amounts
+        const otherAmounts = [];
+        const allTabs = document.querySelectorAll('[id^="alert-"][id$="-tab"]');
+        
+        allTabs.forEach(tab => {
+            const tabId = tab.id.replace('-tab', '');
+            const tabNumber = parseInt(tabId.replace('alert-', ''));
+            
+            if (tabNumber !== currentTabNumber) {
+                const tabPane = document.getElementById(tabId);
+                if (tabPane) {
+                    const amountInput = tabPane.querySelector('[name="minimum_amount"]');
+                    if (amountInput && amountInput.value) {
+                        const tabAmount = parseFloat(amountInput.value) || 0;
+                        otherAmounts.push({ tab: tabNumber, amount: tabAmount });
+                    }
+                }
+            }
+        });
+        
+        // Check for duplicates
+        const isDuplicate = otherAmounts.some(other => other.amount === amount);
+        
+        // Get or create validation message element
+        let validationMsg = inputElement.parentNode.querySelector('.amount-validation');
+        if (!validationMsg) {
+            validationMsg = document.createElement('div');
+            validationMsg.className = 'amount-validation mt-1';
+            inputElement.parentNode.appendChild(validationMsg);
+        }
+        
+        if (isDuplicate) {
+            const duplicateTab = otherAmounts.find(other => other.amount === amount);
+            const suggestedAmount = findNextAvailableAmount(amount, otherAmounts);
+            
+            validationMsg.innerHTML = `
+                <small class="text-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    ₮${amount.toLocaleString()} дүнг Алерт ${duplicateTab.tab}-д ашигласан байна. 
+                    Санал болгох: ₮${suggestedAmount.toLocaleString()}
+                    <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="applySuggestedAmount(${currentTabNumber}, ${suggestedAmount})">
+                        Ашиглах
+                    </button>
+                </small>
+            `;
+            inputElement.classList.add('border-warning');
+        } else {
+            validationMsg.innerHTML = '';
+            inputElement.classList.remove('border-warning');
+        }
+    }
+    
+    // Find the next available amount suggestion
+    function findNextAvailableAmount(baseAmount, existingAmounts) {
+        const usedAmounts = existingAmounts.map(a => a.amount).sort((a, b) => a - b);
+        
+        // If baseAmount is 0, suggest increments of 500
+        if (baseAmount === 0) {
+            let suggestion = 500;
+            while (usedAmounts.includes(suggestion)) {
+                suggestion += 500;
+            }
+            return suggestion;
+        }
+        
+        // For other amounts, try increments
+        let suggestion = baseAmount;
+        const increment = baseAmount >= 1000 ? 500 : 100;
+        
+        do {
+            suggestion += increment;
+        } while (usedAmounts.includes(suggestion));
+        
+        return suggestion;
+    }
+    
+    // Apply suggested amount
+    function applySuggestedAmount(tabNumber, amount) {
+        const tabPane = document.getElementById(`alert-${tabNumber}`);
+        if (tabPane) {
+            const amountInput = tabPane.querySelector('[name="minimum_amount"]');
+            if (amountInput) {
+                amountInput.value = amount;
+                amountInput.dispatchEvent(new Event('input'));
+            }
+        }
     }
     
     // Initial setup for existing forms
@@ -256,20 +466,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Load tab 1 assets from initial settings - ensure to pass the complete config
-        console.log('Initializing tab 1 with settings:', currentSettings);
         populateTabForm(1, currentSettings);
     }
     
     // Initialize configurations from backend data
     {% if alert_configurations %}
-    console.log('Initializing from alert_configurations:', {{ alert_configurations | tojson }});
-    // Load each configuration if they exist
     const configs = {{ alert_configurations | tojson }};
+    
+    // Create tabs and load configurations for all saved tabs
     configs.forEach(config => {
         if (config.tab_number === 1) {
-            // Make sure tab 1 gets its saved configuration
-            console.log('Loading saved config for tab 1:', config);
+            // Tab 1 already exists, just populate it
             populateTabForm(1, config);
+            
+            // Mark tab 1 as saved since it has database configuration
+            const tab1Pane = document.getElementById('alert-1');
+            if (tab1Pane) {
+                tab1Pane.dataset.saved = 'true';
+            }
+        } else {
+            // Create tabs 2, 3, 4, etc. from saved configurations
+            createTabFromConfig(config);
         }
     });
     {% endif %}
@@ -284,6 +501,436 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     {% endif %}
 });
+
+// Function to save all tabs with auto-incremented amounts
+// Save all tabs that have unsaved changes in the form state manager
+function saveAllTabsWithChanges(submitButton = null) {
+    {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+    const unsavedTabNumbers = Object.keys(formStateManager.states).map(Number);
+    
+    if (unsavedTabNumbers.length === 0) {
+        alert('Хадгалах өөрчлөлт олдсонгүй.');
+        return;
+    }
+    
+    console.log(`Saving ${unsavedTabNumbers.length} tabs with changes:`, unsavedTabNumbers);
+    
+    let savedCount = 0;
+    let totalTabs = unsavedTabNumbers.length;
+    
+    // Save each tab with unsaved changes
+    unsavedTabNumbers.forEach(tabNumber => {
+        const tabPane = document.getElementById(`alert-${tabNumber}`);
+        if (!tabPane) return;
+        
+        const form = tabPane.querySelector('form');
+        if (!form) return;
+        
+        // Use the saved state directly instead of restoring to form first
+        const savedState = formStateManager.states[tabNumber];
+        if (!savedState) {
+            console.log(`No saved state found for tab ${tabNumber}, skipping`);
+            return;
+        }
+        
+        // Start with the saved state and supplement with current form data
+        const data = { ...savedState };
+        
+        // Also collect current form data for any fields not in saved state
+        const formData = new FormData(form);
+        const currentFormData = Object.fromEntries(formData.entries());
+        
+        // Merge current form data, but prioritize saved state for TTS fields
+        Object.keys(currentFormData).forEach(key => {
+            if (!data.hasOwnProperty(key)) {
+                data[key] = currentFormData[key];
+            }
+        });
+        
+        // Handle checkboxes explicitly
+        const ttsEnabledCheckbox = form.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
+        if (ttsEnabledCheckbox) {
+            data.tts_enabled = ttsEnabledCheckbox.checked;
+        }
+        
+        // Convert seconds to milliseconds for backend
+        if (data.visible_time) {
+            data.visible_time = Math.round(parseFloat(data.visible_time) * 1000);
+        }
+        if (data.animation_speed) {
+            data.animation_speed = Math.round(parseFloat(data.animation_speed) * 1000);
+        }
+        
+        // Convert TTS values to numbers with proper validation
+        data.tts_speed = data.tts_speed && data.tts_speed !== '' ? parseFloat(data.tts_speed) : 1.0;
+        data.tts_pitch = data.tts_pitch && data.tts_pitch !== '' ? parseFloat(data.tts_pitch) : 1.0;
+        
+        // Ensure they are valid numbers
+        if (isNaN(data.tts_speed)) data.tts_speed = 1.0;
+        if (isNaN(data.tts_pitch)) data.tts_pitch = 1.0;
+        
+        // Get tab-specific assets
+        const tabAssets = tabAssetSelections[tabNumber] || { selectedGif: null, selectedSound: null };
+        
+        if (tabAssets.selectedGif) {
+            if (tabAssets.selectedGif.is_default) {
+                data.default_gif_name = tabAssets.selectedGif.filename;
+                data.selected_gif_id = null;
+            } else {
+                data.selected_gif_id = tabAssets.selectedGif.id;
+                data.default_gif_name = null;
+            }
+        }
+        
+        if (tabAssets.selectedSound) {
+            if (tabAssets.selectedSound.is_default) {
+                data.default_sound_name = tabAssets.selectedSound.filename;
+                data.selected_sound_id = null;
+            } else {
+                data.selected_sound_id = tabAssets.selectedSound.id;
+                data.default_sound_name = null;
+            }
+        }
+        
+        console.log(`Saving tab ${tabNumber} with data:`, data);
+        console.log(`TTS fields - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}, Voice: ${data.tts_voice}`);
+        console.log(`Using saved state directly - TTS Speed: ${savedState.tts_speed}, TTS Pitch: ${savedState.tts_pitch}`);
+        
+        // Debug: Check the actual select element values
+        const speedSelect = form.querySelector('[name="tts_speed"]');
+        const pitchSelect = form.querySelector('[name="tts_pitch"]');
+        const voiceSelect = form.querySelector('[name="tts_voice"]');
+        console.log(`Direct select values - Speed: ${speedSelect?.value}, Pitch: ${pitchSelect?.value}, Voice: ${voiceSelect?.value}`);
+        console.log(`Select elements found - Speed: ${!!speedSelect}, Pitch: ${!!pitchSelect}, Voice: ${!!voiceSelect}`);
+        
+        // Check if the select elements are actually in the FormData
+        const formDataEntries = [...formData.entries()];
+        const hasSpeed = formDataEntries.some(([name]) => name === 'tts_speed');
+        const hasPitch = formDataEntries.some(([name]) => name === 'tts_pitch');
+        console.log(`FormData contains - Speed: ${hasSpeed}, Pitch: ${hasPitch}`);
+        
+        // Debug: Check which options are selected in the HTML
+        if (speedSelect) {
+            const selectedSpeedOption = speedSelect.querySelector('option:checked') || speedSelect.querySelector('option[selected]');
+            console.log(`Speed selected option: ${selectedSpeedOption?.value} (${selectedSpeedOption?.textContent})`);
+        }
+        if (pitchSelect) {
+            const selectedPitchOption = pitchSelect.querySelector('option:checked') || pitchSelect.querySelector('option[selected]');
+            console.log(`Pitch selected option: ${selectedPitchOption?.value} (${selectedPitchOption?.textContent})`);
+        }
+        
+        // Save this tab
+        const endpoint = `/donation-alert/configurations/${tabNumber}`;
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(responseData => {
+            if (responseData.success) {
+                savedCount++;
+                
+                // Update tab label with new minimum amount
+                const minimumAmount = parseFloat(data.minimum_amount) || 0;
+                updateTabLabel(tabNumber, minimumAmount);
+                
+                // Mark tab as saved to database
+                tabPane.dataset.saved = 'true';
+                
+                // Clear saved state for this tab
+                formStateManager.clearTabState(tabNumber);
+                
+                console.log(`✅ Tab ${tabNumber} saved successfully (${savedCount}/${totalTabs})`);
+                
+                // Show success message when all tabs are saved
+                if (savedCount === totalTabs) {
+                    console.log(`✅ All ${totalTabs} tabs saved successfully!`);
+                    
+                    // Update button state if provided
+                    if (submitButton) {
+                        const originalText = submitButton.innerHTML;
+                        submitButton.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа!';
+                        submitButton.classList.add('btn-success');
+                        submitButton.classList.remove('btn-primary');
+                        
+                        setTimeout(() => {
+                            submitButton.innerHTML = originalText;
+                            submitButton.classList.remove('btn-success');
+                            submitButton.classList.add('btn-primary');
+                        }, 2000);
+                    }
+                }
+            } else {
+                console.error(`❌ Failed to save tab ${tabNumber}:`, responseData.error);
+                alert(`Алерт ${tabNumber} хадгалахад алдаа гарлаа: ` + responseData.error);
+            }
+        })
+        .catch(error => {
+            console.error(`❌ Network error saving tab ${tabNumber}:`, error);
+            alert(`Алерт ${tabNumber} хадгалахад холболтын алдаа гарлаа: ` + error.message);
+        });
+    });
+    {% endif %}
+}
+
+// Save a single tab (for basic users or when no unsaved changes exist)
+function saveSingleTab(form) {
+    // Get form data with better handling for tab-specific fields
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Debug log to see what data is being collected
+    console.log('Form data collected:', data);
+    console.log(`TTS fields - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}, Voice: ${data.tts_voice}`);
+    
+    // Debug: Check the actual select element values
+    const speedSelect = form.querySelector('[name="tts_speed"]');
+    const pitchSelect = form.querySelector('[name="tts_pitch"]');
+    const voiceSelect = form.querySelector('[name="tts_voice"]');
+    console.log(`Direct select values - Speed: ${speedSelect?.value}, Pitch: ${pitchSelect?.value}, Voice: ${voiceSelect?.value}`);
+    console.log(`Select elements found - Speed: ${!!speedSelect}, Pitch: ${!!pitchSelect}, Voice: ${!!voiceSelect}`);
+    
+    // Check if the select elements are actually in the FormData
+    const formDataEntries = [...formData.entries()];
+    const hasSpeed = formDataEntries.some(([name]) => name === 'tts_speed');
+    const hasPitch = formDataEntries.some(([name]) => name === 'tts_pitch');
+    console.log(`FormData contains - Speed: ${hasSpeed}, Pitch: ${hasPitch}`);
+    
+    // Handle checkboxes explicitly (FormData doesn't include unchecked checkboxes)
+    const ttsEnabledCheckbox = form.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
+    if (ttsEnabledCheckbox) {
+        data.tts_enabled = ttsEnabledCheckbox.checked;
+    }
+    
+    // Convert seconds to milliseconds for backend
+    if (data.visible_time) {
+        data.visible_time = Math.round(parseFloat(data.visible_time) * 1000);
+    }
+    if (data.animation_speed) {
+        data.animation_speed = Math.round(parseFloat(data.animation_speed) * 1000);
+    }
+    
+    // Convert TTS values to numbers with proper validation
+    data.tts_speed = data.tts_speed && data.tts_speed !== '' ? parseFloat(data.tts_speed) : 1.0;
+    data.tts_pitch = data.tts_pitch && data.tts_pitch !== '' ? parseFloat(data.tts_pitch) : 1.0;
+    
+    // Ensure they are valid numbers
+    if (isNaN(data.tts_speed)) data.tts_speed = 1.0;
+    if (isNaN(data.tts_pitch)) data.tts_pitch = 1.0;
+    
+    // Get current tab assets (either global or per-tab)
+    const currentAssets = getCurrentTabAssets();
+    
+    if (currentAssets.selectedGif) {
+        if (currentAssets.selectedGif.is_default) {
+            data.default_gif_name = currentAssets.selectedGif.filename;
+            data.selected_gif_id = null;
+        } else {
+            data.selected_gif_id = currentAssets.selectedGif.id;
+            data.default_gif_name = null;
+        }
+    }
+    
+    if (currentAssets.selectedSound) {
+        if (currentAssets.selectedSound.is_default) {
+            data.default_sound_name = currentAssets.selectedSound.filename;
+            data.selected_sound_id = null;
+        } else {
+            data.selected_sound_id = currentAssets.selectedSound.id;
+            data.default_sound_name = null;
+        }
+    }
+    
+    // Determine API endpoint based on tier and tab
+    {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+    // Get tab number from the form's parent tab pane (more reliable than UI state)
+    const tabPane = form.closest('.tab-pane');
+    const tabNumber = tabPane ? parseInt(tabPane.id.replace('alert-', '')) : getCurrentActiveTabNumber();
+    const endpoint = `/donation-alert/configurations/${tabNumber}`;
+    {% else %}
+    const endpoint = '/donation-alert/settings';
+    {% endif %}
+    
+    // Submit settings
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(responseData => {
+        if (responseData.success) {
+            // Update tab label with new minimum amount for advanced tier
+            {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+            // Use the same tab number we just saved to (from form context)
+            const minimumAmount = parseFloat(data.minimum_amount) || 0;
+            updateTabLabel(tabNumber, minimumAmount);
+            
+            // Mark tab as saved to database
+            const tabPane = document.getElementById(`alert-${tabNumber}`);
+            if (tabPane) {
+                tabPane.dataset.saved = 'true';
+            }
+            
+            // Clear saved state for this tab
+            formStateManager.clearTabState(tabNumber);
+            {% endif %}
+            
+            // Show success message
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа!';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-primary');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            }, 2000);
+        } else {
+            // Check if it's a duplicate amount error with suggestion
+            if (responseData.suggestion && responseData.suggestion_message) {
+                const confirmed = confirm(
+                    responseData.error + '\n\n' + 
+                    responseData.suggestion_message + '\n\n' +
+                    'Санал болгох дүнг ашиглах уу? Бусад хадгалагдаагүй алертүүд автоматаар дараалалтайгаар тохируулагдана.'
+                );
+                
+                if (confirmed) {
+                    // Save all unsaved tabs with auto-incremented amounts
+                    saveAllUnsavedTabs();
+                }
+            } else {
+                alert('Алдаа гарлаа: ' + (responseData.error || 'Тодорхойгүй алдаа'));
+            }
+        }
+    })
+    .catch(error => {
+        alert('Холболтын алдаа гарлаа: ' + error.message);
+    });
+}
+
+function saveAllUnsavedTabs() {
+    {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+    // Find all tab panes - save ALL tabs regardless of saved status
+    const allTabPanes = document.querySelectorAll('.tab-pane[id^="alert-"]');
+    const tabsToSave = Array.from(allTabPanes);
+    
+    if (tabsToSave.length === 0) {
+        return; // Nothing to save
+    }
+    
+    console.log(`Saving ${tabsToSave.length} tabs:`, tabsToSave.map(t => t.id));
+    
+    // Start with a base amount and increment for each tab
+    let currentAmount = 500; // Start at 500₮
+    let savedCount = 0;
+    
+    // Save each tab sequentially
+    tabsToSave.forEach((tabPane, index) => {
+        const tabNumber = parseInt(tabPane.id.replace('alert-', ''));
+        const form = tabPane.querySelector('form');
+        
+        if (form) {
+            // Collect form data FIRST to preserve manual changes
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Only set auto-increment amount if no amount is set or if amount is 0
+            const currentMinAmount = parseFloat(data.minimum_amount) || 0;
+            if (currentMinAmount === 0) {
+                data.minimum_amount = currentAmount;
+                currentAmount += 500; // Increment by 500₮ for next tab
+                console.log(`Tab ${tabNumber} auto-assigned amount: ${data.minimum_amount}₮`);
+            } else {
+                console.log(`Tab ${tabNumber} keeping existing amount: ${currentMinAmount}₮`);
+                // Update currentAmount for next tab to avoid conflicts
+                if (currentMinAmount >= currentAmount) {
+                    currentAmount = currentMinAmount + 500;
+                }
+            }
+            
+            console.log(`Tab ${tabNumber} form data:`, data);
+            
+            // Handle checkboxes explicitly
+            const ttsEnabledCheckbox = form.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
+            if (ttsEnabledCheckbox) {
+                data.tts_enabled = ttsEnabledCheckbox.checked;
+            }
+            
+            // Convert seconds to milliseconds for backend
+            if (data.visible_time) {
+                data.visible_time = Math.round(parseFloat(data.visible_time) * 1000);
+            }
+            if (data.animation_speed) {
+                data.animation_speed = Math.round(parseFloat(data.animation_speed) * 1000);
+            }
+            
+            // Get current tab assets (this might not work correctly for all tabs)
+            // TODO: Fix asset selection for batch save
+            const currentAssets = { selectedGif: null, selectedSound: null };
+            if (currentAssets.selectedGif) {
+                if (currentAssets.selectedGif.is_default) {
+                    data.default_gif_name = currentAssets.selectedGif.filename;
+                    data.selected_gif_id = null;
+                } else {
+                    data.selected_gif_id = currentAssets.selectedGif.id;
+                    data.default_gif_name = null;
+                }
+            }
+            
+            if (currentAssets.selectedSound) {
+                if (currentAssets.selectedSound.is_default) {
+                    data.default_sound_name = currentAssets.selectedSound.filename;
+                    data.selected_sound_id = null;
+                } else {
+                    data.selected_sound_id = currentAssets.selectedSound.id;
+                    data.default_sound_name = null;
+                }
+            }
+            
+            // Save this tab
+            const endpoint = `/donation-alert/configurations/${tabNumber}`;
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(responseData => {
+                if (responseData.success) {
+                    savedCount++;
+                    
+                    // Update tab label with new minimum amount
+                    const minimumAmount = parseFloat(data.minimum_amount) || 0;
+                    updateTabLabel(tabNumber, minimumAmount);
+                    
+                    // Mark tab as saved to database
+                    tabPane.dataset.saved = 'true';
+                    
+                    // Log success for last tab
+                    if (savedCount === tabsToSave.length) {
+                        console.log(`✅ ${savedCount} tabs saved successfully!`);
+                    }
+                } else {
+                    alert(`Алерт ${tabNumber} хадгалахад алдаа гарлаа: ${responseData.error}`);
+                }
+            })
+            .catch(error => {
+                alert(`Алерт ${tabNumber} хадгалахад холболтын алдаа гарлаа: ${error.message}`);
+            });
+        }
+    });
+    {% endif %}
+}
 
 // Helper functions for tab management
 function getCurrentActiveTabNumber() {
@@ -335,16 +982,25 @@ function loadTabConfiguration(tabNumber) {
     }
     
     fetch(`/donation-alert/configurations/${tabNumber}`)
-        .then(response => response.json())
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else if (response.status === 404) {
+                // Expected for new tabs - silently continue with defaults
+                return { success: false };
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        })
         .then(data => {
             if (data.success && data.configuration) {
                 populateTabForm(tabNumber, data.configuration);
             } else {
-                console.log('No configuration found for tab', tabNumber, 'using defaults');
                 // Tab will use default values from the form
             }
         })
         .catch(error => {
+            // Only log unexpected errors (not 404s for new tabs)
             console.error('Error loading tab configuration:', error);
         });
     {% endif %}
@@ -354,9 +1010,14 @@ function populateTabForm(tabNumber, config) {
     const tabPane = document.getElementById(`alert-${tabNumber}`);
     if (!tabPane) return;
     
-    console.log('=== POPULATING TAB FORM ===');
-    console.log('Tab number:', tabNumber);
-    console.log('Configuration:', config);
+    // Check if there are unsaved changes for this tab - if so, don't overwrite
+    if (formStateManager.hasUnsavedChanges(tabNumber)) {
+        console.log(`⚠️ Tab ${tabNumber} has unsaved changes, skipping populate`);
+        return;
+    }
+    
+    console.log(`🔄 Populating tab ${tabNumber} with config:`, config);
+    console.log(`🔄 TTS values to populate - Speed: ${config.tts_speed}, Pitch: ${config.tts_pitch}, Voice: ${config.tts_voice}`);
     
     // Populate form fields
     Object.keys(config).forEach(key => {
@@ -380,14 +1041,41 @@ function populateTabForm(tabNumber, config) {
                 } else {
                     input.value = config[key];
                 }
+                
+                // For select elements, ensure the correct option is selected
+                if (input.tagName === 'SELECT') {
+                    // Special handling for TTS fields - convert numbers to proper string format
+                    let valueToMatch = config[key];
+                    if ((key === 'tts_speed' || key === 'tts_pitch') && typeof valueToMatch === 'number') {
+                        // Convert 1 -> "1.0", 0.5 -> "0.5", etc.
+                        valueToMatch = valueToMatch.toFixed(1);
+                        if (valueToMatch.endsWith('.0')) {
+                            // Keep it as "1.0" for exact matching
+                        }
+                    }
+                    
+                    const optionToSelect = input.querySelector(`option[value="${valueToMatch}"]`);
+                    if (optionToSelect) {
+                        // Clear any existing selection
+                        Array.from(input.options).forEach(option => option.selected = false);
+                        // Select the correct option
+                        optionToSelect.selected = true;
+                        input.value = valueToMatch; // Use the converted value, not the original
+                        
+                        // Debug TTS fields specifically
+                        if (key === 'tts_speed' || key === 'tts_pitch' || key === 'tts_voice') {
+                            console.log(`✅ Set ${key} select: ${config[key]} -> ${valueToMatch}, actual value now: ${input.value}, selected option: ${optionToSelect.textContent}`);
+                        }
+                    } else if (key === 'tts_speed' || key === 'tts_pitch' || key === 'tts_voice') {
+                        console.log(`❌ Could not find option with value "${valueToMatch}" (original: ${config[key]}) for ${key} select`);
+                        console.log(`Available options:`, Array.from(input.options).map(opt => opt.value));
+                    }
+                }
             }
         }
     });
     
     // Load assets for this tab
-    console.log('Loading assets for tab', tabNumber);
-    console.log('GIF - ID:', config.selected_gif_id, 'Name:', config.default_gif_name);
-    console.log('Sound - ID:', config.selected_sound_id, 'Name:', config.default_sound_name);
     
     if (config.selected_gif_id || config.default_gif_name) {
         // Find and set the GIF asset
@@ -403,7 +1091,6 @@ function populateTabForm(tabNumber, config) {
             if (!tabAssetSelections[tabNumber]) {
                 tabAssetSelections[tabNumber] = { selectedGif: null, selectedSound: null };
             }
-            console.log('Loading GIF asset for tab', tabNumber, ':', gifAsset);
             tabAssetSelections[tabNumber].selectedGif = gifAsset;
         }
     }
@@ -471,7 +1158,7 @@ function updateTabLabel(tabNumber, minimumAmount) {
     const tabButton = document.getElementById(`alert-${tabNumber}-tab`);
     if (!tabButton) return;
     
-    const formattedAmount = minimumAmount > 0 ? `₮${minimumAmount.toLocaleString()}+` : '₮0+';
+    const formattedAmount = formatAmount(minimumAmount);
     const icon = tabButton.querySelector('i');
     const closeBtn = tabButton.querySelector('.btn-close');
     
@@ -483,6 +1170,84 @@ function updateTabLabel(tabNumber, minimumAmount) {
 }
 
 // Tab Management Functions
+function createTabFromConfig(config) {
+    const tabNumber = config.tab_number;
+    const tabId = 'alert-' + tabNumber;
+    const minimumAmount = config.minimum_amount || 0;
+    const formattedAmount = formatAmount(minimumAmount);
+    
+    // Update alertTabCounter to match highest tab number
+    if (tabNumber > alertTabCounter) {
+        alertTabCounter = tabNumber;
+    }
+    
+    // Initialize asset selections for this tab
+    tabAssetSelections[tabNumber] = {
+        selectedGif: config.selected_gif_id ? {
+            id: config.selected_gif_id,
+            url: config.gif_url,
+            is_default: false
+        } : {
+            filename: config.default_gif_name,
+            url: config.gif_url,
+            is_default: true
+        },
+        selectedSound: config.selected_sound_id ? {
+            id: config.selected_sound_id,
+            url: config.sound_url,
+            is_default: false
+        } : {
+            filename: config.default_sound_name,
+            url: config.sound_url,
+            is_default: true
+        }
+    };
+    
+    // Create new tab button
+    const tabsList = document.getElementById('alertTabs');
+    const addTabItem = tabsList.querySelector('.add-tab-item');
+    
+    const newTabItem = document.createElement('li');
+    newTabItem.className = 'nav-item';
+    newTabItem.setAttribute('role', 'presentation');
+    newTabItem.innerHTML = `
+        <button class="nav-link" id="${tabId}-tab" data-bs-toggle="tab" data-bs-target="#${tabId}" 
+                type="button" role="tab" aria-controls="${tabId}" aria-selected="false">
+            <i class="fas fa-bell me-1"></i>Алерт ${tabNumber} (${formattedAmount})
+            <button class="btn btn-sm btn-outline-danger ms-2 tab-close-btn" onclick="removeAlertTab('${tabId}', event)">
+                <i class="fas fa-times"></i>
+            </button>
+        </button>
+    `;
+    
+    // Insert before the add button
+    tabsList.insertBefore(newTabItem, addTabItem);
+    
+    // Create new tab content
+    const tabContent = document.getElementById('alertTabContent');
+    const newTabPane = document.createElement('div');
+    newTabPane.className = 'tab-pane fade';
+    newTabPane.id = tabId;
+    newTabPane.setAttribute('role', 'tabpanel');
+    newTabPane.setAttribute('aria-labelledby', tabId + '-tab');
+    
+    // Clone the first tab's content structure
+    const firstTab = document.getElementById('alert-1');
+    newTabPane.innerHTML = firstTab.innerHTML;
+    
+    // Update form IDs to make them unique
+    updateTabFormIds(newTabPane, tabNumber);
+    
+    // Mark as saved since this comes from database configuration
+    newTabPane.dataset.saved = 'true';
+    
+    tabContent.appendChild(newTabPane);
+    
+    // Populate the tab with saved configuration
+    populateTabForm(tabNumber, config);
+    
+}
+
 function addNewAlertTab() {
     if (alertTabCounter >= maxAlertTabs) {
         alert('Хамгийн ихдээ ' + maxAlertTabs + ' алерт нэмж болно.');
@@ -534,6 +1299,14 @@ function addNewAlertTab() {
     
     tabContent.appendChild(newTabPane);
     
+    // Immediately ensure this new form has event listeners (defensive programming)
+    const newForm = newTabPane.querySelector('form');
+    if (newForm && !newForm.dataset.listenersAdded) {
+        newForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+    }
+    
     // Activate the new tab
     const newTab = new bootstrap.Tab(document.getElementById(tabId + '-tab'));
     newTab.show();
@@ -541,7 +1314,11 @@ function addNewAlertTab() {
     // Update current active tab
     currentActiveTab = alertTabCounter;
     
-    console.log('Added new alert tab:', tabLabel);
+    // Update the preview to show the new tab's default assets immediately
+    setTimeout(() => {
+        updatePreview();
+    }, 100);
+    
 }
 
 function removeAlertTab(tabId, event) {
@@ -555,49 +1332,108 @@ function removeAlertTab(tabId, event) {
     if (confirm('Та энэ алертыг устгахыг хүсэж байна уу?')) {
         const tabNumber = parseInt(tabId.replace('alert-', ''));
         
-        // Call backend API to delete configuration
         {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
-        fetch(`/donation-alert/configurations/${tabNumber}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Remove tab button
-                const tabButton = document.getElementById(tabId + '-tab');
-                if (tabButton) {
-                    tabButton.closest('.nav-item').remove();
+        // Check if this tab exists in the database by checking if it was ever saved
+        const tabPane = document.getElementById(tabId);
+        const wasSavedToDatabase = tabPane && tabPane.dataset.saved === 'true';
+        
+        if (wasSavedToDatabase) {
+            // Tab exists in database - call backend API to delete
+            fetch(`/donation-alert/configurations/${tabNumber}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
                 }
-                
-                // Remove tab content
-                const tabPane = document.getElementById(tabId);
-                if (tabPane) {
-                    tabPane.remove();
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    removeTabFromUI(tabId, tabNumber);
+                } else {
+                    alert('Алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
                 }
-                
-                // Remove from asset selections
-                delete tabAssetSelections[tabNumber];
-                
-                // Activate first tab if the removed tab was active
-                const firstTabButton = document.getElementById('alert-1-tab');
-                if (firstTabButton && !document.querySelector('.nav-link.active')) {
-                    const firstTab = new bootstrap.Tab(firstTabButton);
-                    firstTab.show();
-                }
-                
-                console.log('Removed alert tab:', tabId);
-            } else {
-                alert('Алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
-            }
-        })
-        .catch(error => {
-            alert('Холболтын алдаа гарлаа');
-            console.error('Error removing tab:', error);
-        });
+            })
+            .catch(error => {
+                alert('Холболтын алдаа гарлаа');
+                console.error('Error removing tab from database:', error);
+            });
+        } else {
+            // Tab only exists in UI - just remove from frontend
+            removeTabFromUI(tabId, tabNumber);
+        }
         {% endif %}
+    }
+}
+
+function removeTabFromUI(tabId, tabNumber) {
+    // Check if the tab being removed is currently active
+    const tabButton = document.getElementById(tabId + '-tab');
+    const isActiveTab = tabButton && tabButton.classList.contains('active');
+    
+    // Remove tab button
+    if (tabButton) {
+        tabButton.closest('.nav-item').remove();
+    }
+    
+    // Remove tab content
+    const tabPane = document.getElementById(tabId);
+    if (tabPane) {
+        tabPane.remove();
+    }
+    
+    // Remove from asset selections
+    if (typeof tabAssetSelections !== 'undefined') {
+        delete tabAssetSelections[tabNumber];
+    }
+    
+    // If the removed tab was active, activate the nearest tab to the left
+    if (isActiveTab) {
+        activateNearestTabToLeft(tabNumber);
+    }
+}
+
+function activateNearestTabToLeft(deletedTabNumber) {
+    // Get all remaining tab buttons in order
+    const tabsList = document.getElementById('alertTabs');
+    const remainingTabs = Array.from(tabsList.querySelectorAll('.nav-link:not(.add-tab-btn)'));
+    
+    // Extract tab numbers and sort them
+    const availableTabNumbers = remainingTabs
+        .map(button => {
+            const targetId = button.getAttribute('data-bs-target');
+            if (targetId && targetId.startsWith('#alert-')) {
+                return parseInt(targetId.replace('#alert-', ''));
+            }
+            return null;
+        })
+        .filter(num => num !== null)
+        .sort((a, b) => a - b);
+    
+    
+    // Find the nearest tab to the left
+    let targetTabNumber = null;
+    
+    // Look for the highest tab number that is less than the deleted tab number
+    for (let i = availableTabNumbers.length - 1; i >= 0; i--) {
+        if (availableTabNumbers[i] < deletedTabNumber) {
+            targetTabNumber = availableTabNumbers[i];
+            break;
+        }
+    }
+    
+    // If no tab to the left exists, select the first available tab
+    if (targetTabNumber === null && availableTabNumbers.length > 0) {
+        targetTabNumber = availableTabNumbers[0];
+    }
+    
+    
+    // Activate the target tab
+    if (targetTabNumber !== null) {
+        const targetTabButton = document.getElementById(`alert-${targetTabNumber}-tab`);
+        if (targetTabButton) {
+            const tab = new bootstrap.Tab(targetTabButton);
+            tab.show();
+        }
     }
 }
 
@@ -606,6 +1442,13 @@ function updateTabFormIds(tabElement, tabNumber) {
     const form = tabElement.querySelector('form');
     if (form) {
         form.id = 'alertSettingsForm' + tabNumber;
+        
+        // IMPORTANT: Clear the listenersAdded flag from the cloned form
+        // so that new event listeners can be properly attached
+        delete form.dataset.listenersAdded;
+        
+        // Ensure form has defensive onsubmit handler as backup
+        form.setAttribute('onsubmit', 'return false;');
     }
     
     // Update all input IDs and their corresponding labels
@@ -630,12 +1473,26 @@ function updateTabFormIds(tabElement, tabNumber) {
         previewAlert.id = 'previewAlert' + tabNumber;
     }
     
-    // Add event listeners for this tab's form
-    const tabForm = tabElement.querySelector('form');
-    if (tabForm) {
-        tabForm.addEventListener('input', updatePreview);
-        tabForm.addEventListener('change', updatePreview);
+    // Update TTS usage display element IDs
+    const ttsUsageDisplay = tabElement.querySelector('#ttsUsageDisplay');
+    if (ttsUsageDisplay) {
+        ttsUsageDisplay.id = 'ttsUsageDisplay_tab' + tabNumber;
     }
+    
+    // Update all TTS usage statistic element IDs
+    const ttsStatElements = [
+        'dailyUsage', 'dailyLimit', 'dailyChars', 'dailyCharLimit',
+        'monthlyUsage', 'monthlyLimit', 'monthlyChars', 'monthlyCharLimit'
+    ];
+    
+    ttsStatElements.forEach(elementId => {
+        const element = tabElement.querySelector('#' + elementId);
+        if (element) {
+            element.id = elementId + '_tab' + tabNumber;
+        }
+    });
+    
+    // Note: Event listeners are handled by setupFormEventListeners() to prevent duplicates
 }
 
 function initializeAssetSelections() {
@@ -773,6 +1630,33 @@ function updateRangeDisplay(rangeId, displayId, suffix) {
     update(); // Initial update
 }
 
+function setupRangeDisplaysForForm(form) {
+    // Set up range displays for all range inputs in this form
+    const ranges = [
+        { inputName: 'image_size', displayId: 'imageSizeDisplay', suffix: '%' },
+        { inputName: 'sound_volume', displayId: 'soundVolumeDisplay', suffix: '%' }
+    ];
+    
+    ranges.forEach(({ inputName, displayId, suffix }) => {
+        const rangeInput = form.querySelector(`[name="${inputName}"]`);
+        const display = form.querySelector(`#${displayId}`);
+        
+        if (rangeInput && display) {
+            // Remove any existing listener to prevent duplicates
+            const newRangeInput = rangeInput.cloneNode(true);
+            rangeInput.parentNode.replaceChild(newRangeInput, rangeInput);
+            
+            // Add the event listener
+            function updateDisplay() {
+                display.textContent = newRangeInput.value + suffix;
+            }
+            
+            newRangeInput.addEventListener('input', updateDisplay);
+            updateDisplay(); // Initial update
+        }
+    });
+}
+
 function updatePreview() {
     // Find the currently active form (either basic tier or active tab)
     let activeForm;
@@ -810,8 +1694,16 @@ function updatePreview() {
     
     // Get current tab's assets
     const tabAssets = getCurrentTabAssets();
+    
+    {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+    // For advanced tier: use per-tab assets (null means use default)
+    const currentGif = tabAssets.selectedGif;
+    const currentSound = tabAssets.selectedSound;
+    {% else %}
+    // For basic tier: use global assets with fallback
     const currentGif = tabAssets.selectedGif || selectedGif;
     const currentSound = tabAssets.selectedSound || selectedSound;
+    {% endif %}
     
     // Get all styling settings
     const previewSettings = {
@@ -819,7 +1711,11 @@ function updatePreview() {
         image_position: position,
         image_size: parseInt(imageSize) || currentSettings.image_size,
         transition_type: transitionType,
-        gif_url: currentGif ? currentGif.url : (currentSettings.gif_url || '/static/assets/default/default.gif'),
+        {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+        gif_url: currentGif ? currentGif.url : '/static/assets/default/gifs/party.gif',
+        {% else %}
+        gif_url: currentGif ? currentGif.url : (currentSettings.gif_url || '/static/assets/default/gifs/party.gif'),
+        {% endif %}
         
         // Donator settings
         donator_image_size: parseInt(formData.get('donator_image_size')) || currentSettings.donator_image_size,
@@ -872,8 +1768,6 @@ function generateAlertPreview(donation, settings) {
         .replace(/{name}/g, donation.name)
         .replace(/{amount}/g, donation.amount.toLocaleString());
     
-    console.log('Template before formatting:', settings.text_template);
-    console.log('Template after variable replacement:', processedText);
     
     // Apply text formatting
     processedText = processedText
@@ -881,7 +1775,6 @@ function generateAlertPreview(donation, settings) {
         .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *text* -> italic
         .replace(/\[(.*?)\]/g, `<span style="color: ${settings.template_accent_color}">$1</span>`); // [text] -> accent color
     
-    console.log('Template after formatting:', processedText);
     
     // Create HTML structure with full styling
     const alertHTML = `
@@ -956,58 +1849,85 @@ function generateAlertPreview(donation, settings) {
     previewAlert.style.opacity = '1';
 }
 
-// Global variable for testing alerts
-let alertPreviewActive = false;
-
+// Test alert function - sends real WebSocket event to overlay
 function testAlert() {
-    if (alertPreviewActive) {
-        console.log('Alert preview already running, skipping...');
+    // Initialize socket connection if not already done
+    if (typeof io === 'undefined') {
+        alert('Socket.IO не ачааллагдсан байна');
         return;
     }
     
-    alertPreviewActive = true;
+    if (!window.testSocket) {
+        window.testSocket = io();
+    }
     
-    // Sample test data
-    const testDonation = {
-        name: 'Тест хэрэглэгч',
+    // Get current settings for test alert
+    const testData = {
+        user_id: {{ current_user.id }},
+        donator_name: 'Тест хэрэглэгч',
         amount: 25000,
-        message: 'Энэ бол туршилтын донейт мессеж! 🎉'
+        message: 'Энэ бол туршилтын донейт мессеж! 🎉',
+        is_test: true
     };
     
-    // Update preview with test data first
-    updatePreview();
-    
-    // Find the active preview element
-    let previewAlert;
-    
+    // For advanced tier, get current tab info and configuration
     {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
     const activeTab = document.querySelector('.tab-pane.active');
     if (activeTab) {
-        previewAlert = activeTab.querySelector('#previewAlert, [id^="previewAlert"]');
+        const tabNumber = parseInt(activeTab.id.replace('alert-', ''));
+        testData.tab_number = tabNumber;
+        
+        // Get minimum amount from current tab
+        const minimumAmountInput = activeTab.querySelector('[name="minimum_amount"]');
+        let minAmount = 0;
+        if (minimumAmountInput && minimumAmountInput.value) {
+            minAmount = parseFloat(minimumAmountInput.value);
+            if (minAmount > 0 && testData.amount < minAmount) {
+                // Adjust test amount to be above minimum
+                testData.amount = Math.max(minAmount + 1000, 25000);
+            }
+        }
+        
+        // Set message to match tab name format: "Алерт X (₮Amount+)"
+        testData.message = `Алерт ${tabNumber} (₮${minAmount}+)`;
+        
+        // Include tab-specific configuration ID if available
+        // Look for existing configuration for this tab from backend data
+        {% if alert_configurations %}
+        const alertConfigs = {{ alert_configurations | tojson }};
+        console.log('🧪 DEBUG: Available alert configurations:', alertConfigs);
+        console.log(`🧪 DEBUG: Looking for tab ${tabNumber} in configurations`);
+        
+        const tabConfig = alertConfigs.find(c => c.tab_number === tabNumber);
+        if (tabConfig) {
+            testData.config_id = tabConfig.id;
+            console.log(`🧪 Test alert using config ID ${tabConfig.id} for tab ${tabNumber}`);
+            console.log(`🧪 Config colors: base=${tabConfig.template_base_color}, accent=${tabConfig.template_accent_color}`);
+        } else {
+            console.log(`🧪 WARNING: No configuration found for tab ${tabNumber}`);
+            console.log('🧪 Available tab numbers:', alertConfigs.map(c => c.tab_number));
+        }
+        {% endif %}
     }
-    {% else %}
-    previewAlert = document.getElementById('previewAlert');
     {% endif %}
     
-    if (!previewAlert) {
-        alertPreviewActive = false;
-        return;
-    }
+    console.log('🧪 SETTINGS: Sending test alert:', testData);
     
-    // Animate the test alert
-    previewAlert.style.transform = 'scale(0.8)';
-    previewAlert.style.opacity = '0';
+    // Send test alert via WebSocket
+    window.testSocket.emit('test_alert', testData);
+    
+    // Show user feedback
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Илгээгдлээ!';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-primary');
     
     setTimeout(() => {
-        previewAlert.style.transition = 'all 0.5s ease';
-        previewAlert.style.transform = 'scale(1)';
-        previewAlert.style.opacity = '1';
-        
-        setTimeout(() => {
-            previewAlert.style.opacity = '0.8';
-            alertPreviewActive = false;
-        }, 3000);
-    }, 100);
+        btn.innerHTML = originalText;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-primary');
+    }, 2000);
 }
 
 // Asset modal management
@@ -1036,7 +1956,6 @@ function openAssetModal(type) {
     const userAssets = currentModalType === 'gif' ? window.userGifs : window.userSounds;
     const defaultAssets = currentModalType === 'gif' ? window.defaultGifs : window.defaultSounds;
     
-    console.log(`Asset counts for ${currentModalType}: User=${userAssets.length}, Default=${defaultAssets.length}`);
     
     document.getElementById('userAssetCount').textContent = userAssets.length;
     document.getElementById('defaultAssetCount').textContent = defaultAssets.length;
@@ -1090,7 +2009,6 @@ function loadUserAssets() {
     gallery.style.gap = '10px';
     gallery.style.padding = '10px';
     
-    console.log('Gallery element:', gallery, 'Classes:', gallery.className, 'Style:', gallery.style.display);
     
     assets.forEach(asset => {
         const assetDiv = document.createElement('div');
@@ -1141,7 +2059,6 @@ function loadDefaultAssets() {
     gallery.style.gap = '10px';
     gallery.style.padding = '10px';
     
-    console.log('Gallery element:', gallery, 'Classes:', gallery.className, 'Style:', gallery.style.display);
     
     assets.forEach(asset => {
         const assetDiv = document.createElement('div');
@@ -1366,7 +2283,6 @@ function playModalSound(event, url) {
     {% endif %}
     
     const volume = volumeSlider ? volumeSlider.value : 50;
-    console.log('Modal sound volume:', volume, 'from slider:', volumeSlider);
     
     // Stop any currently playing modal audio
     if (currentModalAudio) {
@@ -1410,7 +2326,6 @@ function playSelectedSound() {
         {% endif %}
         
         const volume = volumeSlider ? volumeSlider.value : 50;
-        console.log('Selected sound volume:', volume, 'from slider:', volumeSlider);
         
         // Stop any currently playing audio
         if (currentModalAudio) {
@@ -1533,24 +2448,46 @@ function playVoiceSample(voiceId) {
 }
 
 // TTS Usage Display Function
-function loadTTSUsage() {
-    const displayDiv = document.getElementById('ttsUsageDisplay');
+function loadTTSUsage(buttonElement = null) {
+    // Determine which tab we're working with
+    let tabNumber = null;
+    let suffix = '';
     
-    if (displayDiv.style.display === 'none') {
+    if (buttonElement) {
+        // Find the tab pane this button belongs to
+        const tabPane = buttonElement.closest('.tab-pane');
+        if (tabPane && tabPane.id) {
+            tabNumber = parseInt(tabPane.id.replace('alert-', ''));
+        }
+    }
+    
+    if (tabNumber && tabNumber > 1) {
+        suffix = '_tab' + tabNumber;
+    }
+    
+    const displayDiv = document.getElementById('ttsUsageDisplay' + suffix);
+    
+    if (!displayDiv) {
+        alert('TTS хэрэглээний мэдээлэл олдсонгүй');
+        return;
+    }
+    
+    if (displayDiv.style.display === 'none' || displayDiv.style.display === '') {
         // Load usage data
         fetch('/api/tts/usage')
         .then(response => response.json())
         .then(data => {
-            // Update display with separate elements
-            document.getElementById('dailyUsage').textContent = data.daily.requests;
-            document.getElementById('dailyLimit').textContent = data.daily.limit_requests;
-            document.getElementById('dailyChars').textContent = data.daily.characters;
-            document.getElementById('dailyCharLimit').textContent = data.daily.limit_characters;
+            // Update display with tab-specific elements
+            const dailyUsageEl = document.getElementById('dailyUsage' + suffix);
+            const dailyLimitEl = document.getElementById('dailyLimit' + suffix);
+            const monthlyUsageEl = document.getElementById('monthlyUsage' + suffix);
+            const monthlyLimitEl = document.getElementById('monthlyLimit' + suffix);
             
-            document.getElementById('monthlyUsage').textContent = data.monthly.requests;
-            document.getElementById('monthlyLimit').textContent = data.monthly.limit_requests;
-            document.getElementById('monthlyChars').textContent = data.monthly.characters;
-            document.getElementById('monthlyCharLimit').textContent = data.monthly.limit_characters;
+            if (dailyUsageEl) dailyUsageEl.textContent = data.daily.requests;
+            if (dailyLimitEl) dailyLimitEl.textContent = data.daily.limit_requests;
+            
+            if (monthlyUsageEl) monthlyUsageEl.textContent = data.monthly.requests;
+            if (monthlyLimitEl) monthlyLimitEl.textContent = data.monthly.limit_requests;
             
             displayDiv.style.display = 'block';
         })
@@ -1570,99 +2507,60 @@ document.addEventListener('DOMContentLoaded', function() {
         const forms = document.querySelectorAll('form[id^="alertSettingsForm"]');
         
         forms.forEach(form => {
+            // Skip if listeners already added (prevent duplicates)
+            if (form.dataset.listenersAdded === 'true') {
+                return;
+            }
+            
             // Add input and change listeners for real-time preview
             form.addEventListener('input', updatePreview);
             form.addEventListener('change', updatePreview);
+            
+            // Set up range display updates for this form
+            setupRangeDisplaysForForm(form);
+            
+            // Mark as having listeners to prevent duplicates
+            form.dataset.listenersAdded = 'true';
             
             // Add form submission listener
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                const formData = new FormData(this);
-                const data = Object.fromEntries(formData.entries());
-                
-                // Handle checkboxes explicitly (FormData doesn't include unchecked checkboxes)
-                const ttsEnabledCheckbox = this.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
-                if (ttsEnabledCheckbox) {
-                    data.tts_enabled = ttsEnabledCheckbox.checked;
+                // Double safety check - ensure no default submission
+                if (e.defaultPrevented === false) {
+                    e.preventDefault();
                 }
                 
-                // Convert seconds to milliseconds for backend
-                if (data.visible_time) {
-                    data.visible_time = Math.round(parseFloat(data.visible_time) * 1000);
-                }
-                if (data.animation_speed) {
-                    data.animation_speed = Math.round(parseFloat(data.animation_speed) * 1000);
-                }
-                
-                // Get current tab assets (either global or per-tab)
-                const currentAssets = getCurrentTabAssets();
-                
-                if (currentAssets.selectedGif) {
-                    if (currentAssets.selectedGif.is_default) {
-                        data.default_gif_name = currentAssets.selectedGif.filename;
-                        data.selected_gif_id = null;
-                    } else {
-                        data.selected_gif_id = currentAssets.selectedGif.id;
-                        data.default_gif_name = null;
-                    }
-                }
-                
-                if (currentAssets.selectedSound) {
-                    if (currentAssets.selectedSound.is_default) {
-                        data.default_sound_name = currentAssets.selectedSound.filename;
-                        data.selected_sound_id = null;
-                    } else {
-                        data.selected_sound_id = currentAssets.selectedSound.id;
-                        data.default_sound_name = null;
-                    }
-                }
-                
-                // Determine API endpoint based on tier and tab
                 {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
-                const tabNumber = getCurrentActiveTabNumber();
-                const endpoint = `/donation-alert/configurations/${tabNumber}`;
-                {% else %}
-                const endpoint = '/donation-alert/settings';
-                {% endif %}
+                // For advanced users: always save the current tab first, then handle any saved states
                 
-                // Submit settings
-                fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                })
-                .then(response => response.json())
-                .then(responseData => {
-                    if (responseData.success) {
-                        // Update tab label with new minimum amount for advanced tier
-                        {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
-                        const tabNumber = getCurrentActiveTabNumber();
-                        const minimumAmount = parseFloat(data.minimum_amount) || 0;
-                        updateTabLabel(tabNumber, minimumAmount);
-                        {% endif %}
-                        
-                        // Show success message
-                        const btn = this.querySelector('button[type="submit"]');
-                        const originalText = btn.innerHTML;
-                        btn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа!';
-                        btn.classList.add('btn-success');
-                        btn.classList.remove('btn-primary');
-                        
-                        setTimeout(() => {
-                            btn.innerHTML = originalText;
-                            btn.classList.remove('btn-success');
-                            btn.classList.add('btn-primary');
-                        }, 2000);
+                // Save current active tab first
+                const activeTab = document.querySelector('.tab-pane.active');
+                if (activeTab) {
+                    const tabNumber = parseInt(activeTab.id.replace('alert-', ''));
+                    
+                    // Save current tab state before checking for unsaved states
+                    formStateManager.saveTabState(tabNumber);
+                    
+                    // Now check if there are any saved states (including the one we just saved)
+                    const hasUnsavedTabs = Object.keys(formStateManager.states).length > 0;
+                    
+                    if (hasUnsavedTabs) {
+                        // Save all tabs that have unsaved changes
+                        const submitBtn = activeTab.querySelector('button[type="submit"]');
+                        saveAllTabsWithChanges(submitBtn);
                     } else {
-                        alert('Алдаа гарлаа: ' + (responseData.error || 'Тодорхойгүй алдаа'));
+                        // Fallback to single tab save
+                        saveSingleTab(this);
                     }
-                })
-                .catch(error => {
-                    alert('Холболтын алдаа гарлаа');
-                });
+                } else {
+                    // No active tab found, use single save
+                    saveSingleTab(this);
+                }
+                {% else %}
+                // For basic users: save the single form
+                saveSingleTab(this);
+                {% endif %}
             });
         });
     }
@@ -1670,17 +2568,112 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial setup
     setupFormEventListeners();
     
+    // Set up tab switching event handlers for form state preservation
+    {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
+    
+    // Helper function to extract tab number from tab element
+    function getTabNumberFromElement(element) {
+        const targetId = element.getAttribute('data-bs-target') || element.getAttribute('aria-controls');
+        if (targetId) {
+            const match = targetId.match(/alert-(\d+)/);
+            return match ? parseInt(match[1]) : null;
+        }
+        return null;
+    }
+    
+    // Before leaving a tab - save its form state
+    const tabButtons = document.querySelectorAll('#alertTabs .nav-link:not(.add-tab-btn)');
+    tabButtons.forEach(tabButton => {
+        // Mark existing tabs as having handlers to prevent duplicates
+        tabButton.dataset.stateHandlersAdded = 'true';
+        
+        tabButton.addEventListener('hide.bs.tab', function(e) {
+            const tabNumber = getTabNumberFromElement(e.target);
+            if (tabNumber) {
+                console.log(`🔄 Leaving tab ${tabNumber}, saving form state`);
+                formStateManager.saveTabState(tabNumber);
+            }
+        });
+    });
+    
+    // After entering a tab - restore its form state if it exists
+    tabButtons.forEach(tabButton => {
+        tabButton.addEventListener('shown.bs.tab', function(e) {
+            const tabNumber = getTabNumberFromElement(e.target);
+            if (tabNumber) {
+                console.log(`🔄 Entered tab ${tabNumber}, checking for saved state`);
+                
+                // Small delay to ensure tab content is fully rendered
+                setTimeout(() => {
+                    const wasRestored = formStateManager.restoreTabState(tabNumber);
+                    if (wasRestored) {
+                        console.log(`✅ Restored saved changes for tab ${tabNumber}`);
+                        // Update preview with restored data
+                        updatePreview();
+                    } else {
+                        console.log(`ℹ️ No saved changes to restore for tab ${tabNumber}`);
+                    }
+                }, 50);
+            }
+        });
+    });
+    
+    {% endif %}
+    
     // Re-setup when new tabs are added
     const originalAddNewAlertTab = window.addNewAlertTab;
     window.addNewAlertTab = function() {
         originalAddNewAlertTab.call(this);
-        // Add event listeners to the new tab's form
-        setTimeout(() => {
+        
+        // Use requestAnimationFrame to ensure DOM is fully updated before adding listeners
+        requestAnimationFrame(() => {
             setupFormEventListeners();
+            
             {% if current_user.get_current_subscription() and current_user.get_current_subscription().feature_tier and current_user.get_current_subscription().feature_tier.value == 'advanced' %}
-            setupMinimumAmountListeners();
+            // Add form state management event handlers to the new tab
+            const newTabButtons = document.querySelectorAll('#alertTabs .nav-link:not(.add-tab-btn)');
+            newTabButtons.forEach(tabButton => {
+                // Check if handlers are already attached
+                if (!tabButton.dataset.stateHandlersAdded) {
+                    // Before leaving a tab - save its form state
+                    tabButton.addEventListener('hide.bs.tab', function(e) {
+                        const tabNumber = getTabNumberFromElement(e.target);
+                        if (tabNumber) {
+                            console.log(`🔄 Leaving tab ${tabNumber}, saving form state`);
+                            formStateManager.saveTabState(tabNumber);
+                        }
+                    });
+                    
+                    // After entering a tab - restore its form state if it exists
+                    tabButton.addEventListener('shown.bs.tab', function(e) {
+                        const tabNumber = getTabNumberFromElement(e.target);
+                        if (tabNumber) {
+                            console.log(`🔄 Entered tab ${tabNumber}, checking for saved state`);
+                            
+                            // Small delay to ensure tab content is fully rendered
+                            setTimeout(() => {
+                                const wasRestored = formStateManager.restoreTabState(tabNumber);
+                                if (wasRestored) {
+                                    console.log(`✅ Restored saved changes for tab ${tabNumber}`);
+                                    // Update preview with restored data
+                                    updatePreview();
+                                } else {
+                                    console.log(`ℹ️ No saved changes to restore for tab ${tabNumber}`);
+                                }
+                            }, 50);
+                        }
+                    });
+                    
+                    // Mark handlers as added
+                    tabButton.dataset.stateHandlersAdded = 'true';
+                }
+            });
+            
+            if (typeof setupMinimumAmountListeners === 'function') {
+                setupMinimumAmountListeners();
+            }
             {% endif %}
-        }, 100);
+        });
     };
     
     // Add drag and drop functionality to upload area
@@ -1721,13 +2714,41 @@ if (typeof io !== 'undefined') {
     const socket = io();
     
     socket.on('connect', function() {
-        console.log('Settings page socket connected');
+        // Socket connected
     });
     
     socket.on('disconnect', function() {
-        console.log('Settings page socket disconnected');
+        // Socket disconnected
     });
 }
+
+// Initialize tooltip for basic tier add button and minimum amount tracking
+document.addEventListener('DOMContentLoaded', function() {
+    const basicTierAddBtn = document.getElementById('basicTierAddBtn');
+    if (basicTierAddBtn && typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+        new bootstrap.Tooltip(basicTierAddBtn, {
+            trigger: 'hover focus',
+            customClass: 'custom-tooltip',
+            html: true
+        });
+    }
+    
+    // Update basic tier tab amount in real time
+    const minimumAmountInput = document.getElementById('minimumAmount');
+    const basicTabAmount = document.getElementById('basicTabAmount');
+    
+    if (minimumAmountInput && basicTabAmount) {
+        // Set initial value
+        const initialAmount = minimumAmountInput.value || 0;
+        basicTabAmount.textContent = `₮${initialAmount}`;
+        
+        // Update on input change
+        minimumAmountInput.addEventListener('input', function() {
+            const amount = this.value || 0;
+            basicTabAmount.textContent = `₮${amount}`;
+        });
+    }
+});
 </script>
 
 {% endblock %}

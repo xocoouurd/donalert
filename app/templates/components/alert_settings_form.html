@@ -205,7 +205,7 @@
         <!-- Usage Statistics -->
         <div class="row mb-3">
             <div class="col-md-12">
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadTTSUsage()">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadTTSUsage(this)">
                     <i class="fas fa-chart-bar me-1"></i>Хэрэглээ харах
                 </button>
             </div>
@@ -218,13 +218,11 @@
                 <div class="row">
                     <div class="col-md-6">
                         <strong>Өнөөдөр:</strong><br>
-                        <span id="dailyUsage">-</span> хүсэлт / <span id="dailyLimit">-</span><br>
-                        <span id="dailyChars">-</span> тэмдэгт / <span id="dailyCharLimit">-</span>
+                        <span id="dailyUsage">-</span> хүсэлт / <span id="dailyLimit">-</span>
                     </div>
                     <div class="col-md-6">
                         <strong>Энэ сар:</strong><br>
-                        <span id="monthlyUsage">-</span> хүсэлт / <span id="monthlyLimit">-</span><br>
-                        <span id="monthlyChars">-</span> тэмдэгт / <span id="monthlyCharLimit">-</span>
+                        <span id="monthlyUsage">-</span> хүсэлт / <span id="monthlyLimit">-</span>
                     </div>
                 </div>
             </div>
@@ -318,7 +316,14 @@
     <div class="alert alert-success mt-3">
         <i class="fas fa-check-circle me-2"></i>
         Чимэгэ TTS идэвхжсэн - Монгол хэлний мэргэжлийн уншигч
-        <br><small class="text-muted">Үнэгүй хязгаарлалт: Өдөрт 5 хүсэлт, сард 150 хүсэлт</small>
+        <br><small class="text-muted">
+            {% set subscription = current_user.get_current_subscription() %}
+            {% if subscription and subscription.feature_tier and subscription.feature_tier.value == 'advanced' %}
+                Дэвшилтэт хязгаарлалт: Өдөрт 45 хүсэлт, сард 1,350 хүсэлт
+            {% else %}
+                Үндсэн хязгаарлалт: Өдөрт 15 хүсэлт, сард 450 хүсэлт
+            {% endif %}
+        </small>
     </div>
 </div>
 

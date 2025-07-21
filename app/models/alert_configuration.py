@@ -164,6 +164,37 @@ class AlertConfiguration(db.Model):
         
         return configs
     
+    @classmethod
+    def find_next_available_amount(cls, user_id, base_amount, exclude_tab_number=None):
+        """Find the next available minimum amount for a user"""
+        from decimal import Decimal
+        
+        # Get all existing amounts for this user
+        query = cls.query.filter_by(user_id=user_id, is_active=True)
+        if exclude_tab_number:
+            query = query.filter(cls.tab_number != exclude_tab_number)
+        
+        existing_amounts = [float(config.minimum_amount) for config in query.all()]
+        existing_amounts.sort()
+        
+        base_amount = float(base_amount)
+        
+        # If base amount is 0, suggest increments of 500
+        if base_amount == 0:
+            suggestion = 500
+            while suggestion in existing_amounts:
+                suggestion += 500
+            return Decimal(str(suggestion))
+        
+        # For other amounts, try increments
+        suggestion = base_amount
+        increment = 500 if base_amount >= 1000 else 100
+        
+        while suggestion in existing_amounts:
+            suggestion += increment
+        
+        return Decimal(str(suggestion))
+    
     def update_from_dict(self, data):
         """Update configuration from dictionary data"""
         for key, value in data.items():

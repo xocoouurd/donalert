@@ -564,14 +564,6 @@
                     }, 1000);
                 }
                 
-                // Check for low time warning (4 minutes or less, including 0:XX but not 0:00)
-                if (totalMinutes <= 4 && (totalMinutes > 0 || timeBreakdown.seconds > 0)) {
-                    this.timerElement.classList.add('low-time');
-                    this.timerElement.classList.remove('critical-time');
-                } else {
-                    this.timerElement.classList.remove('low-time');
-                }
-                
                 // Check for marathon completion - only when BOTH minutes AND seconds are 0
                 if (totalMinutes === 0 && timeBreakdown.seconds === 0) {
                     this.marathonElement.classList.add('marathon-completed');
@@ -581,7 +573,19 @@
                     // Auto-reset marathon when it naturally reaches 0
                     this.autoResetMarathon();
                 } else {
+                    // Timer has time remaining - remove all warning classes
                     this.marathonElement.classList.remove('marathon-completed');
+                    this.timerElement.classList.remove('critical-time');
+                    
+                    // Check for low time warning (4 minutes or less, but not 0:00)
+                    if (totalMinutes <= 4 && totalMinutes > 0) {
+                        this.timerElement.classList.add('low-time');
+                    } else if (totalMinutes === 0 && timeBreakdown.seconds > 0) {
+                        // 0 minutes but has seconds (0:XX) - also low time warning
+                        this.timerElement.classList.add('low-time');
+                    } else {
+                        this.timerElement.classList.remove('low-time');
+                    }
                 }
                 
                 this.timerElement.textContent = timeString;

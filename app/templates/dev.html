@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Хөгжүүлэгчийн хэрэгслүүд - DonAlert{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="glass-card p-4 mb-4">
+            <h2 class="mb-4">
+                <i class="fas fa-code me-2"></i>Хөгжүүлэгчийн хэрэгслүүд
+            </h2>
+            
+            <!-- Warning Notice -->
+            <div class="alert alert-warning mb-4">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Анхаарулга:</strong> Эдгээр хэрэгслүүд зөвхөн хөгжүүлэлтийн зориулалттай бөгөөд үйлдвэрлэлийн орчинд ашиглагдахгүй.
+            </div>
+
+            <!-- Current User Info -->
+            <div class="glass-card p-3 mb-4">
+                <h5 class="mb-3">
+                    <i class="fas fa-user me-2"></i>Одоогийн хэрэглэгчийн мэдээлэл
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Хэрэглэгчийн ID:</strong> {{ current_user.id }}</p>
+                        <p><strong>Хэрэглэгчийн нэр:</strong> {{ current_user.username }}</p>
+                        <p><strong>И-мэйл:</strong> {{ current_user.email or 'Тодорхойгүй' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        {% set subscription = current_user.get_current_subscription() %}
+                        {% if subscription %}
+                            <p><strong>Захиалгын түвшин:</strong> 
+                                <span class="badge {% if subscription.feature_tier and subscription.feature_tier.value == 'advanced' %}bg-success{% else %}bg-primary{% endif %}">
+                                    {% if subscription.feature_tier and subscription.feature_tier.value == 'advanced' %}
+                                        Дэвшилтэт
+                                    {% else %}
+                                        Үндсэн
+                                    {% endif %}
+                                </span>
+                            </p>
+                            <p><strong>Захиалгын төлөв:</strong> 
+                                <span class="badge {% if subscription.is_active() %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if subscription.is_active() %}Идэвхтэй{% else %}Идэвхгүй{% endif %}
+                                </span>
+                            </p>
+                            {% if subscription.expires_at %}
+                                <p><strong>Дуусах огноо:</strong> {{ subscription.expires_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            {% endif %}
+                        {% else %}
+                            <p><strong>Захиалга:</strong> <span class="badge bg-secondary">Байхгүй</span></p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Development Tools -->
+            <div class="row">
+                <!-- Tier Switching -->
+                <div class="col-md-6">
+                    <div class="glass-card p-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-exchange-alt me-2"></i>Түвшин солих
+                        </h6>
+                        
+                        <p class="text-muted small mb-3">
+                            Захиалгын түвшинг үндсэн болон дэвшилтэт хооронд солино. 
+                            TTS хязгаарлалт болон бусад функцуудыг шалгахад ашиглана.
+                        </p>
+                        
+                        {% if subscription and subscription.is_active() %}
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="toggleTier()">
+                                <i class="fas fa-sync me-1"></i>
+                                {% if subscription.feature_tier and subscription.feature_tier.value == 'advanced' %}
+                                    Үндсэн түвшин рүү шилжих
+                                {% else %}
+                                    Дэвшилтэт түвшин рүү шилжих
+                                {% endif %}
+                            </button>
+                        {% else %}
+                            <div class="alert alert-info py-2 mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Түвшин солихын тулд идэвхтэй захиалга хэрэгтэй.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Test Donation Simulator -->
+                <div class="col-md-6">
+                    <div class="glass-card p-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-hand-holding-usd me-2"></i>Туршилтын хандив
+                        </h6>
+                        
+                        <p class="text-muted small mb-3">
+                            Бодит хандив орж ирсэн мэт алерт, марафон болон бусад системүүдийг туршина.
+                        </p>
+                        
+                        <div class="input-group mb-2">
+                            <input type="number" 
+                                   class="form-control form-control-sm" 
+                                   id="testDonationAmount" 
+                                   placeholder="5000" 
+                                   min="1" 
+                                   step="1">
+                            <span class="input-group-text">₮</span>
+                        </div>
+                        
+                        <input type="text" 
+                               class="form-control form-control-sm mb-2" 
+                               id="testDonationMessage" 
+                               placeholder="Туршилтын мессеж (заавал биш)"
+                               maxlength="150">
+                        
+                        <button type="button" class="btn btn-warning btn-sm w-100" onclick="simulateDonation()">
+                            <i class="fas fa-rocket me-1"></i>Туршилтын хандив илгээх
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Tools Row -->
+            <div class="row mt-4">
+                <!-- TTS Limits Info -->
+                <div class="col-md-6">
+                    <div class="glass-card p-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-microphone me-2"></i>TTS хязгаарлалт
+                        </h6>
+                        
+                        <div class="small">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Үндсэн түвшин:</strong><br>
+                                    Өдөрт: 15 хүсэлт<br>
+                                    Сард: 450 хүсэлт
+                                </div>
+                                <div class="col-6">
+                                    <strong>Дэвшилтэт түвшин:</strong><br>
+                                    Өдөрт: 45 хүсэлт<br>
+                                    Сард: 1,350 хүсэлт
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="checkTTSUsage()">
+                            <i class="fas fa-chart-bar me-1"></i>Одоогийн хэрэглээ шалгах
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Future Development Tools -->
+                <div class="col-md-6">
+                    <div class="glass-card p-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-tools me-2"></i>Нэмэлт хэрэгслүүд
+                        </h6>
+                        
+                        <div class="alert alert-light py-2 mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Цаашдын хөгжүүлэлтийн хэрэгслүүд энд нэмэгдэх болно.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Tier switching functionality
+function toggleTier() {
+    if (!confirm('Та захиалгын түвшинг солихдоо итгэлтэй байна уу?')) {
+        return;
+    }
+    
+    fetch('/dev/toggle-tier', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Түвшин амжилттай солигдлоо: ${data.new_tier_display}`);
+            window.location.reload();
+        } else {
+            alert('Алдаа гарлаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Холболтын алдаа гарлаа: ' + error.message);
+    });
+}
+
+// TTS usage checking
+function checkTTSUsage() {
+    fetch('/api/tts/usage')
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Алдаа: ' + data.error);
+            return;
+        }
+        
+        let message = `TTS Хэрэглээний мэдээлэл:\n\n`;
+        message += `Өнөөдөр: ${data.daily.requests}/${data.daily.limit_requests} хүсэлт\n`;
+        message += `Энэ сар: ${data.monthly.requests}/${data.monthly.limit_requests} хүсэлт\n\n`;
+        
+        if (data.debug) {
+            message += `Debug мэдээлэл:\n`;
+            message += `Хэрэглэгчийн түвшин: ${data.debug.user_tier}\n`;
+            message += `Үржүүлэгч: ${data.debug.multiplier}x\n`;
+            message += `Үндсэн өдрийн хязгаар: ${data.debug.base_daily}\n`;
+            message += `Тооцоолсон өдрийн хязгаар: ${data.debug.calculated_daily}`;
+        }
+        
+        alert(message);
+    })
+    .catch(error => {
+        alert('Холболтын алдаа: ' + error.message);
+    });
+}
+
+// Donation simulation
+function simulateDonation() {
+    const amountInput = document.getElementById('testDonationAmount');
+    const messageInput = document.getElementById('testDonationMessage');
+    
+    const amount = parseFloat(amountInput.value);
+    const message = messageInput.value.trim();
+    
+    // Validation
+    if (!amount || amount <= 0) {
+        amountInput.focus();
+        return;
+    }
+    
+    const donationData = {
+        amount: amount,
+        message: message || 'Туршилтын хандив',
+        donator_name: 'Туршилтын хэрэглэгч',
+        is_test: true
+    };
+    
+    // Disable button during request
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Илгээж байна...';
+    
+    fetch('/dev/simulate-donation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(donationData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear inputs after successful simulation
+            amountInput.value = '';
+            messageInput.value = '';
+        }
+    })
+    .catch(error => {
+        // Silent error handling
+    })
+    .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+</script>
+{% endblock %}

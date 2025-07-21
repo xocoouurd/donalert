@@ -37,7 +37,7 @@ class Donation(db.Model):
         }
     
     @classmethod
-    def create_donation(cls, user_id, donor_name, amount, message, platform='guest', donor_platform_id=None, donation_id=None):
+    def create_donation(cls, user_id, donor_name, amount, message, platform='guest', donor_platform_id=None, donation_id=None, is_test=False):
         """Create a new donation record"""
         import uuid
         
@@ -52,6 +52,7 @@ class Donation(db.Model):
             platform=platform,
             donor_platform_id=donor_platform_id,
             donation_id=donation_id,
+            is_test=is_test,
             processed_at=datetime.utcnow()
         )
         
