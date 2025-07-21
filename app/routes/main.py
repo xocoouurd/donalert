@@ -2315,6 +2315,163 @@ def set_marathon_initial_time():
 
 
 # Marathon SocketIO handlers
+# Sound Effects Routes
+@main_bp.route('/sound-effects')
+@login_required
+def sound_effects_settings():
+    """Sound Effects settings page - Advanced tier only"""
+    from app.models.user_sound_settings import UserSoundSettings
+    from app.models.sound_effect import SoundEffect
+    
+    # Check if user has advanced tier subscription
+    subscription = current_user.get_current_subscription()
+    has_advanced_tier = (subscription and 
+                        subscription.feature_tier and 
+                        subscription.feature_tier.value == 'advanced')
+    
+    if not has_advanced_tier:
+        flash('Дууны эффект нь дэвшилтэт тарифын онцлог юм', 'warning')
+        return redirect(url_for('main.index'))
+    
+    # Get or create sound settings for user
+    settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+    
+    # Get available sound effects
+    sound_effects = SoundEffect.query.filter_by(is_active=True).order_by(SoundEffect.name).all()
+    
+    # Ensure user has an overlay token
+    overlay_token = current_user.get_overlay_token()
+    
+    return render_template('sound_effects.html', 
+                         settings=settings,
+                         sound_effects=sound_effects,
+                         overlay_token=overlay_token)
+
+@main_bp.route('/sound-effects/settings', methods=['POST'])
+@login_required
+def update_sound_effects_settings():
+    """Update sound effects settings"""
+    try:
+        from app.models.user_sound_settings import UserSoundSettings
+        
+        # Check if user has advanced tier subscription
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Дэвшилтэт тариф шаардлагатай'}), 403
+        
+        # Get or create sound settings for user
+        settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+        
+        # Update settings
+        settings.is_enabled = request.form.get('is_enabled') == 'on'
+        
+        # Update price if provided and valid
+        if request.form.get('price_per_sound'):
+            price = float(request.form.get('price_per_sound'))
+            if price >= 100:  # Minimum 100 MNT
+                settings.price_per_sound = price
+            else:
+                return jsonify({'success': False, 'error': 'Хамгийн бага үнэ 100₮'}), 400
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"Sound effects settings updated for user {current_user.id}")
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating sound effects settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/test', methods=['POST'])
+@login_required  
+def test_random_sound():
+    """Send random sound effect to overlay for testing"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.user_sound_settings import UserSoundSettings
+        import random
+        
+        # Check if user has advanced tier subscription
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Дэвшилтэт тариф шаардлагатай'}), 403
+        
+        # Check if sound effects are enabled
+        settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+        if not settings.is_enabled:
+            return jsonify({'success': False, 'error': 'Дууны эффектүүд идэвхгүй байна'}), 400
+        
+        # Get random sound effect
+        sound_effects = SoundEffect.query.filter_by(is_active=True).all()
+        if not sound_effects:
+            return jsonify({'success': False, 'error': 'Дууны эффект олдсонгүй'}), 404
+        
+        # Select random sound from first 5 (as per plan)
+        available_sounds = sound_effects[:5] if len(sound_effects) > 5 else sound_effects
+        random_sound = random.choice(available_sounds)
+        
+        # Prepare test sound data
+        test_sound_data = {
+            'type': 'sound_effect_test',
+            'id': f'test_{uuid.uuid4().hex[:8]}',
+            'sound_effect_id': random_sound.id,
+            'sound_filename': random_sound.filename,
+            'sound_name': random_sound.name,
+            'duration_seconds': float(random_sound.duration_seconds),
+            'donor_name': 'Тест',
+            'amount': 0,
+            'created_at': datetime.utcnow().isoformat(),
+            'file_url': random_sound.get_file_url(),
+            'is_test': True
+        }
+        
+        # Send to overlay
+        room = f"user_{current_user.id}"
+        socketio.emit('sound_effect_alert', test_sound_data, room=room)
+        
+        current_app.logger.info(f"Test sound effect sent: {random_sound.name}")
+        return jsonify({
+            'success': True, 
+            'sound_name': random_sound.name,
+            'message': f'Тестийн дуу илгээгдлээ: {random_sound.name}'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error testing sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/preview/<int:sound_id>')
+def preview_sound(sound_id):
+    """Serve sound file for preview (with basic rate limiting)"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        if not sound.is_active:
+            abort(404)
+        
+        # Return the file URL for frontend to use
+        return jsonify({
+            'success': True,
+            'file_url': sound.get_file_url(),
+            'name': sound.name,
+            'duration': float(sound.duration_seconds)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error previewing sound: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @socketio.on('join_marathon_room')
 def handle_join_marathon_room(data):
     """Handle client joining a marathon overlay room"""

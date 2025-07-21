@@ -1,0 +1,293 @@
+/* Sound Effects Settings Page Styles */
+
+.sound-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.sound-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.sound-card h6 {
+    color: #fff;
+    font-weight: 600;
+}
+
+.sound-card .text-muted {
+    color: rgba(255, 255, 255, 0.7) !important;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+
+.sound-duration {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sound-duration small {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+}
+
+/* Status display styling */
+.status-display {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.status-item label {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.status-item strong,
+.status-item .badge {
+    font-size: 0.9rem;
+}
+
+/* Preview button animations */
+.sound-card .btn-outline-primary {
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    color: #6366f1;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.sound-card .btn-outline-primary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+    transform: scale(1.05);
+}
+
+.sound-card .btn-outline-primary:active {
+    transform: scale(0.95);
+}
+
+/* Toast alerts */
+.toast-alert {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+}
+
+.toast-alert.alert-success {
+    background: rgba(40, 167, 69, 0.9);
+    color: white;
+}
+
+.toast-alert.alert-danger {
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+}
+
+/* Modal styling */
+.modal-content.glass-card {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-close {
+    filter: invert(1);
+}
+
+/* Test sound modal animation */
+#testSoundModal .fa-play-circle {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Form styling improvements */
+.form-control {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    backdrop-filter: blur(10px);
+}
+
+.form-control:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    color: white;
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+/* Form labels */
+.form-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+}
+
+/* Switch styling */
+.form-check-input:checked {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.form-check-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Badge styling */
+.badge.bg-gradient-success {
+    background: linear-gradient(45deg, #28a745, #20c997) !important;
+    font-size: 0.7rem;
+    padding: 0.25em 0.6em;
+}
+
+/* Alert styling */
+.alert {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+}
+
+.alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
+.alert h6 {
+    color: white;
+    margin-bottom: 0.75rem;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+/* Button improvements */
+.btn-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.btn-outline-primary {
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.btn-outline-primary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 1rem;
+    }
+    
+    .glass-card {
+        margin-bottom: 1rem;
+    }
+    
+    .sound-card {
+        margin-bottom: 1rem;
+    }
+    
+    .status-display {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Sound effects grid */
+.row .col-md-6.col-lg-4 {
+    display: flex;
+}
+
+.sound-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+    transform: none;
+}
+
+/* Copy button styling */
+.btn-outline-primary.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Sound effects empty state */
+.text-center.text-muted.py-4 {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.text-center.text-muted.py-4 .fa-2x {
+    opacity: 0.7;
+}

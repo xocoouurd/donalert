@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block title %}Дууны эффект - DonAlert{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sound-effects.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% include 'components/sidebar.html' %}
+
+    <div class="dashboard-content">
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-volume-up me-2"></i>Дууны эффект тохиргоо
+                    <span class="badge bg-gradient-success ms-2">Дэвшилтэт</span>
+                </h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="testRandomSound()" id="testSoundBtn">
+                        <i class="fas fa-play me-1"></i>Дуу шалгах
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Settings Panel -->
+                <div class="col-xl-7 col-lg-7">
+                    <form id="soundEffectsForm">
+                        <!-- General Settings -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Ерөнхий тохиргоо</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="isEnabled" name="is_enabled" 
+                                               {% if settings.is_enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="isEnabled">
+                                            Дууны эффектийг идэвхжүүлэх
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="pricePerSound" class="form-label">Дууны үнэ (₮)</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="pricePerSound" name="price_per_sound" 
+                                               value="{{ settings.price_per_sound|int }}" min="100" step="100">
+                                        <span class="input-group-text">₮</span>
+                                    </div>
+                                    <div class="form-text">
+                                        Хамгийн бага: 100₮
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Available Sounds -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-music me-2"></i>Боломжтой дуунууд ({{ sound_effects|length }})</h5>
+                            
+                            {% if sound_effects %}
+                            <div class="row">
+                                {% for sound in sound_effects %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="sound-card glass-card p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="mb-0">{{ sound.name }}</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    onclick="previewSound({{ sound.id }}, '{{ sound.name }}')" 
+                                                    id="previewBtn{{ sound.id }}">
+                                                <i class="fas fa-play" id="playIcon{{ sound.id }}"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">{{ sound.category }}</small>
+                                        <div class="sound-duration">
+                                            <small><i class="fas fa-clock me-1"></i>{{ sound.duration_seconds }}с</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-music fa-2x mb-2"></i>
+                                <p>Одоогоор боломжтой дуу байхгүй байна</p>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Хадгалах
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Preview Panel -->
+                <div class="col-xl-5 col-lg-5">
+                    <div class="glass-card p-3">
+                        <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Жишээ харах</h5>
+                        
+                        <!-- Status Display -->
+                        <div class="status-display mb-3">
+                            <div class="status-item">
+                                <label>Төлөв:</label>
+                                <span class="badge bg-{% if settings.is_enabled %}success{% else %}secondary{% endif %}" id="statusBadge">
+                                    {% if settings.is_enabled %}Идэвхтэй{% else %}Идэвхгүй{% endif %}
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <label>Дууны үнэ:</label>
+                                <strong id="currentPrice">{{ "{:,}".format(settings.price_per_sound|int) }}₮</strong>
+                            </div>
+                            <div class="status-item">
+                                <label>Боломжтой дуу:</label>
+                                <strong>{{ sound_effects|length }}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Хэрхэн ажилладаг</h6>
+                            <ul class="mb-0 small">
+                                <li>Үзэгчид хандив хуудаснаас дуу сонгож илгээнэ</li>
+                                <li>Дуу дараахгүйгээр заавал мөнгөөр төлнө</li>
+                                <li>Дуу overlay дээр шууд тоглогдоно</li>
+                                <li>Хандивын зорилго болон марафонд нэмэгддэг</li>
+                            </ul>
+                        </div>
+
+                        <!-- Overlay URL -->
+                        <div class="glass-card p-3 mt-3">
+                            <h6><i class="fas fa-link me-2"></i>Overlay холбоос</h6>
+                            <div class="input-group">
+                                <input type="text" class="form-control" readonly 
+                                       value="{{ url_for('main.overlay', token=overlay_token, _external=True) }}" 
+                                       id="overlayUrl">
+                                <button class="btn btn-outline-primary" type="button" onclick="copyOverlayUrl()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">OBS-д Browser Source болгон нэмэх</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Sound Modal -->
+<div class="modal fade" id="testSoundModal" tabindex="-1" aria-labelledby="testSoundModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h5 class="modal-title" id="testSoundModalLabel">
+                    <i class="fas fa-volume-up me-2"></i>Дуу тест
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="testSoundContent">
+                    <i class="fas fa-play-circle fa-3x text-primary mb-3"></i>
+                    <h5 id="testSoundName">Санамсаргүй дуу</h5>
+                    <p class="text-muted">Overlay дээр тоглогдож байна...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentAudio = null;
+let testModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('soundEffectsForm');
+    testModal = new bootstrap.Modal(document.getElementById('testSoundModal'));
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSoundEffectsSettings();
+    });
+    
+    // Enable/disable toggle
+    const enableToggle = document.getElementById('isEnabled');
+    enableToggle.addEventListener('change', function() {
+        updateStatusDisplay();
+    });
+    
+    // Price change
+    const priceInput = document.getElementById('pricePerSound');
+    priceInput.addEventListener('change', function() {
+        updatePriceDisplay();
+    });
+    
+    // Initial status update
+    updateStatusDisplay();
+});
+
+function saveSoundEffectsSettings() {
+    const form = document.getElementById('soundEffectsForm');
+    const formData = new FormData(form);
+    
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Хадгалж байна...';
+    
+    fetch('/sound-effects/settings', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Тохиргоо амжилттай хадгалагдлаа', 'success');
+            updateStatusDisplay();
+        } else {
+            showToast(data.error || 'Алдаа гарлаа', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Холболтын алдаа', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function testRandomSound() {
+    const btn = document.getElementById('testSoundBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Илгээж байна...';
+    
+    fetch('/api/sound-effects/test', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('testSoundName').textContent = data.sound_name;
+            testModal.show();
+            showToast(data.message || 'Тестийн дуу илгээгдлээ', 'success');
+            
+            // Auto-close modal after 3 seconds
+            setTimeout(() => {
+                testModal.hide();
+            }, 3000);
+        } else {
+            showToast(data.error || 'Алдаа гарлаа', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Холболтын алдаа', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function previewSound(soundId, soundName) {
+    // Stop current audio if playing
+    if (currentAudio) {
+        currentAudio.pause();
+        resetPlayButton();
+    }
+    
+    const btn = document.getElementById('previewBtn' + soundId);
+    const icon = document.getElementById('playIcon' + soundId);
+    
+    fetch(`/api/sound-effects/preview/${soundId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentAudio = new Audio(data.file_url);
+                currentAudio.onloadeddata = function() {
+                    icon.className = 'fas fa-stop';
+                    currentAudio.play();
+                };
+                
+                currentAudio.onended = function() {
+                    resetPlayButton();
+                };
+                
+                currentAudio.onerror = function() {
+                    showToast('Дуу тоглуулахад алдаа гарлаа', 'error');
+                    resetPlayButton();
+                };
+            } else {
+                showToast(data.error || 'Алдаа гарлаа', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Дуу ачааллахад алдаа гарлаа', 'error');
+        });
+}
+
+function resetPlayButton() {
+    const icons = document.querySelectorAll('[id^="playIcon"]');
+    icons.forEach(icon => {
+        icon.className = 'fas fa-play';
+    });
+    currentAudio = null;
+}
+
+function updateStatusDisplay() {
+    const isEnabled = document.getElementById('isEnabled').checked;
+    const statusBadge = document.getElementById('statusBadge');
+    
+    if (isEnabled) {
+        statusBadge.className = 'badge bg-success';
+        statusBadge.textContent = 'Идэвхтэй';
+    } else {
+        statusBadge.className = 'badge bg-secondary';
+        statusBadge.textContent = 'Идэвхгүй';
+    }
+}
+
+function updatePriceDisplay() {
+    const price = document.getElementById('pricePerSound').value;
+    const priceDisplay = document.getElementById('currentPrice');
+    priceDisplay.textContent = parseInt(price).toLocaleString() + '₮';
+}
+
+function copyOverlayUrl() {
+    const overlayUrl = document.getElementById('overlayUrl');
+    overlayUrl.select();
+    document.execCommand('copy');
+    showToast('Overlay холбоос хуулагдлаа', 'success');
+}
+
+function showToast(message, type) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} toast-alert`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    `;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+        ${message}
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => {
+        toast.style.opacity = '1';
+    }, 100);
+    
+    // Hide toast after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -30,6 +30,19 @@
                     <i class="fas fa-stopwatch"></i>
                 </a>
             </li>
+            
+            <!-- Sound Effects (Advanced Tier Only) -->
+            {% set subscription = current_user.get_current_subscription() %}
+            {% set has_advanced_tier = (subscription and subscription.feature_tier and subscription.feature_tier.value == 'advanced') %}
+            {% if has_advanced_tier %}
+            <li class="nav-item">
+                <a class="nav-link {{ 'active' if request.endpoint == 'main.sound_effects_settings' }}" 
+                   href="{{ url_for('main.sound_effects_settings') }}" 
+                   title="Дууны эффект">
+                    <i class="fas fa-volume-up"></i>
+                </a>
+            </li>
+            {% endif %}
             <li class="nav-item">
                 <a class="nav-link {{ 'active' if request.endpoint == 'main.donations_history' }}" 
                    href="{{ url_for('main.donations_history') }}" 
