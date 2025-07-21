@@ -2,6 +2,46 @@
 {% block title %}Хөгжүүлэгчийн хэрэгслүүд - DonAlert{% endblock %}
 {% block body_class %}dashboard-page{% endblock %}
 
+{% block head %}
+<style>
+/* Fix dropdown styling issues on dev page */
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding-right: 2.5rem !important;
+    height: auto !important;
+    line-height: 1.5 !important;
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+}
+
+.form-select.form-select-sm {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    padding-left: 0.5rem !important;
+    font-size: 0.875rem !important;
+    background-position: right 0.5rem center !important;
+    padding-right: 2rem !important;
+}
+
+.form-select:focus {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236366f1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+}
+
+/* Ensure proper text color and contrast */
+.form-select option {
+    color: #000 !important;
+    background: #fff !important;
+}
+
+.form-select {
+    color: #333 !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="dashboard-wrapper">
     {% include 'components/sidebar.html' %}
@@ -100,6 +140,23 @@
                             Бодит хандив орж ирсэн мэт алерт, марафон болон бусад системүүдийг туршина.
                         </p>
                         
+                        <!-- Test Type Selector -->
+                        <div class="mb-2">
+                            <label class="form-label small">Тестийн төрөл</label>
+                            <select class="form-select form-select-sm" id="testType" onchange="onTestTypeChange()">
+                                <option value="donation">Энгийн хандив</option>
+                                <option value="sound_effect">Дууны эффект</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Sound Effect Selector (hidden by default) -->
+                        <div id="soundEffectSelector" style="display: none;" class="mb-2">
+                            <label class="form-label small">Дууны эффект сонгох</label>
+                            <select class="form-select form-select-sm" id="testSoundEffect">
+                                <option value="">Дуу сонгох...</option>
+                            </select>
+                        </div>
+                        
                         <div class="input-group mb-2">
                             <input type="number" 
                                    class="form-control form-control-sm" 
@@ -116,8 +173,8 @@
                                placeholder="Туршилтын мессеж (заавал биш)"
                                maxlength="150">
                         
-                        <button type="button" class="btn btn-warning btn-sm w-100" onclick="simulateDonation()">
-                            <i class="fas fa-rocket me-1"></i>Туршилтын хандив илгээх
+                        <button type="button" class="btn btn-warning btn-sm w-100" onclick="simulateTest()">
+                            <i class="fas fa-rocket me-1"></i><span id="testButtonText">Туршилтын хандив илгээх</span>
                         </button>
                     </div>
                 </div>
@@ -153,19 +210,198 @@
                     </div>
                 </div>
 
-                <!-- Future Development Tools -->
+                <!-- Sound Effects Management -->
                 <div class="col-md-6">
                     <div class="glass-card p-3">
                         <h6 class="mb-3">
-                            <i class="fas fa-tools me-2"></i>Нэмэлт хэрэгслүүд
+                            <i class="fas fa-music me-2"></i>Дууны эффект удирдлага
                         </h6>
                         
-                        <div class="alert alert-light py-2 mb-0">
+                        <p class="text-muted small mb-3">
+                            Дууны эффектүүдийг нэмэх, засах, устгах.
+                        </p>
+                        
+                        <button type="button" class="btn btn-outline-success btn-sm w-100 mb-2" onclick="showSoundManager()">
+                            <i class="fas fa-cogs me-1"></i>Дууны эффект удирдах
+                        </button>
+                        
+                        <div class="alert alert-info py-2 mb-0 small">
                             <i class="fas fa-info-circle me-1"></i>
-                            Цаашдын хөгжүүлэлтийн хэрэгслүүд энд нэмэгдэх болно.
+                            WAV, MP3, OGG файл дэмждэг.
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sound Effects Management Modal -->
+<div class="modal fade" id="soundManagerModal" tabindex="-1" aria-labelledby="soundManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h5 class="modal-title" id="soundManagerModalLabel">
+                    <i class="fas fa-music me-2"></i>Дууны эффект удирдлага
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Add Sound Forms -->
+                <div class="glass-card p-3 mb-4">
+                    <!-- Tab Navigation for Upload Types -->
+                    <ul class="nav nav-tabs mb-3" id="uploadTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="single-upload-tab" data-bs-toggle="tab" data-bs-target="#single-upload" type="button" role="tab" aria-controls="single-upload" aria-selected="true">
+                                <i class="fas fa-file-audio me-2"></i>Нэг дуу
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="mass-upload-tab" data-bs-toggle="tab" data-bs-target="#mass-upload" type="button" role="tab" aria-controls="mass-upload" aria-selected="false">
+                                <i class="fas fa-layer-group me-2"></i>Олон дуу
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="uploadTabContent">
+                        <!-- Single Upload Tab -->
+                        <div class="tab-pane fade show active" id="single-upload" role="tabpanel" aria-labelledby="single-upload-tab">
+                            <h6 class="mb-3"><i class="fas fa-plus me-2"></i>Шинэ дуу нэмэх</h6>
+                            <form id="addSoundForm" enctype="multipart/form-data">
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <label class="form-label">Дууны нэр</label>
+                                        <input type="text" class="form-control" name="name" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ангилал</label>
+                                        <input type="text" class="form-control" name="category" placeholder="effects, music, alerts, etc.">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Аудио файл</label>
+                                        <input type="file" class="form-control" name="audio_file" accept=".wav,.mp3,.ogg" required>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-upload me-1"></i>Дуу нэмэх
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Mass Upload Tab -->
+                        <div class="tab-pane fade" id="mass-upload" role="tabpanel" aria-labelledby="mass-upload-tab">
+                            <h6 class="mb-3"><i class="fas fa-layer-group me-2"></i>Олон дуу нэмэх</h6>
+                            <form id="massUploadForm" enctype="multipart/form-data">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Ангилал (бүх файлд хамаарна)</label>
+                                        <input type="text" class="form-control" name="category" placeholder="effects, music, alerts, etc." required>
+                                        <div class="form-text">Энэ ангилал сонгосон бүх файлд хуваарилагдана</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Аудио файлууд</label>
+                                        <input type="file" class="form-control" name="audio_files" accept=".wav,.mp3,.ogg" multiple required>
+                                        <div class="form-text">Олон файл сонгож болно. Файлын нэр дууны нэр болно.</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-cloud-upload-alt me-1"></i>Олон дуу нэмэх
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <!-- Mass Upload Progress -->
+                            <div id="massUploadProgress" class="mt-3" style="display: none;">
+                                <div class="alert alert-info">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-spinner fa-spin me-2"></i>
+                                        <span id="uploadStatus">Дуунуудыг боловсруулж байна...</span>
+                                    </div>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%" id="uploadProgressBar"></div>
+                                    </div>
+                                    <small class="text-muted" id="uploadDetails">Эхэлж байна...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sound Effects List -->
+                <div class="glass-card p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0"><i class="fas fa-list me-2"></i>Одоо байгаа дуунууд</h6>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadSounds()">
+                                <i class="fas fa-refresh me-1"></i>Шинэчлэх
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllSounds()">
+                                <i class="fas fa-trash-alt me-1"></i>Бүгдийг устгах
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Search and Filter -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" id="adminSoundSearch" 
+                                   placeholder="Дуу хайх..." onkeyup="filterAdminSounds()">
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="adminCategoryFilter" onchange="filterAdminSounds()">
+                                <option value="">Бүх ангилал</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="soundsList">
+                        <div class="text-center p-4">
+                            <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                            <p>Дуунууд ачааллаж байна...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Sound Modal -->
+<div class="modal fade" id="editSoundModal" tabindex="-1" aria-labelledby="editSoundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editSoundModalLabel">
+                    <i class="fas fa-edit me-2"></i>Дуу засах
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSoundForm">
+                    <input type="hidden" id="editSoundId">
+                    <div class="mb-3">
+                        <label class="form-label">Дууны нэр</label>
+                        <input type="text" class="form-control" id="editSoundName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ангилал</label>
+                        <input type="text" class="form-control" id="editSoundCategory">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="editSoundActive">
+                        <label class="form-check-label" for="editSoundActive">
+                            Идэвхтэй
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Цуцлах</button>
+                <button type="button" class="btn btn-primary" onclick="updateSound()">Хадгалах</button>
             </div>
         </div>
     </div>
@@ -227,6 +463,62 @@ function checkTTSUsage() {
     });
 }
 
+// Load available sound effects when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadAvailableSounds();
+});
+
+// Load sound effects for dropdown
+function loadAvailableSounds() {
+    fetch('/api/sound-effects/list')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const soundSelect = document.getElementById('testSoundEffect');
+                soundSelect.innerHTML = '<option value="">Дуу сонгох...</option>';
+                
+                data.sounds.forEach(sound => {
+                    const option = document.createElement('option');
+                    option.value = sound.id;
+                    option.textContent = `${sound.name} (${sound.category})`;
+                    soundSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Failed to load sounds:', error);
+        });
+}
+
+// Handle test type change
+function onTestTypeChange() {
+    const testType = document.getElementById('testType').value;
+    const soundSelector = document.getElementById('soundEffectSelector');
+    const buttonText = document.getElementById('testButtonText');
+    const messageInput = document.getElementById('testDonationMessage');
+    
+    if (testType === 'sound_effect') {
+        soundSelector.style.display = 'block';
+        buttonText.textContent = 'Дууны эффект илгээх';
+        messageInput.style.display = 'none'; // Hide message input for sound effects
+    } else {
+        soundSelector.style.display = 'none';
+        buttonText.textContent = 'Туршилтын хандив илгээх';
+        messageInput.style.display = 'block'; // Show message input for donations
+    }
+}
+
+// Unified test simulation function
+function simulateTest() {
+    const testType = document.getElementById('testType').value;
+    
+    if (testType === 'sound_effect') {
+        simulateSoundEffect();
+    } else {
+        simulateDonation();
+    }
+}
+
 // Donation simulation
 function simulateDonation() {
     const amountInput = document.getElementById('testDonationAmount');
@@ -276,6 +568,453 @@ function simulateDonation() {
         // Re-enable button
         button.disabled = false;
         button.innerHTML = originalText;
+    });
+}
+
+// Sound effect simulation
+function simulateSoundEffect() {
+    const amountInput = document.getElementById('testDonationAmount');
+    const soundSelect = document.getElementById('testSoundEffect');
+    
+    const amount = parseFloat(amountInput.value);
+    const soundEffectId = parseInt(soundSelect.value);
+    
+    // Validation
+    if (!amount || amount <= 0) {
+        amountInput.focus();
+        return;
+    }
+    
+    if (!soundEffectId) {
+        alert('Дууны эффект сонгоно уу!');
+        soundSelect.focus();
+        return;
+    }
+    
+    const soundData = {
+        amount: amount,
+        sound_effect_id: soundEffectId,
+        donator_name: 'Туршилтын хэрэглэгч',
+        is_test: true
+    };
+    
+    // Disable button during request
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Илгээж байна...';
+    
+    fetch('/dev/simulate-sound-effect', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(soundData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Clear inputs after successful simulation
+            amountInput.value = '';
+            soundSelect.value = '';
+        } else {
+            alert('Алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
+        }
+    })
+    .catch(error => {
+        alert('Холболтын алдаа гарлаа: ' + error.message);
+    })
+    .finally(() => {
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+// ================================
+// SOUND EFFECTS MANAGEMENT
+// ================================
+
+let allSounds = [];
+let soundManagerModal;
+let editSoundModal;
+
+// Initialize modals
+document.addEventListener('DOMContentLoaded', function() {
+    soundManagerModal = new bootstrap.Modal(document.getElementById('soundManagerModal'));
+    editSoundModal = new bootstrap.Modal(document.getElementById('editSoundModal'));
+    
+    // Add sound form submission
+    document.getElementById('addSoundForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        addNewSound();
+    });
+    
+    // Mass upload form submission
+    document.getElementById('massUploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        massUploadSounds();
+    });
+});
+
+function showSoundManager() {
+    soundManagerModal.show();
+    loadSounds();
+}
+
+function loadSounds() {
+    fetch('/api/admin/sound-effects')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                allSounds = data.sounds;
+                renderSounds(allSounds);
+                updateCategoryFilter();
+            } else {
+                document.getElementById('soundsList').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Алдаа: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading sounds:', error);
+            document.getElementById('soundsList').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Дуунууд ачааллахад алдаа гарлаа
+                </div>
+            `;
+        });
+}
+
+function renderSounds(sounds) {
+    const soundsList = document.getElementById('soundsList');
+    
+    if (sounds.length === 0) {
+        soundsList.innerHTML = `
+            <div class="text-center p-4 text-muted">
+                <i class="fas fa-music fa-3x mb-3"></i>
+                <p>Дуу олдсонгүй</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive"><table class="table table-striped">';
+    html += `
+        <thead>
+            <tr>
+                <th>Нэр</th>
+                <th>Ангилал</th>
+                <th>Хугацаа</th>
+                <th>Файлын хэмжээ</th>
+                <th>Төлөв</th>
+                <th>Үйлдлүүд</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    sounds.forEach(sound => {
+        const fileSizeKB = Math.round(sound.file_size / 1024);
+        const statusBadge = sound.is_active ? 
+            '<span class="badge bg-success">Идэвхтэй</span>' : 
+            '<span class="badge bg-secondary">Идэвхгүй</span>';
+        
+        // Escape quotes and special characters for safe onclick usage
+        const escapedName = sound.name.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        const escapedFileUrl = sound.file_url.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        
+        html += `
+            <tr data-sound-id="${sound.id}" data-sound-name="${sound.name.toLowerCase()}" data-sound-category="${sound.category || ''}">
+                <td><strong>${sound.name}</strong></td>
+                <td>${sound.category || '-'}</td>
+                <td>${sound.duration_seconds}с</td>
+                <td>${fileSizeKB}KB</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" onclick="previewAdminSound('${escapedFileUrl}', '${escapedName}')" title="Сонсох">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="editSound(${sound.id})" title="Засах">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="deleteSound(${sound.id}, '${escapedName}')" title="Устгах">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    soundsList.innerHTML = html;
+}
+
+function updateCategoryFilter() {
+    const categories = [...new Set(allSounds.map(s => s.category).filter(c => c))].sort();
+    const filterSelect = document.getElementById('adminCategoryFilter');
+    
+    filterSelect.innerHTML = '<option value="">Бүх ангилал</option>';
+    categories.forEach(category => {
+        filterSelect.innerHTML += `<option value="${category}">${category}</option>`;
+    });
+}
+
+function filterAdminSounds() {
+    const searchTerm = document.getElementById('adminSoundSearch').value.toLowerCase();
+    const categoryFilter = document.getElementById('adminCategoryFilter').value;
+    
+    const filteredSounds = allSounds.filter(sound => {
+        const matchesSearch = !searchTerm || sound.name.toLowerCase().includes(searchTerm);
+        const matchesCategory = !categoryFilter || sound.category === categoryFilter;
+        return matchesSearch && matchesCategory;
+    });
+    
+    renderSounds(filteredSounds);
+}
+
+function addNewSound() {
+    const form = document.getElementById('addSoundForm');
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Нэмж байна...';
+    
+    fetch('/api/admin/sound-effects', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Дуу амжилттай нэмэгдлээ!');
+            form.reset();
+            loadSounds();
+        } else {
+            alert('Алдаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error adding sound:', error);
+        alert('Дуу нэмэхэд алдаа гарлаа');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+function editSound(soundId) {
+    const sound = allSounds.find(s => s.id === soundId);
+    if (!sound) return;
+    
+    document.getElementById('editSoundId').value = sound.id;
+    document.getElementById('editSoundName').value = sound.name;
+    document.getElementById('editSoundCategory').value = sound.category || '';
+    document.getElementById('editSoundActive').checked = sound.is_active;
+    
+    editSoundModal.show();
+}
+
+function updateSound() {
+    const soundId = document.getElementById('editSoundId').value;
+    const data = {
+        name: document.getElementById('editSoundName').value,
+        category: document.getElementById('editSoundCategory').value,
+        is_active: document.getElementById('editSoundActive').checked
+    };
+    
+    fetch(`/api/admin/sound-effects/${soundId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Дуу амжилттай шинэчлэгдлээ!');
+            editSoundModal.hide();
+            loadSounds();
+        } else {
+            alert('Алдаа: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating sound:', error);
+        alert('Дуу шинэчлэхэд алдаа гарлаа');
+    });
+}
+
+function deleteSound(soundId, soundName) {
+    if (!confirm(`Та "${soundName}" дууг устгахдаа итгэлтэй байна уу?\n\nЭнэ дууг ашигласан бүх хандивын түүх мөн устгагдана!\nЭнэ үйлдлийг буцаах боломжгүй!`)) {
+        return;
+    }
+    
+    fetch(`/api/admin/sound-effects/${soundId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Дуу амжилттай устгагдлаа!');
+            loadSounds();
+        } else {
+            alert('Алдаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting sound:', error);
+        alert('Дуу устгахад алдаа гарлаа');
+    });
+}
+
+let currentAdminAudio = null;
+
+function previewAdminSound(fileUrl, soundName) {
+    // Stop any currently playing audio
+    if (currentAdminAudio) {
+        currentAdminAudio.pause();
+        currentAdminAudio = null;
+    }
+    
+    // Play new audio
+    currentAdminAudio = new Audio(fileUrl);
+    currentAdminAudio.play().catch(error => {
+        console.error('Error playing sound:', error);
+        alert('Дуу тоглуулахад алдаа гарлаа');
+    });
+    
+    currentAdminAudio.onended = function() {
+        currentAdminAudio = null;
+    };
+}
+
+function massUploadSounds() {
+    const form = document.getElementById('massUploadForm');
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    const progressDiv = document.getElementById('massUploadProgress');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const statusText = document.getElementById('uploadStatus');
+    const detailsText = document.getElementById('uploadDetails');
+    
+    // Get file count for progress tracking
+    const files = form.querySelector('input[name="audio_files"]').files;
+    if (files.length === 0) {
+        alert('Файл сонгоно уу!');
+        return;
+    }
+    
+    // Show progress and disable submit
+    progressDiv.style.display = 'block';
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Боловсруулж байна...';
+    
+    // Reset progress
+    progressBar.style.width = '0%';
+    statusText.textContent = `${files.length} файлыг боловсруулж байна...`;
+    detailsText.textContent = 'Файлуудыг илгээж байна...';
+    
+    fetch('/api/admin/sound-effects/mass-upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressBar.style.width = '100%';
+        
+        if (data.success) {
+            const { successful, failed, total } = data.results;
+            statusText.innerHTML = `<i class="fas fa-check-circle text-success me-2"></i>Дууссан!`;
+            detailsText.textContent = `${successful}/${total} файл амжилттай, ${failed} алдаа`;
+            
+            // Show detailed results if there were failures
+            if (data.errors && data.errors.length > 0) {
+                setTimeout(() => {
+                    const errorList = data.errors.map(err => `• ${err}`).join('\n');
+                    alert(`Зарим файл боловсруулахад алдаа гарсан:\n\n${errorList}`);
+                }, 1000);
+            } else {
+                setTimeout(() => {
+                    alert(`${successful} дуу амжилттай нэмэгдлээ!`);
+                }, 1000);
+            }
+            
+            form.reset();
+            loadSounds();
+            
+            // Hide progress after delay
+            setTimeout(() => {
+                progressDiv.style.display = 'none';
+            }, 3000);
+            
+        } else {
+            statusText.innerHTML = `<i class="fas fa-exclamation-triangle text-danger me-2"></i>Алдаа гарлаа`;
+            detailsText.textContent = data.error || 'Тодорхойгүй алдаа';
+        }
+    })
+    .catch(error => {
+        console.error('Error during mass upload:', error);
+        progressBar.style.width = '100%';
+        statusText.innerHTML = `<i class="fas fa-exclamation-triangle text-danger me-2"></i>Холболтын алдаа`;
+        detailsText.textContent = 'Серверт холбогдохдоо алдаа гарлаа';
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+// Helper function to clean filename for sound name
+function cleanFilename(filename) {
+    // Remove extension
+    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+    
+    // Replace underscores and dashes with spaces
+    let cleaned = nameWithoutExt.replace(/[_-]/g, ' ');
+    
+    // Capitalize first letter of each word
+    cleaned = cleaned.replace(/\b\w/g, l => l.toUpperCase());
+    
+    return cleaned.trim();
+}
+
+function clearAllSounds() {
+    if (!confirm('Та бүх дууг устгахдаа итгэлтэй байна уу?\n\nЭнэ нь бүх дууг болон тэдгээрийг ашигласан хандивын түүхийг бүрмөсөн устгана!\nЭнэ үйлдлийг буцаах боломжгүй!')) {
+        return;
+    }
+    
+    // Second confirmation for safety
+    if (!confirm('АНХААРУЛГА: Энэ нь бүх дууг устгана!\n\nТа үнэхээр итгэлтэй байна уу?')) {
+        return;
+    }
+    
+    fetch('/api/admin/sound-effects/clear-all', {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Амжилттай! ${data.deleted_count || 0} дуу устгагдлаа.`);
+            loadSounds();
+        } else {
+            alert('Алдаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error clearing all sounds:', error);
+        alert('Бүх дуу устгахад алдаа гарлаа');
     });
 }
 </script>

@@ -99,6 +99,10 @@
         let alertQueue = [];
         let isShowingAlert = false;
         
+        // Sound effects queue management
+        let soundQueue = [];
+        let isPlayingSoundEffect = false;
+        
         // Initialize WebSocket connection (only if socket.io is available)
         let socket = null;
         
@@ -128,6 +132,14 @@
             // Listen for donation alerts
             socket.on('donation_alert', function(data) {
                 queueAlert(data);
+            });
+            
+            // Listen for sound effect alerts
+            socket.on('sound_effect_alert', function(data) {
+                console.log('🔊 OVERLAY: Sound effect alert received!', data);
+                
+                // Queue sound effect for playback
+                queueSoundEffect(data);
             });
             
             // Listen for test alerts
@@ -258,6 +270,65 @@
             const alertData = alertQueue.shift();
             
             showAlert(alertData);
+        }
+        
+        // Sound effects queue management
+        function queueSoundEffect(soundData) {
+            console.log('🔊 OVERLAY: Queuing sound effect:', soundData);
+            
+            // Add to sound queue
+            soundQueue.push(soundData);
+            
+            // Process sound queue if not currently playing
+            if (!isPlayingSoundEffect) {
+                processSoundQueue();
+            }
+        }
+        
+        function processSoundQueue() {
+            if (soundQueue.length === 0) {
+                isPlayingSoundEffect = false;
+                return;
+            }
+            
+            isPlayingSoundEffect = true;
+            const soundData = soundQueue.shift();
+            
+            playSoundEffect(soundData);
+        }
+        
+        function playSoundEffect(soundData) {
+            console.log('🔊 OVERLAY: Playing sound effect:', soundData);
+            
+            try {
+                // Create audio element for sound effect
+                const audio = new Audio(soundData.file_url);
+                
+                // Set volume based on user's preference (convert percentage to decimal)
+                const volumePercent = soundData.volume_level || 70;
+                audio.volume = Math.min(1.0, Math.max(0.0, volumePercent / 100));
+                
+                // Play the sound
+                audio.play().then(() => {
+                    console.log(`🔊 OVERLAY: Sound effect started playing: ${soundData.sound_name} at ${volumePercent}% volume`);
+                }).catch(error => {
+                    console.error('🔊 OVERLAY: Sound effect playback failed:', error);
+                });
+                
+                // Schedule next sound effect after duration + 1 second gap
+                const duration = (soundData.duration_seconds * 1000) + 1000;
+                console.log(`🔊 OVERLAY: Scheduling next sound after ${duration}ms`);
+                
+                setTimeout(() => {
+                    console.log('🔊 OVERLAY: Sound effect completed, processing next in queue');
+                    processSoundQueue();
+                }, duration);
+                
+            } catch (error) {
+                console.error('🔊 OVERLAY: Error playing sound effect:', error);
+                // Continue with queue on error
+                setTimeout(() => processSoundQueue(), 1000);
+            }
         }
         
         

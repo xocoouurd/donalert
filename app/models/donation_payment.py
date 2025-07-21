@@ -359,6 +359,15 @@ class DonationPayment(db.Model):
             db.session.add(sound_donation)
             db.session.commit()
             
+            # Get user's sound settings for volume level
+            from app.models.user_sound_settings import UserSoundSettings
+            try:
+                user_settings = UserSoundSettings.get_or_create_for_user(self.streamer_user_id)
+                volume_level = user_settings.volume_level if user_settings.volume_level is not None else 70
+            except Exception as e:
+                current_app.logger.warning(f"SOUND EFFECT: Failed to get volume settings for user {self.streamer_user_id}, using default: {str(e)}")
+                volume_level = 70
+            
             # Prepare sound effect data for overlay
             sound_data = {
                 'type': 'sound_effect',
@@ -370,7 +379,8 @@ class DonationPayment(db.Model):
                 'donor_name': donation.donor_name,
                 'amount': donation.amount,
                 'created_at': donation.created_at.isoformat(),
-                'file_url': sound_effect.get_file_url()
+                'file_url': sound_effect.get_file_url(),
+                'volume_level': volume_level
             }
             
             # Send to streamer's room for overlay playback

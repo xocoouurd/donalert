@@ -12,6 +12,9 @@ import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
+from werkzeug.utils import secure_filename
+import shutil
+import re
 
 main_bp = Blueprint('main', __name__)
 
@@ -293,6 +296,145 @@ def toggle_tier():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error toggling tier: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/list', methods=['GET'])
+@login_required
+def list_sound_effects():
+    """Get list of available sound effects for dev testing"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        sounds = SoundEffect.query.filter_by(is_active=True).all()
+        sound_list = []
+        
+        for sound in sounds:
+            sound_list.append({
+                'id': sound.id,
+                'name': sound.name,
+                'category': sound.category,
+                'duration': float(sound.duration_seconds)
+            })
+        
+        return jsonify({
+            'success': True,
+            'sounds': sound_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error listing sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/dev/simulate-sound-effect', methods=['POST'])
+@login_required  
+def simulate_sound_effect():
+    """Simulate a sound effect for testing"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(403)
+    
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.sound_effect_donation import SoundEffectDonation
+        from app.models.user_sound_settings import UserSoundSettings
+        from app.extensions import socketio
+        from datetime import datetime
+        import uuid
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        amount = data.get('amount')
+        sound_effect_id = data.get('sound_effect_id')
+        donator_name = data.get('donator_name', 'Test User')
+        
+        if not amount or not sound_effect_id:
+            return jsonify({'success': False, 'error': 'Amount and sound effect ID are required'}), 400
+        
+        # Get sound effect
+        sound_effect = SoundEffect.query.get(sound_effect_id)
+        if not sound_effect or not sound_effect.is_active:
+            return jsonify({'success': False, 'error': 'Sound effect not found or inactive'}), 404
+        
+        # Check if user has sound effects enabled (optional for dev testing)
+        settings = UserSoundSettings.query.filter_by(user_id=current_user.id).first()
+        if not settings or not settings.is_enabled:
+            current_app.logger.warning(f"DEV: Sound effects disabled for user {current_user.id}, but allowing test")
+        
+        # Create a temporary test payment record for the sound effect donation
+        from app.models.donation_payment import DonationPayment
+        
+        test_payment = DonationPayment(
+            streamer_user_id=current_user.id,
+            donor_name=donator_name,
+            donor_platform='dev_test',
+            donor_user_id=None,
+            amount=amount,
+            currency='MNT',
+            message='',
+            type='sound_effect',
+            sound_effect_id=sound_effect_id,
+            status='paid',  # Mark as paid for test
+            payment_date=datetime.utcnow(),
+            quickpay_invoice_id=f'test_{uuid.uuid4().hex[:12]}',
+            expires_at=datetime.utcnow()
+        )
+        
+        db.session.add(test_payment)
+        db.session.flush()  # Get the ID without committing
+        
+        # Create test sound effect donation record
+        sound_donation = SoundEffectDonation(
+            sound_effect_id=sound_effect_id,
+            streamer_user_id=current_user.id,
+            donor_name=donator_name,
+            donor_user_id=None,  # Test donations don't have donor users
+            amount=amount,
+            donation_payment_id=test_payment.id  # Use the test payment ID
+        )
+        
+        db.session.add(sound_donation)
+        db.session.commit()
+        
+        # Get user's sound settings for volume level
+        from app.models.user_sound_settings import UserSoundSettings
+        try:
+            user_settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+            volume_level = user_settings.volume_level if user_settings.volume_level is not None else 70
+        except Exception as e:
+            current_app.logger.warning(f"DEV: Failed to get volume settings for user {current_user.id}, using default: {str(e)}")
+            volume_level = 70
+        
+        # Send sound effect to overlay
+        test_sound_data = {
+            'type': 'sound_effect',
+            'id': f'test_{uuid.uuid4().hex[:8]}',
+            'sound_effect_id': sound_effect.id,
+            'sound_filename': sound_effect.filename,
+            'sound_name': sound_effect.name,
+            'duration_seconds': float(sound_effect.duration_seconds),
+            'donor_name': donator_name,
+            'amount': amount,
+            'created_at': datetime.utcnow().isoformat(),
+            'file_url': sound_effect.get_file_url(),
+            'volume_level': volume_level,
+            'is_test': True
+        }
+        
+        # Send to overlay
+        room = f"user_{current_user.id}"
+        socketio.emit('sound_effect_alert', test_sound_data, room=room)
+        
+        current_app.logger.info(f"DEV: Test sound effect sent: {sound_effect.name} to user {current_user.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Test sound effect sent: {sound_effect.name}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error simulating sound effect: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @main_bp.route('/donation-alert')
@@ -1170,6 +1312,8 @@ def donate_page(username):
         from app.models.user import User
         from app.models.platform_connection import PlatformConnection
         from app.models.donation import Donation
+        from app.models.user_sound_settings import UserSoundSettings
+        from app.models.sound_effect import SoundEffect
         
         # Get user by username (from any platform connection)
         platform_connection = PlatformConnection.query.filter_by(platform_username=username).first()
@@ -1192,11 +1336,46 @@ def donate_page(username):
             .limit(10)\
             .all()
         
+        # Check streamer's subscription tier
+        subscription = user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        # Get sound effects settings and available sounds
+        sound_settings = UserSoundSettings.query.filter_by(user_id=user.id).first()
+        sound_effects_enabled = sound_settings and sound_settings.is_enabled if sound_settings else False
+        sound_effect_price = float(sound_settings.price_per_sound) if sound_settings else 1000.0
+        
+        # Only allow sound effects if streamer has advanced tier AND has enabled them
+        sound_effects_available = has_advanced_tier and sound_effects_enabled
+        
+        # Get available sound effects if available
+        available_sounds = []
+        sound_categories = []
+        if sound_effects_available:
+            available_sounds = SoundEffect.query.filter_by(is_active=True)\
+                .order_by(SoundEffect.category, SoundEffect.name)\
+                .all()
+            
+            # Get unique categories for filtering
+            sound_categories = db.session.query(SoundEffect.category)\
+                .filter_by(is_active=True)\
+                .distinct()\
+                .all()
+            sound_categories = [cat[0] for cat in sound_categories if cat[0]]
+        
         return render_template('donate.html', 
                              streamer=user, 
                              connected_platforms=connected_platforms,
                              recent_donations=recent_donations,
-                             username=username)
+                             username=username,
+                             sound_effects_enabled=sound_effects_enabled,
+                             sound_effects_available=sound_effects_available,
+                             has_advanced_tier=has_advanced_tier,
+                             sound_effect_price=sound_effect_price,
+                             available_sounds=available_sounds,
+                             sound_categories=sound_categories)
         
     except Exception as e:
         current_app.logger.error(f"Error loading donation page for {username}: {str(e)}")
@@ -1284,6 +1463,108 @@ def process_donation(username):
     except Exception as e:
         current_app.logger.error(f"Error processing donation for {username}: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to process donation'}), 500
+
+@main_bp.route('/donate/<username>/sound-effect', methods=['POST'])
+def process_sound_effect_purchase(username):
+    """Process sound effect purchase - create payment invoice"""
+    try:
+        from app.models.user import User
+        from app.models.platform_connection import PlatformConnection
+        from app.models.donation_payment import DonationPayment
+        from app.models.user_sound_settings import UserSoundSettings
+        from app.models.sound_effect import SoundEffect
+        from flask_login import current_user
+        
+        # Get user by username
+        platform_connection = PlatformConnection.query.filter_by(platform_username=username).first()
+        
+        if not platform_connection:
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                return jsonify({'success': False, 'error': 'Streamer not found'}), 404
+        else:
+            user = platform_connection.user
+        
+        # Check if streamer has bank account configured
+        if not user.bank_iban or not user.bank_account_name:
+            return jsonify({
+                'success': False, 
+                'error': 'Streamer has not configured bank account for sound effects'
+            }), 400
+        
+        # Check if sound effects are enabled for this streamer
+        sound_settings = UserSoundSettings.query.filter_by(user_id=user.id).first()
+        if not sound_settings or not sound_settings.is_enabled:
+            return jsonify({
+                'success': False, 
+                'error': 'Sound effects are not enabled for this streamer'
+            }), 400
+        
+        # Get sound effect purchase data
+        data = request.get_json()
+        donor_name = data.get('donor_name', 'Anonymous')
+        sound_effect_id = data.get('sound_effect_id')
+        
+        if not sound_effect_id:
+            return jsonify({'success': False, 'error': 'Sound effect not specified'}), 400
+        
+        # Validate sound effect exists and is active
+        sound_effect = SoundEffect.query.filter_by(id=sound_effect_id, is_active=True).first()
+        if not sound_effect:
+            return jsonify({'success': False, 'error': 'Sound effect not found or inactive'}), 400
+        
+        # Use streamer's configured price
+        amount = float(sound_settings.price_per_sound)
+        
+        # Determine donor info
+        donor_platform = 'guest'
+        donor_user_id = None
+        
+        if current_user.is_authenticated:
+            donor_name = current_user.get_display_name()
+            donor_platform = current_user.get_primary_platform() or 'authenticated'
+            donor_user_id = current_user.id
+        
+        # Create sound effect payment and QPay invoice
+        payment_result = DonationPayment.create_donation_payment(
+            streamer_user_id=user.id,
+            donor_name=donor_name,
+            amount=amount,
+            message='',  # Sound effects don't have messages
+            donor_platform=donor_platform,
+            donor_user_id=donor_user_id,
+            payment_type='sound_effect',
+            sound_effect_id=sound_effect_id
+        )
+        
+        if not payment_result.get('success'):
+            return jsonify({
+                'success': False, 
+                'error': payment_result.get('error', 'Failed to create payment')
+            }), 500
+        
+        current_app.logger.info(f"Sound effect payment created for user {user.id}: {sound_effect.name} ({amount} MNT) from {donor_name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Sound effect payment created successfully',
+            'payment_data': {
+                'donation_payment_id': payment_result['donation_payment_id'],
+                'invoice_id': payment_result['invoice_id'],
+                'qr_code': payment_result['qr_code'],
+                'qr_image': payment_result['qr_image'],
+                'payment_url': payment_result['payment_url'],
+                'app_links': payment_result['app_links'],
+                'amount': payment_result['amount'],
+                'currency': payment_result['currency'],
+                'expires_at': payment_result['expires_at'],
+                'sound_effect_name': sound_effect.name
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error processing sound effect purchase for {username}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to process sound effect purchase'}), 500
 
 @main_bp.route('/donation/callback', methods=['GET', 'POST'])
 def donation_callback():
@@ -2367,17 +2648,32 @@ def update_sound_effects_settings():
         settings = UserSoundSettings.get_or_create_for_user(current_user.id)
         
         # Update settings
-        settings.is_enabled = request.form.get('is_enabled') == 'on'
+        is_enabled = request.form.get('is_enabled') == 'on'
+        price_per_sound = None
+        volume_level = None
         
         # Update price if provided and valid
         if request.form.get('price_per_sound'):
             price = float(request.form.get('price_per_sound'))
             if price >= 100:  # Minimum 100 MNT
-                settings.price_per_sound = price
+                price_per_sound = price
             else:
                 return jsonify({'success': False, 'error': 'Хамгийн бага үнэ 100₮'}), 400
         
-        db.session.commit()
+        # Update volume level if provided and valid
+        if request.form.get('volume_level'):
+            volume = int(request.form.get('volume_level'))
+            if 0 <= volume <= 100:
+                volume_level = volume
+            else:
+                return jsonify({'success': False, 'error': 'Дууны түвшин 0-100% хооронд байна'}), 400
+        
+        # Apply updates using the model method
+        settings.update_settings(
+            is_enabled=is_enabled,
+            price_per_sound=price_per_sound,
+            volume_level=volume_level
+        )
         
         current_app.logger.info(f"Sound effects settings updated for user {current_user.id}")
         return jsonify({'success': True})
@@ -2419,6 +2715,15 @@ def test_random_sound():
         available_sounds = sound_effects[:5] if len(sound_effects) > 5 else sound_effects
         random_sound = random.choice(available_sounds)
         
+        # Get user's sound settings for volume level
+        from app.models.user_sound_settings import UserSoundSettings
+        try:
+            user_settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+            volume_level = user_settings.volume_level if user_settings.volume_level is not None else 70
+        except Exception as e:
+            current_app.logger.warning(f"Test sound: Failed to get volume settings for user {current_user.id}, using default: {str(e)}")
+            volume_level = 70
+        
         # Prepare test sound data
         test_sound_data = {
             'type': 'sound_effect_test',
@@ -2431,6 +2736,7 @@ def test_random_sound():
             'amount': 0,
             'created_at': datetime.utcnow().isoformat(),
             'file_url': random_sound.get_file_url(),
+            'volume_level': volume_level,
             'is_test': True
         }
         
@@ -2484,4 +2790,459 @@ def handle_join_marathon_room(data):
         current_app.logger.info(f"SOCKET: Client {request.sid} joined marathon overlay room: {room}")
         # Send acknowledgment back to client
         emit('room_joined', {'room': room, 'status': 'success', 'type': 'marathon_overlay'})
+
+
+# ================================
+# SOUND EFFECTS MANAGEMENT ROUTES
+# ================================
+
+@main_bp.route('/api/admin/sound-effects', methods=['GET'])
+@login_required
+def admin_list_sound_effects():
+    """Get all sound effects for admin management"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sounds = SoundEffect.query.order_by(SoundEffect.name).all()
+        return jsonify({
+            'success': True,
+            'sounds': [sound.to_dict() for sound in sounds]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error listing sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects', methods=['POST'])
+@login_required
+def admin_add_sound_effect():
+    """Add new sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        import mutagen
+        from mutagen.wave import WAVE
+        from mutagen.mp3 import MP3
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Check if file was uploaded
+        if 'audio_file' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+        
+        file = request.files['audio_file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Get form data
+        name = request.form.get('name', '').strip()
+        category = request.form.get('category', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'error': 'Name is required'}), 400
+        
+        # Check file extension
+        allowed_extensions = {'.wav', '.mp3', '.ogg'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return jsonify({'success': False, 'error': 'Only WAV, MP3, and OGG files are allowed'}), 400
+        
+        # Generate unique filename
+        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+        
+        # Save file temporarily to analyze it
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+        temp_path = os.path.join(upload_folder, 'temp', unique_filename)
+        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+        file.save(temp_path)
+        
+        try:
+            # Get duration and file size
+            audio_file = mutagen.File(temp_path)
+            if audio_file is None:
+                raise ValueError("Invalid audio file")
+            
+            duration_seconds = audio_file.info.length
+            
+            # Normalize audio to -20 dBFS
+            normalized_path = normalize_audio(temp_path, target_dbfs=-20.0)
+            file_size = os.path.getsize(normalized_path)
+            
+            # Move to permanent location
+            assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+            os.makedirs(assets_folder, exist_ok=True)
+            final_path = os.path.join(assets_folder, unique_filename)
+            shutil.move(normalized_path, final_path)
+            
+            # Clean up temp file if it still exists
+            if os.path.exists(temp_path) and temp_path != normalized_path:
+                os.remove(temp_path)
+            
+            # Create database record
+            sound_effect = SoundEffect(
+                name=name,
+                filename=unique_filename,
+                duration_seconds=duration_seconds,
+                file_size=file_size,
+                category=category or None,
+                is_active=True
+            )
+            
+            db.session.add(sound_effect)
+            db.session.commit()
+            
+            current_app.logger.info(f"Sound effect added: {name} ({unique_filename})")
+            return jsonify({
+                'success': True,
+                'sound': sound_effect.to_dict(),
+                'message': f'Sound effect "{name}" added successfully'
+            })
+            
+        except Exception as e:
+            # Clean up file if database operation fails
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise e
+            
+    except Exception as e:
+        current_app.logger.error(f"Error adding sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/<int:sound_id>', methods=['PUT'])
+@login_required
+def admin_update_sound_effect(sound_id):
+    """Update existing sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        data = request.get_json()
+        
+        # Update fields
+        if 'name' in data:
+            sound.name = data['name'].strip()
+        if 'category' in data:
+            sound.category = data['category'].strip() or None
+        if 'is_active' in data:
+            sound.is_active = bool(data['is_active'])
+        
+        sound.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        current_app.logger.info(f"Sound effect updated: {sound.name} (ID: {sound_id})")
+        return jsonify({
+            'success': True,
+            'sound': sound.to_dict(),
+            'message': f'Sound effect "{sound.name}" updated successfully'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/<int:sound_id>', methods=['DELETE'])
+@login_required
+def admin_delete_sound_effect(sound_id):
+    """Delete sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.sound_effect_donation import SoundEffectDonation
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        sound_name = sound.name
+        filename = sound.filename
+        
+        # Check if there are any donations using this sound effect
+        donation_count = SoundEffectDonation.query.filter_by(sound_effect_id=sound_id).count()
+        
+        if donation_count > 0:
+            # Delete related donation records first
+            SoundEffectDonation.query.filter_by(sound_effect_id=sound_id).delete()
+            current_app.logger.info(f"Deleted {donation_count} related donation records for sound effect: {sound_name}")
+        
+        # Delete file from filesystem
+        file_path = os.path.join('app', 'static', 'assets', 'sound_effects', filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            current_app.logger.info(f"Deleted audio file: {file_path}")
+        
+        # Delete sound effect from database
+        db.session.delete(sound)
+        db.session.commit()
+        
+        if donation_count > 0:
+            current_app.logger.info(f"Sound effect force deleted (removed {donation_count} donation records): {sound_name} (ID: {sound_id})")
+            return jsonify({
+                'success': True,
+                'message': f'Sound effect "{sound_name}" deleted successfully (removed {donation_count} related donation records)',
+                'deleted': True
+            })
+        else:
+            current_app.logger.info(f"Sound effect deleted: {sound_name} (ID: {sound_id})")
+            return jsonify({
+                'success': True,
+                'message': f'Sound effect "{sound_name}" deleted successfully',
+                'deleted': True
+            })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def normalize_audio(input_path, target_dbfs=-20.0):
+    """Normalize audio file to target dBFS level"""
+    try:
+        from pydub import AudioSegment
+        
+        current_app.logger.info(f"Starting normalization for: {input_path}")
+        
+        # Load audio file
+        audio = AudioSegment.from_file(input_path)
+        original_dbfs = audio.dBFS
+        
+        # Calculate the change needed to reach target dBFS
+        change_in_dbfs = target_dbfs - original_dbfs
+        
+        # Apply normalization
+        normalized_audio = audio + change_in_dbfs
+        final_dbfs = normalized_audio.dBFS
+        
+        # Generate output path
+        base_name, ext = os.path.splitext(input_path)
+        output_path = f"{base_name}_normalized{ext}"
+        
+        # Export normalized audio
+        normalized_audio.export(output_path, format=ext[1:])  # Remove dot from extension
+        
+        current_app.logger.info(f"✅ Audio normalized successfully: {original_dbfs:.1f} dBFS -> {final_dbfs:.1f} dBFS (target: {target_dbfs} dBFS)")
+        return output_path
+        
+    except Exception as e:
+        current_app.logger.error(f"❌ Error normalizing audio: {str(e)}")
+        # Return original path if normalization fails
+        return input_path
+
+def clean_filename_for_name(filename):
+    """Convert filename to clean sound name"""
+    # Remove extension
+    name_without_ext = re.sub(r'\.[^.]+$', '', filename)
+    
+    # Replace underscores, dashes, and dots with spaces
+    cleaned = re.sub(r'[_\-\.]+', ' ', name_without_ext)
+    
+    # Remove multiple spaces
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    # Capitalize first letter of each word
+    cleaned = ' '.join(word.capitalize() for word in cleaned.split())
+    
+    return cleaned.strip()
+
+@main_bp.route('/api/admin/sound-effects/mass-upload', methods=['POST'])
+@login_required
+def admin_mass_upload_sound_effects():
+    """Mass upload multiple sound effects"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        import mutagen
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Get form data
+        category = request.form.get('category', '').strip()
+        if not category:
+            return jsonify({'success': False, 'error': 'Category is required'}), 400
+        
+        # Check if files were uploaded
+        if 'audio_files' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio files provided'}), 400
+        
+        files = request.files.getlist('audio_files')
+        if not files or len(files) == 0:
+            return jsonify({'success': False, 'error': 'No files selected'}), 400
+        
+        # Process each file
+        successful_uploads = 0
+        failed_uploads = 0
+        errors = []
+        total_files = len(files)
+        
+        allowed_extensions = {'.wav', '.mp3', '.ogg'}
+        
+        for i, file in enumerate(files):
+            try:
+                if file.filename == '':
+                    errors.append(f"File {i+1}: Empty filename")
+                    failed_uploads += 1
+                    continue
+                
+                # Check file extension
+                file_ext = os.path.splitext(file.filename)[1].lower()
+                if file_ext not in allowed_extensions:
+                    errors.append(f"{file.filename}: Invalid format (only WAV, MP3, OGG allowed)")
+                    failed_uploads += 1
+                    continue
+                
+                # Generate clean name from filename
+                sound_name = clean_filename_for_name(file.filename)
+                
+                # Generate unique filename
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                # Save file temporarily
+                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+                temp_path = os.path.join(upload_folder, 'temp', unique_filename)
+                os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                file.save(temp_path)
+                
+                try:
+                    # Get duration
+                    audio_file = mutagen.File(temp_path)
+                    if audio_file is None:
+                        raise ValueError("Invalid audio file")
+                    
+                    duration_seconds = audio_file.info.length
+                    
+                    # Normalize audio to -20 dBFS
+                    normalized_path = normalize_audio(temp_path, target_dbfs=-20.0)
+                    file_size = os.path.getsize(normalized_path)
+                    
+                    # Move to permanent location
+                    assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+                    os.makedirs(assets_folder, exist_ok=True)
+                    final_path = os.path.join(assets_folder, unique_filename)
+                    shutil.move(normalized_path, final_path)
+                    
+                    # Clean up temp files
+                    if os.path.exists(temp_path) and temp_path != normalized_path:
+                        os.remove(temp_path)
+                    if os.path.exists(normalized_path) and normalized_path != final_path:
+                        os.remove(normalized_path)
+                    
+                    # Create database record
+                    sound_effect = SoundEffect(
+                        name=sound_name,
+                        filename=unique_filename,
+                        duration_seconds=duration_seconds,
+                        file_size=file_size,
+                        category=category,
+                        is_active=True
+                    )
+                    
+                    db.session.add(sound_effect)
+                    successful_uploads += 1
+                    current_app.logger.info(f"Mass upload: Added {sound_name} from {file.filename}")
+                    
+                except Exception as e:
+                    # Clean up files on error
+                    for cleanup_path in [temp_path, normalized_path if 'normalized_path' in locals() else None]:
+                        if cleanup_path and os.path.exists(cleanup_path):
+                            os.remove(cleanup_path)
+                    
+                    errors.append(f"{file.filename}: Processing error - {str(e)}")
+                    failed_uploads += 1
+                    current_app.logger.error(f"Error processing {file.filename}: {str(e)}")
+                    
+            except Exception as e:
+                errors.append(f"{file.filename}: Upload error - {str(e)}")
+                failed_uploads += 1
+                current_app.logger.error(f"Error uploading {file.filename}: {str(e)}")
+        
+        # Commit all successful uploads
+        if successful_uploads > 0:
+            db.session.commit()
+        
+        current_app.logger.info(f"Mass upload completed: {successful_uploads}/{total_files} successful")
+        
+        return jsonify({
+            'success': True,
+            'results': {
+                'successful': successful_uploads,
+                'failed': failed_uploads,
+                'total': total_files
+            },
+            'errors': errors if errors else None,
+            'message': f'Mass upload completed: {successful_uploads}/{total_files} files processed successfully'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in mass upload: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/clear-all', methods=['DELETE'])
+@login_required
+def admin_clear_all_sound_effects():
+    """Delete all sound effects"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.sound_effect_donation import SoundEffectDonation
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Get all sound effects
+        all_sounds = SoundEffect.query.all()
+        total_count = len(all_sounds)
+        
+        if total_count == 0:
+            return jsonify({
+                'success': True,
+                'deleted_count': 0,
+                'message': 'No sound effects to delete'
+            })
+        
+        # Delete all related donation records first
+        deleted_donations = SoundEffectDonation.query.count()
+        if deleted_donations > 0:
+            SoundEffectDonation.query.delete()
+            current_app.logger.info(f"Deleted {deleted_donations} sound effect donation records")
+        
+        # Delete all audio files from filesystem
+        assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+        deleted_files = 0
+        
+        for sound in all_sounds:
+            file_path = os.path.join(assets_folder, sound.filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    deleted_files += 1
+                except Exception as e:
+                    current_app.logger.warning(f"Could not delete file {file_path}: {str(e)}")
+        
+        # Delete all sound effects from database
+        SoundEffect.query.delete()
+        db.session.commit()
+        
+        current_app.logger.info(f"Cleared all sound effects: {total_count} sounds, {deleted_donations} donations, {deleted_files} files")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': total_count,
+            'deleted_donations': deleted_donations,
+            'deleted_files': deleted_files,
+            'message': f'Successfully deleted {total_count} sound effects and {deleted_donations} related donation records'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error clearing all sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 

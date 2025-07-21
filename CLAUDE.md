@@ -140,7 +140,19 @@ This Flask donation alert platform uses the **Application Factory Pattern** with
 - Automatic audio file cleanup after playback
 - Message-only TTS for donation alerts
 
-### 10. Discord Community Management
+### 10. Sound Effects System (Advanced Tier)
+**Complete sound effects management with donation integration**
+- Full CRUD operations for sound effects library management
+- Audio normalization to -20 dBFS for consistent volume levels
+- Mass upload functionality with automatic filename-to-soundname conversion
+- Category-based organization and filtering system
+- User-configurable volume control (0-100%) with real-time overlay integration
+- Public sound browser on donation pages with static 70% preview volume
+- WebSocket-based sound effect delivery to overlay systems
+- Developer management interface with comprehensive testing tools
+- Advanced tier subscription requirement with disabled navigation for regular users
+
+### 11. Discord Community Management
 **Professional Discord server with automated management**
 - Automated bot for development updates
 - 14 organized channels across 4 categories
@@ -266,10 +278,11 @@ Update `.env` file with actual values before running:
 
 ## Technical Architecture
 
-### Database Schema (12 Models)
+### Database Schema (15 Models)
 - **User Management**: `user.py`, `platform_connection.py`, `user_asset.py`
-- **Donations**: `donation.py`, `donation_payment.py`, `donation_alert_settings.py`
+- **Donations**: `donation.py`, `donation_payment.py`, `donation_alert_settings.py`, `alert_configuration.py`
 - **Goals & Marathon**: `donation_goal.py`, `marathon.py`
+- **Sound Effects**: `sound_effect.py`, `user_sound_settings.py`, `sound_effect_donation.py`
 - **Subscriptions**: `subscription.py`, `subscription_payment.py`
 - **Systems**: `tts_usage.py`
 
@@ -427,6 +440,51 @@ class PlatformConnection(db.Model):
 
 ## Recent Development Work
 
+### 2025-07-21: Complete Sound Effects System with Volume Control
+
+**Implementation**: Full-featured sound effects system for Advanced tier users with comprehensive volume control and overlay integration.
+
+**Features Delivered:**
+1. **Sound Effects Management**:
+   - Complete CRUD operations for sound effects library
+   - Mass upload functionality with automatic filename-to-soundname conversion
+   - Audio normalization to -20 dBFS for consistent volume levels
+   - Category-based organization and filtering
+   - Developer interface with comprehensive testing tools
+
+2. **Volume Control System**:
+   - User-configurable volume slider (0-100%) with 1-step precision
+   - Settings page previews respect current volume setting
+   - Public donation pages use static 70% volume
+   - Real-time overlay integration applies user's volume preference
+   - Comprehensive error handling with fallback to 70% default
+
+3. **Donation Integration**:
+   - Public sound browser on donation pages with search and filtering
+   - Integrated donation flow with QPay payment processing
+   - WebSocket-based sound delivery to overlay systems
+   - Analytics tracking for sound effect donations
+
+4. **Access Control**:
+   - Advanced tier subscription requirement
+   - Disabled navigation with tooltip for regular users
+   - Bootstrap tooltip initialization across all pages
+
+**Technical Implementation:**
+- 3 new database models with migration
+- Audio processing with pydub library and ffmpeg
+- Volume level integration in WebSocket payloads
+- JavaScript template security improvements
+- Navigation access control with tooltips
+
+**Files Modified:**
+- Backend: 4 model files, main routes, donation payment integration
+- Frontend: 5 template files, sidebar navigation, base template
+- Database: 1 new migration for volume control
+- Dependencies: pydub, mutagen, ffmpeg system requirement
+
+**Status**: ✅ Production ready - Complete sound effects system with volume control
+
 ### 2025-07-20: Asset State Persistence Fix
 
 **Issue**: Multi-tab alert system was losing saved image and sound asset states when switching between tabs or reloading the page.
@@ -472,8 +530,8 @@ class PlatformConnection(db.Model):
 ## Production Status
 
 **Current Status**: Fully operational donation alert platform
-- **10 major feature systems** completely implemented
-- **12 database models** with comprehensive relationships
+- **11 major feature systems** completely implemented
+- **15 database models** with comprehensive relationships
 - **4 route blueprints** with full API coverage
 - **Professional UI/UX** with glass morphism design
 - **Real-time WebSocket** integration across all features
@@ -584,17 +642,200 @@ python -m discord_integration.cli
 
 **Important**: When posting Discord updates, always write messages in **Mongolian**, not English, as this is a platform for Mongolian content creators.
 
+## Sound Effects System
+
+**Purpose**: Advanced donation feature allowing viewers to trigger sound effects through donations with complete volume control
+
+### Architecture Overview
+
+**Database Models (2 Models):**
+- `app/models/sound_effect.py` - Sound file metadata with normalization tracking
+- `app/models/user_sound_settings.py` - User volume preferences and feature settings
+- `app/models/sound_effect_donation.py` - Analytics tracking for sound effect donations
+
+**Key Components:**
+- `app/routes/main.py` - Sound effects CRUD API, settings management, testing endpoints
+- `app/templates/sound_effects.html` - User settings page with volume control and sound library
+- `app/templates/dev.html` - Developer management interface with mass upload
+- `app/templates/donate.html` - Public sound browser with static volume previews
+- `app/templates/overlay.html` - Real-time sound playback with volume integration
+
+### Features Implementation
+
+**1. Sound Effects Management (Developer Interface)**
+- Complete CRUD operations (Create, Read, Update, Delete)
+- Mass upload functionality with batch processing
+- Audio normalization using pydub library targeting -20 dBFS
+- Automatic filename-to-soundname conversion for bulk uploads
+- Category assignment and organization
+- File validation and error handling
+- Force deletion with database cascade handling
+
+**2. User Settings Interface**
+- Volume control slider (0-100%) with 1-step precision
+- Real-time volume preview for sound testing
+- Enable/disable toggle for sound effects feature
+- Price per sound configuration (minimum 100₮)
+- Search and category filtering for sound library
+- Live preview panel showing current settings
+
+**3. Public Donation Integration**
+- Sound browser on donation pages with search and filtering
+- Static 70% volume for public previews (no user setting exposure)
+- Integrated donation flow with sound effect selection
+- QPay payment processing for sound effect donations
+- Real-time donation feed updates
+
+**4. Volume Control System**
+- User-configurable volume level (0-100%) stored in database
+- Settings page previews respect current volume setting
+- Public donation page uses static 70% volume
+- Overlay integration applies user's volume preference to all sound effects
+- Comprehensive error handling with fallback to 70% default
+
+**5. WebSocket Integration**
+- Real-time sound effect delivery via `sound_effect_alert` events
+- Volume level included in all WebSocket payloads
+- User-specific room targeting for overlay delivery
+- Queue management for multiple simultaneous sound effects
+- Test sound functionality for settings verification
+
+### Technical Implementation
+
+**Audio Processing:**
+```python
+def normalize_audio(input_path, target_dbfs=-20.0):
+    """Normalize audio file to target dBFS level for consistent volume"""
+    try:
+        from pydub import AudioSegment
+        audio = AudioSegment.from_file(input_path)
+        original_dbfs = audio.dBFS
+        change_in_dbfs = target_dbfs - original_dbfs
+        normalized_audio = audio + change_in_dbfs
+        normalized_audio.export(output_path, format=ext[1:])
+        return output_path
+    except Exception as e:
+        return input_path  # Fallback to original on error
+```
+
+**Volume Control Flow:**
+1. User sets volume in sound effects settings (0-100%)
+2. Volume setting saved to `user_sound_settings.volume_level`
+3. Sound effect triggered (donation or test) retrieves user's volume setting
+4. Volume level included in WebSocket `sound_effect_alert` payload
+5. Overlay JavaScript applies volume: `audio.volume = volumePercent / 100`
+
+**WebSocket Event Structure:**
+```javascript
+sound_effect_alert: {
+    type: 'sound_effect',
+    sound_effect_id: number,
+    sound_name: string,
+    file_url: string,
+    volume_level: number,  // 0-100 percentage
+    donor_name: string,
+    amount: number
+}
+```
+
+**Navigation Control:**
+- Advanced tier users: Full access to sound effects settings
+- Regular users: Disabled navigation item with tooltip
+- Tooltip message: "Дэвшилтэт захиалга эсвэл түүнээс дээш түвшин шаардлагатай"
+- Bootstrap tooltip initialization in base.html for all disabled features
+
+### Database Schema
+
+**Sound Effects:**
+```sql
+sound_effects table:
+- id (PK), filename, name, category, file_path
+- duration_seconds, file_size_bytes
+- created_at, updated_at
+```
+
+**User Sound Settings:**
+```sql
+user_sound_settings table:
+- id (PK), user_id (FK to users)
+- is_enabled (boolean), price_per_sound (decimal)
+- volume_level (integer 0-100, default 70)
+- created_at, updated_at
+```
+
+**Sound Effect Donations:**
+```sql
+sound_effect_donations table:
+- id (PK), sound_effect_id (FK), streamer_user_id (FK)
+- donor_name, donor_user_id (FK), amount
+- donation_payment_id (FK), created_at
+```
+
+### Error Handling & Safeguards
+
+**Volume Control:**
+- Input validation: `max(0, min(100, int(volume_level)))`
+- Database error handling with fallback to 70% default
+- Overlay range validation: `Math.min(1.0, Math.max(0.0, volume / 100))`
+
+**Audio Processing:**
+- Normalization failure fallback to original audio file
+- File validation for supported audio formats
+- Size and duration limits enforcement
+- Automatic cleanup of temporary processing files
+
+**JavaScript Template Safety:**
+- User data properly escaped with `|tojson` filter
+- Global `userData` object for safe JavaScript access
+- Event prevention on disabled navigation elements
+
+### Files Modified
+
+**Backend Implementation:**
+- `app/models/sound_effect.py` - Core sound effect model
+- `app/models/user_sound_settings.py` - Volume control and user preferences
+- `app/models/sound_effect_donation.py` - Analytics tracking
+- `app/models/donation_payment.py` - Volume level integration for WebSocket events
+- `app/routes/main.py` - CRUD API, settings, test endpoints with volume handling
+- `migrations/versions/77b6bceb5278_*.py` - Volume level database migration
+
+**Frontend Implementation:**
+- `app/templates/sound_effects.html` - User settings with volume slider and sound library
+- `app/templates/dev.html` - Developer management interface with mass upload
+- `app/templates/donate.html` - Public sound browser with JavaScript fixes
+- `app/templates/overlay.html` - Volume-aware sound playback integration
+- `app/templates/components/sidebar.html` - Disabled navigation with tooltip
+- `app/templates/base.html` - Bootstrap tooltip initialization
+- `app/static/css/sound-effects.css` - Sound effects page styling
+
+**Dependencies:**
+- `pydub==0.25.1` - Audio processing and normalization
+- `mutagen==1.47.0` - Audio metadata extraction
+- `ffmpeg` (system dependency) - Required for pydub audio processing
+
+### Production Status
+- ✅ Complete CRUD sound effects management system
+- ✅ Audio normalization with -20 dBFS targeting
+- ✅ User volume control with real-time overlay integration
+- ✅ Public donation page integration with static previews
+- ✅ Advanced tier access control with disabled navigation
+- ✅ Comprehensive error handling and fallback systems
+- ✅ WebSocket-based real-time sound delivery
+- ✅ Developer testing and management tools
+- ✅ Database migrations and schema updates
+- ✅ JavaScript template security fixes
+
 # System Overview Summary
 
 DonAlert is a **comprehensive donation alert and revenue management platform** specifically designed for Mongolian content creators. The system provides:
 
-**For Streamers**: Complete donation management with real-time alerts, goal tracking, marathon systems, income analytics, and subscription management.
+**For Streamers**: Complete donation management with real-time alerts, goal tracking, marathon systems, sound effects system, income analytics, and subscription management.
 
 **For Viewers**: Public donation pages with QPay integration, real-time donation feeds, and seamless mobile payment experience.
 
 **For Developers**: Modular Flask architecture, comprehensive documentation, Discord integration, and professional development workflow.
 
-The platform is **production-ready** with 10 major feature systems, professional UI/UX, and complete documentation.
+The platform is **production-ready** with 11 major feature systems, professional UI/UX, and complete documentation.
 
 ## Features Relevant to Streamers
 
@@ -616,11 +857,13 @@ The platform is **production-ready** with 10 major feature systems, professional
 
 8. **Custom Assets** - Upload your own GIFs, sounds, and images for personalized alerts
 
-9. **Bank Account Setup** - Connect your Mongolian bank account to receive payments
+9. **Sound Effects System** - Let viewers trigger custom sound effects through donations with volume control
+
+10. **Bank Account Setup** - Connect your Mongolian bank account to receive payments
 
 ### Optional Features
 
-10. **Discord Integration** - Automatically post updates to your Discord community server
+11. **Discord Integration** - Automatically post updates to your Discord community server
 
 *Note: All features work together seamlessly with real-time updates and professional design that integrates with OBS for streaming.*
 

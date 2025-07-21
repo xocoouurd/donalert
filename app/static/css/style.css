@@ -545,20 +545,6 @@ h6 {
     color: #333333 !important;
 }
 
-/* Override default text colors to use softer black */
-.dashboard-page .glass-card:not(.donation-alert):not(.alert-preview-container):not(.goal-preview-container),
-.dashboard-page .form-label,
-.dashboard-page .form-text,
-.dashboard-page p:not(.donation-alert p):not(.goal-preview p),
-.dashboard-page
-    span:not(.input-group-text):not(.donation-alert span):not(.goal-preview span):not(
-        #userAssetCount
-    ):not(#defaultAssetCount):not(#basicTabAmount),
-.dashboard-page
-    div:not(.alert):not(.badge):not(.donation-alert):not(.donation-alert div):not(.goal-preview):not(.goal-preview div):not(.tooltip-inner),
-.dashboard-page small:not(.donation-alert small):not(.goal-preview small) {
-    color: #333333 !important;
-}
 
 .dashboard-page .text-muted:not(.donation-alert .text-muted) {
     color: #888888 !important;
