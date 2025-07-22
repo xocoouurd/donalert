@@ -1,4 +1,5 @@
 from datetime import datetime
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 from app.extensions import db
 from app.utils.quickpay_payment import create_donation_invoice
@@ -412,7 +413,7 @@ class DonationPayment(db.Model):
             ).first()
             
             if goal:
-                current_app.logger.info(f"GOAL UPDATE: Found active goal {goal.id}, current amount: {goal.get_total_amount()}₮, target: {goal.target_amount}₮")
+                current_app.logger.info(f"GOAL UPDATE: Found active goal {goal.id}, current amount: {goal.get_total_amount()}₮, target: {goal.goal_amount}₮")
                 
                 # Add donation amount to goal
                 goal.add_donation(donation.amount)
