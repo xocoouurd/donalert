@@ -13,257 +13,198 @@
     {% include 'components/sidebar.html' %}
 
     <div class="dashboard-content">
-        <div class="donor-leaderboard-container">
-            <!-- Header Section -->
-            <div class="page-header glass-card">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <h1><i class="fas fa-trophy"></i> Хандивчдын жагсаалт</h1>
-                        <p class="subtitle">Шилдэг хандивчдын жагсаалт тохируулах</p>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="leaderboard-stats">
-                            <div class="stat-item">
-                                <div class="stat-value">{{ total_donors }}</div>
-                                <div class="stat-label">Нийт хандивч</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">{{ "{:,.0f}".format(total_amount) }}₮</div>
-                                <div class="stat-label">Нийт дүн</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">{{ total_donations }}</div>
-                                <div class="stat-label">Нийт хандив</div>
-                            </div>
-                        </div>
-                    </div>
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">Хандивчдын жагсаалт тохиргоо</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyOverlayUrl(event)">
+                        <i class="fas fa-copy me-1"></i>Overlay URL
+                    </button>
                 </div>
             </div>
 
-            <!-- Overlay URL Card -->
-            <div class="overlay-link-card glass-card">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h5><i class="fas fa-external-link-alt"></i> OBS Overlay холбоос</h5>
-                        <p class="mb-0">Энэ холбоосыг OBS-д Browser Source болгон нэмээд жагсаалт харуулаарай</p>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="overlayUrl" value="{{ overlay_url }}" readonly>
-                            <button class="btn btn-primary" type="button" id="copyOverlayBtn">
-                                <i class="fas fa-copy"></i> Хуулах
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Settings -->
-            <div class="settings-section glass-card">
-                <form id="leaderboardSettingsForm">
-                    <div class="row">
-                        <!-- Left Column: Basic Settings -->
-                        <div class="col-lg-6">
-                            <h4 class="section-title">
-                                <i class="fas fa-cog"></i> Үндсэн тохиргоо
-                            </h4>
-
-                            <!-- Enable/Disable Toggle -->
-                            <div class="setting-group">
-                                <label class="toggle-label">
-                                    <input type="checkbox" id="isEnabled" name="is_enabled" 
-                                           {% if settings.is_enabled %}checked{% endif %}>
-                                    <span class="toggle-slider"></span>
-                                    <span class="toggle-text">Жагсаалт идэвхжүүлэх</span>
+                <!-- Left Column: Settings -->
+                <div class="col-lg-7">
+                    <form id="leaderboardSettingsForm">
+                        <!-- Enable/Disable Toggle -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-power-off me-2"></i>Жагсаалт идэвхжүүлэх</h5>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="isEnabled" name="is_enabled" 
+                                       {% if settings.is_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="isEnabled">
+                                    Хандивчдын жагсаалтыг overlay-д харуулах
                                 </label>
-                                <p class="setting-description">Хандивчдын жагсаалтыг overlay-д харуулах эсэх</p>
-                            </div>
-
-                            <!-- Position Count -->
-                            <div class="setting-group">
-                                <label for="positionsCount" class="form-label">Харуулах байрны тоо</label>
-                                <div class="position-selector">
-                                    <input type="range" class="form-range" id="positionsCount" name="positions_count" 
-                                           min="1" max="10" step="1" value="{{ settings.positions_count }}" 
-                                           oninput="updatePositionDisplay(this.value)">
-                                    <div class="position-display">
-                                        <span id="positionValue">{{ settings.positions_count }}</span> байр
-                                    </div>
-                                </div>
-                                <div class="position-labels">
-                                    <small>1 = Зөвхөн дэд</small>
-                                    <small>2-3 = Подиум</small>
-                                    <small>4+ = Жагсаалт</small>
-                                </div>
-                            </div>
-
-                            <!-- Display Options -->
-                            <div class="setting-group">
-                                <h5>Харуулах мэдээлэл</h5>
-                                <div class="checkbox-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="show_amounts" 
-                                               {% if settings.show_amounts %}checked{% endif %}>
-                                        <span class="checkbox-custom"></span>
-                                        <span class="checkbox-text">Хандивын дүн харуулах</span>
-                                    </label>
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" name="show_donation_counts" 
-                                               {% if settings.show_donation_counts %}checked{% endif %}>
-                                        <span class="checkbox-custom"></span>
-                                        <span class="checkbox-text">Хандивын тоо харуулах</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Action Buttons -->
-                            <div class="setting-group">
-                                <div class="button-group">
-                                    <button type="button" class="btn btn-success" id="saveSettingsBtn">
-                                        <i class="fas fa-save"></i> Тохиргоо хадгалах
-                                    </button>
-                                    <button type="button" class="btn btn-outline-primary" id="refreshDataBtn">
-                                        <i class="fas fa-sync-alt"></i> Мэдээлэл шинэчлэх
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: Visual Customization -->
-                        <div class="col-lg-6">
-                            <h4 class="section-title">
-                                <i class="fas fa-palette"></i> Дизайн тохиргоо
-                            </h4>
+                        <!-- Position Count -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-list-ol me-2"></i>Харуулах байрны тоо</h5>
+                            <div class="mb-2">
+                                <label for="positionsCount" class="form-label">Байрны тоо: <span id="positionValue">{{ settings.positions_count }}</span></label>
+                                <input type="range" class="form-range" id="positionsCount" name="positions_count" 
+                                       min="1" max="10" step="1" value="{{ settings.positions_count }}" 
+                                       oninput="updatePositionDisplay(this.value)">
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">1 = Зөвхөн дэд</small>
+                                <small class="text-muted">2-3 = Подиум</small>
+                                <small class="text-muted">4+ = Жагсаалт</small>
+                            </div>
+                        </div>
 
-                            <!-- Throne Styling (#1 Position) -->
-                            <div class="styling-group">
-                                <h5><i class="fas fa-crown"></i> Дэд байр (#1)</h5>
+                        <!-- Display Options -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Харуулах мэдээлэл</h5>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="show_amounts" id="showAmounts"
+                                       {% if settings.show_amounts %}checked{% endif %}>
+                                <label class="form-check-label" for="showAmounts">
+                                    Хандивын дүн харуулах
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="show_donation_counts" id="showCounts"
+                                       {% if settings.show_donation_counts %}checked{% endif %}>
+                                <label class="form-check-label" for="showCounts">
+                                    Хандивын тоо харуулах
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Visual Customization -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-palette me-2"></i>Дизайн тохиргоо</h5>
+                            
+                            <!-- Throne Styling -->
+                            <div class="mb-3">
+                                <h6><i class="fas fa-crown me-1"></i> Дэд байр (#1)</h6>
                                 <div class="row">
                                     <div class="col-6">
                                         <label for="throneBackgroundColor" class="form-label">Арын өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="throneBackgroundColor" name="throne_background_color" 
                                                value="{{ settings.get_throne_styling().get('background_color', '#FFD700') }}">
                                     </div>
                                     <div class="col-6">
                                         <label for="throneTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="throneTextColor" name="throne_text_color" 
                                                value="{{ settings.get_throne_styling().get('text_color', '#1A1A1A') }}">
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Podium Styling (#2-3 Positions) -->
-                            <div class="styling-group">
-                                <h5><i class="fas fa-medal"></i> Подиум (#2-3)</h5>
+                            <!-- Podium Styling -->
+                            <div class="mb-3">
+                                <h6><i class="fas fa-medal me-1"></i> Подиум (#2-3)</h6>
                                 <div class="row">
                                     <div class="col-6">
                                         <label for="podiumBackgroundColor" class="form-label">Арын өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="podiumBackgroundColor" name="podium_background_color" 
                                                value="{{ settings.get_podium_styling().get('background_color', '#C0C0C0') }}">
                                     </div>
                                     <div class="col-6">
                                         <label for="podiumTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="podiumTextColor" name="podium_text_color" 
                                                value="{{ settings.get_podium_styling().get('text_color', '#1A1A1A') }}">
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Standard Styling (#4+ Positions) -->
-                            <div class="styling-group">
-                                <h5><i class="fas fa-list-ol"></i> Энгийн жагсаалт (#4+)</h5>
+                            <!-- Standard Styling -->
+                            <div class="mb-3">
+                                <h6><i class="fas fa-list me-1"></i> Энгийн жагсаалт (#4+)</h6>
                                 <div class="row">
                                     <div class="col-6">
                                         <label for="standardBackgroundColor" class="form-label">Арын өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="standardBackgroundColor" name="standard_background_color" 
-                                               value="{{ settings.get_standard_styling().get('background_color', 'rgba(255, 255, 255, 0.1)') }}" 
-                                               data-default="rgba(255, 255, 255, 0.1)">
+                                               value="#404040">
                                     </div>
                                     <div class="col-6">
                                         <label for="standardTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control color-input" 
+                                        <input type="color" class="form-control" 
                                                id="standardTextColor" name="standard_text_color" 
                                                value="{{ settings.get_standard_styling().get('text_color', '#FFFFFF') }}">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </form>
-            </div>
 
-            <!-- Live Preview Section -->
-            <div class="preview-section glass-card">
-                <h4 class="section-title">
-                    <i class="fas fa-eye"></i> Жагсаалт урьдчилан үзэх
-                    <button type="button" class="btn btn-sm btn-outline-primary float-end" id="updatePreviewBtn">
-                        <i class="fas fa-sync-alt"></i> Шинэчлэх
-                    </button>
-                </h4>
-                
-                <div class="preview-container" id="leaderboardPreview">
-                    <!-- Preview will be populated by JavaScript -->
+                        <!-- Save Button -->
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-primary" id="saveSettingsBtn">
+                                <i class="fas fa-save me-2"></i>Тохиргоо хадгалах
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </div>
 
-            <!-- Current Top Donors -->
-            {% if top_donors %}
-            <div class="current-donors glass-card">
-                <h4 class="section-title">
-                    <i class="fas fa-users"></i> Одоогийн шилдэг хандивчид
-                </h4>
-                <div class="donors-list">
-                    {% for donor in top_donors %}
-                    <div class="donor-item">
-                        <div class="donor-rank">#{{ loop.index }}</div>
-                        <div class="donor-info">
-                            <div class="donor-name">{{ donor.donor_name }}</div>
-                            <div class="donor-stats">
-                                {{ "{:,.0f}".format(donor.total_amount) }}₮
-                                • {{ donor.donation_count }} хандив
-                                • Хамгийн их: {{ "{:,.0f}".format(donor.biggest_single_donation) }}₮
-                            </div>
+                <!-- Right Column: Live Preview -->
+                <div class="col-lg-5">
+                    <div class="glass-card p-3 sticky-top">
+                        <h5 class="mb-3"><i class="fas fa-eye me-2"></i>Урьдчилан үзэх</h5>
+                        
+                        <div id="leaderboardPreview" class="preview-container">
+                            <!-- Preview will be populated by JavaScript -->
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            {% endif %}
         </div>
     </div>
 </div>
 
 <script>
-// Copy overlay URL to clipboard
-document.getElementById('copyOverlayBtn').addEventListener('click', function() {
-    const urlInput = document.getElementById('overlayUrl');
-    urlInput.select();
-    urlInput.setSelectionRange(0, 99999);
+// Copy overlay URL function
+function copyOverlayUrl(event) {
+    event.preventDefault();
     
-    try {
-        document.execCommand('copy');
-        
-        // Show success feedback
-        const btn = this;
+    const overlayUrl = '{{ overlay_url }}';
+    
+    navigator.clipboard.writeText(overlayUrl).then(function() {
+        const btn = event.target.closest('button');
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Хуулагдлаа';
+        
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа';
         btn.classList.add('btn-success');
-        btn.classList.remove('btn-primary');
+        btn.classList.remove('btn-outline-primary');
         
         setTimeout(() => {
             btn.innerHTML = originalText;
             btn.classList.remove('btn-success');
-            btn.classList.add('btn-primary');
+            btn.classList.add('btn-outline-primary');
         }, 2000);
-    } catch (err) {
-        console.error('Copy failed:', err);
-    }
-});
+    }).catch(function() {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = overlayUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            const btn = event.target.closest('button');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-outline-primary');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+            }, 2000);
+        } catch (err) {
+            console.error('Copy failed:', err);
+        }
+        document.body.removeChild(textArea);
+    });
+}</script>
 
 // Update position display
 function updatePositionDisplay(value) {
@@ -290,9 +231,9 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function() 
     .then(data => {
         if (data.success) {
             // Show success
-            btn.innerHTML = '<i class="fas fa-check"></i> Хадгалагдлаа';
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Хадгалагдлаа';
             btn.classList.add('btn-success');
-            btn.classList.remove('btn-success');
+            btn.classList.remove('btn-primary');
             
             // Update preview
             updatePreview();
@@ -300,7 +241,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function() 
             setTimeout(() => {
                 btn.innerHTML = originalText;
                 btn.classList.remove('btn-success');
-                btn.classList.add('btn-success');
+                btn.classList.add('btn-primary');
                 btn.disabled = false;
             }, 2000);
         } else {
@@ -315,43 +256,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function() 
         setTimeout(() => {
             btn.innerHTML = originalText;
             btn.classList.remove('btn-danger');
-            btn.classList.add('btn-success');
-            btn.disabled = false;
-        }, 3000);
-    });
-});
-
-// Refresh leaderboard data
-document.getElementById('refreshDataBtn').addEventListener('click', function() {
-    const btn = this;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Шинэчилж байна...';
-    btn.disabled = true;
-    
-    fetch('/api/donor-leaderboard/refresh', {
-        method: 'POST'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success and reload page to update data
-            btn.innerHTML = '<i class="fas fa-check"></i> Шинэчлэгдлээ';
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-        } else {
-            throw new Error(data.error || 'Алдаа гарлаа');
-        }
-    })
-    .catch(error => {
-        console.error('Refresh error:', error);
-        btn.innerHTML = '<i class="fas fa-times"></i> Алдаа гарлаа';
-        btn.classList.add('btn-danger');
-        
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.classList.remove('btn-danger');
-            btn.classList.add('btn-outline-primary');
+            btn.classList.add('btn-primary');
             btn.disabled = false;
         }, 3000);
     });

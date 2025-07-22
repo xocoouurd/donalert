@@ -21,6 +21,7 @@ class DonorLeaderboardSettings(db.Model):
     podium_styling = db.Column(db.Text)  # JSON: colors, fonts, effects for #2-3
     standard_styling = db.Column(db.Text)  # JSON: colors, fonts, effects for #4+
     global_styling = db.Column(db.Text)  # JSON: background, transparency, fonts
+    overlay_token = db.Column(db.String(32), unique=True)  # Secure random token for overlay URL
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -39,9 +40,27 @@ class DonorLeaderboardSettings(db.Model):
         settings = cls.query.filter_by(user_id=user_id).first()
         if not settings:
             settings = cls(user_id=user_id)
+            settings._generate_overlay_token()
             db.session.add(settings)
             db.session.commit()
+        elif not settings.overlay_token:
+            settings._generate_overlay_token()
+            db.session.commit()
         return settings
+    
+    def _generate_overlay_token(self):
+        """Generate a secure random token for overlay URL"""
+        import secrets
+        import string
+        
+        # Generate 32-character random string
+        alphabet = string.ascii_letters + string.digits
+        self.overlay_token = ''.join(secrets.choice(alphabet) for _ in range(32))
+    
+    def regenerate_overlay_token(self):
+        """Regenerate overlay token (for security purposes)"""
+        self._generate_overlay_token()
+        self.updated_at = datetime.utcnow()
     
     def get_throne_styling(self):
         """Get throne styling configuration"""

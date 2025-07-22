@@ -3323,25 +3323,12 @@ def donor_leaderboard_settings():
         # Get current leaderboard data
         top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=10)
         
-        # Get leaderboard statistics
-        total_donors = DonorLeaderboard.query.filter_by(user_id=current_user.id).count()
-        
-        if top_donors:
-            total_leaderboard_amount = sum(float(donor.total_amount) for donor in top_donors)
-            total_leaderboard_donations = sum(donor.donation_count for donor in top_donors)
-        else:
-            total_leaderboard_amount = 0
-            total_leaderboard_donations = 0
-        
-        # Generate overlay URL
-        overlay_url = url_for('main.leaderboard_overlay', username=current_user.username, _external=True)
+        # Generate secure overlay URL
+        overlay_url = url_for('main.leaderboard_overlay', token=settings.overlay_token, _external=True)
         
         return render_template('donor_leaderboard.html',
                              settings=settings,
                              top_donors=[donor.to_dict() for donor in top_donors],
-                             total_donors=total_donors,
-                             total_amount=total_leaderboard_amount,
-                             total_donations=total_leaderboard_donations,
                              overlay_url=overlay_url)
                              
     except Exception as e:
@@ -3432,21 +3419,21 @@ def refresh_leaderboard_data():
         current_app.logger.error(f"Error refreshing leaderboard data: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@main_bp.route('/leaderboard-overlay/<username>')
-def leaderboard_overlay(username):
+@main_bp.route('/leaderboard-overlay/<token>')
+def leaderboard_overlay(token):
     """Public leaderboard overlay page for OBS integration"""
     try:
         from app.models.user import User
         from app.models.donor_leaderboard import DonorLeaderboard
         from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
         
-        # Get user by username
-        user = User.query.filter_by(username=username).first()
-        if not user:
+        # Get settings by token
+        settings = DonorLeaderboardSettings.query.filter_by(overlay_token=token).first()
+        if not settings:
             abort(404)
         
-        # Get settings
-        settings = DonorLeaderboardSettings.get_or_create_for_user(user.id)
+        # Get user from settings
+        user = settings.user
         
         # If leaderboard is disabled, show empty page
         if not settings.is_enabled:
@@ -3466,6 +3453,6 @@ def leaderboard_overlay(username):
                              enabled=True)
                              
     except Exception as e:
-        current_app.logger.error(f"Error loading leaderboard overlay for {username}: {str(e)}")
+        current_app.logger.error(f"Error loading leaderboard overlay for token {token}: {str(e)}")
         abort(500)
 
