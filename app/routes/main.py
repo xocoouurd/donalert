@@ -3338,7 +3338,7 @@ def donor_leaderboard_settings():
         
         return render_template('donor_leaderboard.html',
                              settings=settings,
-                             top_donors=top_donors,
+                             top_donors=[donor.to_dict() for donor in top_donors],
                              total_donors=total_donors,
                              total_amount=total_leaderboard_amount,
                              total_donations=total_leaderboard_donations,
@@ -3462,7 +3462,7 @@ def leaderboard_overlay(username):
         return render_template('leaderboard_overlay.html',
                              user=user,
                              settings=settings,
-                             top_donors=top_donors,
+                             top_donors=[donor.to_dict() for donor in top_donors],
                              enabled=True)
                              
     except Exception as e:

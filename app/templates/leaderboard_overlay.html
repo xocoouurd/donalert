@@ -309,7 +309,7 @@
         // Placeholder for real-time leaderboard updates
         console.log('Leaderboard overlay loaded for {{ user.username }}');
         console.log('Settings:', {{ settings.to_dict() | tojson | safe }});
-        console.log('Top donors:', {{ top_donors | map(attribute='to_dict') | list | tojson | safe }});
+        console.log('Top donors:', {{ top_donors | tojson | safe }});
     </script>
 </body>
 </html>
