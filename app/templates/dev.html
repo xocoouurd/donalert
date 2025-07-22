@@ -157,6 +157,12 @@
                             </select>
                         </div>
                         
+                        <input type="text" 
+                               class="form-control form-control-sm mb-2" 
+                               id="testDonorName" 
+                               placeholder="Хандивчийн нэр (заавал биш)"
+                               maxlength="50">
+                        
                         <div class="input-group mb-2">
                             <input type="number" 
                                    class="form-control form-control-sm" 
@@ -506,6 +512,8 @@ function onTestTypeChange() {
         buttonText.textContent = 'Туршилтын хандив илгээх';
         messageInput.style.display = 'block'; // Show message input for donations
     }
+    
+    // Donor name field is always visible for both types
 }
 
 // Unified test simulation function
@@ -523,9 +531,11 @@ function simulateTest() {
 function simulateDonation() {
     const amountInput = document.getElementById('testDonationAmount');
     const messageInput = document.getElementById('testDonationMessage');
+    const donorNameInput = document.getElementById('testDonorName');
     
     const amount = parseFloat(amountInput.value);
     const message = messageInput.value.trim();
+    const donorName = donorNameInput.value.trim();
     
     // Validation
     if (!amount || amount <= 0) {
@@ -536,7 +546,7 @@ function simulateDonation() {
     const donationData = {
         amount: amount,
         message: message || 'Туршилтын хандив',
-        donator_name: 'Туршилтын хэрэглэгч',
+        donator_name: donorName || 'Туршилтын хэрэглэгч',
         is_test: true
     };
     
@@ -559,6 +569,7 @@ function simulateDonation() {
             // Clear inputs after successful simulation
             amountInput.value = '';
             messageInput.value = '';
+            donorNameInput.value = '';
         }
     })
     .catch(error => {
@@ -575,9 +586,11 @@ function simulateDonation() {
 function simulateSoundEffect() {
     const amountInput = document.getElementById('testDonationAmount');
     const soundSelect = document.getElementById('testSoundEffect');
+    const donorNameInput = document.getElementById('testDonorName');
     
     const amount = parseFloat(amountInput.value);
     const soundEffectId = parseInt(soundSelect.value);
+    const donorName = donorNameInput.value.trim();
     
     // Validation
     if (!amount || amount <= 0) {
@@ -594,7 +607,7 @@ function simulateSoundEffect() {
     const soundData = {
         amount: amount,
         sound_effect_id: soundEffectId,
-        donator_name: 'Туршилтын хэрэглэгч',
+        donator_name: donorName || 'Туршилтын хэрэглэгч',
         is_test: true
     };
     
@@ -617,6 +630,7 @@ function simulateSoundEffect() {
             // Clear inputs after successful simulation
             amountInput.value = '';
             soundSelect.value = '';
+            donorNameInput.value = '';
         } else {
             alert('Алдаа гарлаа: ' + (data.error || 'Тодорхойгүй алдаа'));
         }
