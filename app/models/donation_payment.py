@@ -187,6 +187,10 @@ class DonationPayment(db.Model):
             current_app.logger.info(f"REAL DONATION: Updating marathon for donation {donation.id}")
             self._update_marathon_time(donation)
             
+            # Update donor leaderboard
+            current_app.logger.info(f"REAL DONATION: Updating donor leaderboard for donation {donation.id}")
+            self._update_donor_leaderboard(donation)
+            
             current_app.logger.info(f"REAL DONATION: Successfully processed donation {donation.id}")
             return True
             
@@ -471,6 +475,88 @@ class DonationPayment(db.Model):
             logger.error(f"DONATION: Failed to update marathon time: {str(e)}")
             import traceback
             logger.error(f"DONATION: Traceback: {traceback.format_exc()}")
+    
+    def _update_donor_leaderboard(self, donation):
+        """Update donor leaderboard with new donation"""
+        try:
+            from app.models.donor_leaderboard import DonorLeaderboard
+            from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+            
+            current_app.logger.info(f"LEADERBOARD: Starting leaderboard update for donation {donation.id}")
+            current_app.logger.info(f"LEADERBOARD: Streamer: {self.streamer_user_id}, Amount: {donation.amount}₮, Donor: {donation.donor_name}")
+            
+            # Get old position before update (for position change detection)
+            old_entry = DonorLeaderboard.query.filter_by(
+                user_id=self.streamer_user_id,
+                donor_name=donation.donor_name,
+                donor_user_id=donation.donor_platform_id
+            ).first()
+            
+            old_position = None
+            if old_entry:
+                old_position = DonorLeaderboard.get_donor_position(
+                    self.streamer_user_id, 
+                    donation.donor_name,
+                    donation.donor_platform_id
+                )
+                current_app.logger.info(f"LEADERBOARD: Donor {donation.donor_name} current position: {old_position}")
+            else:
+                current_app.logger.info(f"LEADERBOARD: New donor {donation.donor_name} joining leaderboard")
+            
+            # Update leaderboard entry
+            updated_entry = DonorLeaderboard.update_donor_entry(self.streamer_user_id, donation)
+            
+            if updated_entry:
+                # Get new position after update
+                new_position = DonorLeaderboard.get_donor_position(
+                    self.streamer_user_id,
+                    donation.donor_name, 
+                    donation.donor_platform_id
+                )
+                
+                current_app.logger.info(f"LEADERBOARD: Donor {donation.donor_name} new position: {new_position}")
+                
+                # Check if leaderboard is enabled and emit real-time update
+                settings = DonorLeaderboardSettings.query.filter_by(user_id=self.streamer_user_id).first()
+                if settings and settings.is_enabled:
+                    current_app.logger.info(f"LEADERBOARD: Emitting real-time update for streamer {self.streamer_user_id}")
+                    
+                    # Get updated top donors
+                    top_donors = DonorLeaderboard.get_top_donors(self.streamer_user_id, limit=settings.positions_count)
+                    
+                    # Prepare position change data
+                    position_change_data = None
+                    if old_position and new_position and old_position != new_position:
+                        position_change_data = {
+                            'donor_name': donation.donor_name,
+                            'old_position': old_position,
+                            'new_position': new_position,
+                            'is_throne_takeover': new_position == 1 and old_position != 1,
+                            'amount_added': float(donation.amount)
+                        }
+                        current_app.logger.info(f"LEADERBOARD: Position change detected: {position_change_data}")
+                    
+                    # Emit leaderboard update
+                    from app.extensions import socketio
+                    socketio.emit('leaderboard_updated', {
+                        'settings': settings.to_dict(),
+                        'top_donors': [donor.to_dict() for donor in top_donors],
+                        'enabled': settings.is_enabled,
+                        'position_change': position_change_data
+                    }, room=f'leaderboard_{self.streamer_user_id}')
+                    
+                    current_app.logger.info(f"LEADERBOARD: Successfully emitted leaderboard update for streamer {self.streamer_user_id}")
+                else:
+                    current_app.logger.info(f"LEADERBOARD: Leaderboard disabled for streamer {self.streamer_user_id} - no real-time update")
+                
+                current_app.logger.info(f"LEADERBOARD: Successfully updated leaderboard for donation {donation.id}")
+            else:
+                current_app.logger.warning(f"LEADERBOARD: Failed to update leaderboard entry for donation {donation.id}")
+                
+        except Exception as e:
+            current_app.logger.error(f"LEADERBOARD: Failed to update donor leaderboard: {str(e)}")
+            import traceback
+            current_app.logger.error(f"LEADERBOARD: Traceback: {traceback.format_exc()}")
     
     def mark_as_failed(self, reason=None):
         """Mark donation payment as failed"""

@@ -81,18 +81,22 @@
                             <!-- Throne Styling -->
                             <div class="mb-3">
                                 <h6><i class="fas fa-crown me-1"></i> Дэд байр (#1)</h6>
-                                <div class="row">
+                                <div class="row mb-2">
                                     <div class="col-6">
-                                        <label for="throneBackgroundColor" class="form-label">Арын өнгө</label>
-                                        <input type="color" class="form-control" 
-                                               id="throneBackgroundColor" name="throne_background_color" 
-                                               value="{{ settings.get_throne_styling().get('background_color', '#FFD700') }}">
+                                        <label for="throneHeight" class="form-label">Өндөр</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="throneHeight" 
+                                                   name="throne_height" value="{{ settings.get_throne_styling().get('height', 50) }}" min="20" max="100" step="5">
+                                            <span class="input-group-text">px</span>
+                                        </div>
                                     </div>
                                     <div class="col-6">
-                                        <label for="throneTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control" 
-                                               id="throneTextColor" name="throne_text_color" 
-                                               value="{{ settings.get_throne_styling().get('text_color', '#1A1A1A') }}">
+                                        <label for="throneWidth" class="form-label">Өргөн (%)</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="throneWidth" 
+                                                   name="throne_width" value="{{ settings.get_throne_styling().get('width', 100) }}" min="50" max="100" step="5">
+                                            <span class="input-group-text">%</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -100,18 +104,22 @@
                             <!-- Podium Styling -->
                             <div class="mb-3">
                                 <h6><i class="fas fa-medal me-1"></i> Подиум (#2-3)</h6>
-                                <div class="row">
+                                <div class="row mb-2">
                                     <div class="col-6">
-                                        <label for="podiumBackgroundColor" class="form-label">Арын өнгө</label>
-                                        <input type="color" class="form-control" 
-                                               id="podiumBackgroundColor" name="podium_background_color" 
-                                               value="{{ settings.get_podium_styling().get('background_color', '#C0C0C0') }}">
+                                        <label for="podiumHeight" class="form-label">Өндөр</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="podiumHeight" 
+                                                   name="podium_height" value="{{ settings.get_podium_styling().get('height', 45) }}" min="20" max="100" step="5">
+                                            <span class="input-group-text">px</span>
+                                        </div>
                                     </div>
                                     <div class="col-6">
-                                        <label for="podiumTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control" 
-                                               id="podiumTextColor" name="podium_text_color" 
-                                               value="{{ settings.get_podium_styling().get('text_color', '#1A1A1A') }}">
+                                        <label for="podiumWidth" class="form-label">Өргөн (%)</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="podiumWidth" 
+                                                   name="podium_width" value="{{ settings.get_podium_styling().get('width', 100) }}" min="50" max="100" step="5">
+                                            <span class="input-group-text">%</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -119,18 +127,162 @@
                             <!-- Standard Styling -->
                             <div class="mb-3">
                                 <h6><i class="fas fa-list me-1"></i> Энгийн жагсаалт (#4+)</h6>
-                                <div class="row">
-                                    <div class="col-6">
+                                <div class="row mb-2">
+                                    <div class="col-4">
                                         <label for="standardBackgroundColor" class="form-label">Арын өнгө</label>
                                         <input type="color" class="form-control" 
                                                id="standardBackgroundColor" name="standard_background_color" 
-                                               value="#404040">
+                                               value="{{ settings.get_standard_styling().get('background_color', '#404040') }}">
+                                    </div>
+                                    <div class="col-4">
+                                        <label for="standardHeight" class="form-label">Өндөр</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="standardHeight" 
+                                                   name="standard_height" value="{{ settings.get_standard_styling().get('height', 40) }}" min="20" max="100" step="5">
+                                            <span class="input-group-text">px</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <label for="standardWidth" class="form-label">Өргөн (%)</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="standardWidth" 
+                                                   name="standard_width" value="{{ settings.get_standard_styling().get('width', 100) }}" min="50" max="100" step="5">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Font Controls -->
+                        <div class="glass-card p-3 mb-3">
+                            <h5 class="mb-3"><i class="fas fa-font me-2"></i>Фонт тохиргоо</h5>
+                            
+                            <!-- Donor Names Font -->
+                            <div class="mb-4">
+                                <h6><i class="fas fa-user me-1"></i> Хандивчийн нэр</h6>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="namesFontSize" class="form-label">Үсгийн хэмжээ</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="namesFontSize" 
+                                                   name="names_font_size" value="{{ settings.get_global_styling().get('names_font', {}).get('size', 16) }}" min="10" max="48" step="1">
+                                            <span class="input-group-text">px</span>
+                                        </div>
                                     </div>
                                     <div class="col-6">
-                                        <label for="standardTextColor" class="form-label">Текстийн өнгө</label>
-                                        <input type="color" class="form-control" 
-                                               id="standardTextColor" name="standard_text_color" 
-                                               value="{{ settings.get_standard_styling().get('text_color', '#FFFFFF') }}">
+                                        <label for="namesFontColor" class="form-label">Үсгийн өнгө</label>
+                                        <input type="color" class="form-control" id="namesFontColor" 
+                                               name="names_font_color" value="{{ settings.get_global_styling().get('names_font', {}).get('color', '#FFFFFF') }}">
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="namesFontWeight" class="form-label">Зузаан</label>
+                                        <select class="form-control" id="namesFontWeight" name="names_font_weight">
+                                            {% set names_weight = settings.get_global_styling().get('names_font', {}).get('weight', '600') %}
+                                            <option value="300" {% if names_weight == '300' %}selected{% endif %}>Баруун</option>
+                                            <option value="400" {% if names_weight == '400' %}selected{% endif %}>Энгийн</option>
+                                            <option value="500" {% if names_weight == '500' %}selected{% endif %}>Дунд</option>
+                                            <option value="600" {% if names_weight == '600' %}selected{% endif %}>Зузаан</option>
+                                            <option value="700" {% if names_weight == '700' %}selected{% endif %}>Илүү зузаан</option>
+                                            <option value="800" {% if names_weight == '800' %}selected{% endif %}>Маш зузаан</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-check mt-4">
+                                            <input class="form-check-input" type="checkbox" id="namesItalic" name="names_italic"
+                                                   {% if settings.get_global_styling().get('names_font', {}).get('italic', False) %}checked{% endif %}>
+                                            <label class="form-check-label" for="namesItalic">
+                                                Налуу үсэг
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Donation Amounts Font -->
+                            <div class="mb-3">
+                                <h6><i class="fas fa-money-bill-wave me-1"></i> Хандивын дүн</h6>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="amountsFontSize" class="form-label">Үсгийн хэмжээ</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="amountsFontSize" 
+                                                   name="amounts_font_size" value="{{ settings.get_global_styling().get('amounts_font', {}).get('size', 14) }}" min="8" max="36" step="1">
+                                            <span class="input-group-text">px</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="amountsFontColor" class="form-label">Үсгийн өнгө</label>
+                                        <input type="color" class="form-control" id="amountsFontColor" 
+                                               name="amounts_font_color" value="{{ settings.get_global_styling().get('amounts_font', {}).get('color', '#FFD700') }}">
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="amountsFontWeight" class="form-label">Зузаан</label>
+                                        <select class="form-control" id="amountsFontWeight" name="amounts_font_weight">
+                                            {% set amounts_weight = settings.get_global_styling().get('amounts_font', {}).get('weight', '500') %}
+                                            <option value="300" {% if amounts_weight == '300' %}selected{% endif %}>Баруун</option>
+                                            <option value="400" {% if amounts_weight == '400' %}selected{% endif %}>Энгийн</option>
+                                            <option value="500" {% if amounts_weight == '500' %}selected{% endif %}>Дунд</option>
+                                            <option value="600" {% if amounts_weight == '600' %}selected{% endif %}>Зузаан</option>
+                                            <option value="700" {% if amounts_weight == '700' %}selected{% endif %}>Илүү зузаан</option>
+                                            <option value="800" {% if amounts_weight == '800' %}selected{% endif %}>Маш зузаан</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-check mt-4">
+                                            <input class="form-check-input" type="checkbox" id="amountsItalic" name="amounts_italic"
+                                                   {% if settings.get_global_styling().get('amounts_font', {}).get('italic', False) %}checked{% endif %}>
+                                            <label class="form-check-label" for="amountsItalic">
+                                                Налуу үсэг
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Position Numbers Font -->
+                            <div class="mb-3">
+                                <h6><i class="fas fa-hashtag me-1"></i> Байрны дугаар (#1, #2, #3)</h6>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="positionsFontSize" class="form-label">Үсгийн хэмжээ</label>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control" id="positionsFontSize" 
+                                                   name="positions_font_size" value="{{ settings.get_global_styling().get('positions_font', {}).get('size', 18) }}" min="10" max="48" step="1">
+                                            <span class="input-group-text">px</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="positionsFontColor" class="form-label">Үсгийн өнгө</label>
+                                        <input type="color" class="form-control" id="positionsFontColor" 
+                                               name="positions_font_color" value="{{ settings.get_global_styling().get('positions_font', {}).get('color', '#FFFFFF') }}">
+                                    </div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <label for="positionsFontWeight" class="form-label">Зузаан</label>
+                                        <select class="form-control" id="positionsFontWeight" name="positions_font_weight">
+                                            {% set positions_weight = settings.get_global_styling().get('positions_font', {}).get('weight', '700') %}
+                                            <option value="300" {% if positions_weight == '300' %}selected{% endif %}>Баруун</option>
+                                            <option value="400" {% if positions_weight == '400' %}selected{% endif %}>Энгийн</option>
+                                            <option value="500" {% if positions_weight == '500' %}selected{% endif %}>Дунд</option>
+                                            <option value="600" {% if positions_weight == '600' %}selected{% endif %}>Зузаан</option>
+                                            <option value="700" {% if positions_weight == '700' %}selected{% endif %}>Илүү зузаан</option>
+                                            <option value="800" {% if positions_weight == '800' %}selected{% endif %}>Маш зузаан</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-check mt-4">
+                                            <input class="form-check-input" type="checkbox" id="positionsItalic" name="positions_italic"
+                                                   {% if settings.get_global_styling().get('positions_font', {}).get('italic', False) %}checked{% endif %}>
+                                            <label class="form-check-label" for="positionsItalic">
+                                                Налуу үсэг
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -181,7 +333,7 @@ function copyOverlayUrl(event) {
             btn.classList.add('btn-outline-primary');
         }, 2000);
     });
-}</script>
+}
 
 // Update position display
 function updatePositionDisplay(value) {
@@ -243,16 +395,35 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function() 
 function updatePreview() {
     const isEnabled = document.getElementById('isEnabled').checked;
     const positionsCount = parseInt(document.getElementById('positionsCount').value);
-    const showAmounts = document.querySelector('input[name="show_amounts"]').checked;
-    const showCounts = document.querySelector('input[name="show_donation_counts"]').checked;
+    const showAmounts = document.getElementById('showAmounts').checked;
+    const showCounts = document.getElementById('showCounts').checked;
     
     // Get styling values
-    const throneBackground = document.getElementById('throneBackgroundColor').value;
-    const throneText = document.getElementById('throneTextColor').value;
-    const podiumBackground = document.getElementById('podiumBackgroundColor').value;
-    const podiumText = document.getElementById('podiumTextColor').value;
+    const throneHeight = document.getElementById('throneHeight').value;
+    const throneWidth = document.getElementById('throneWidth').value;
+    
+    const podiumHeight = document.getElementById('podiumHeight').value;
+    const podiumWidth = document.getElementById('podiumWidth').value;
+    
     const standardBackground = document.getElementById('standardBackgroundColor').value;
-    const standardText = document.getElementById('standardTextColor').value;
+    const standardHeight = document.getElementById('standardHeight').value;
+    const standardWidth = document.getElementById('standardWidth').value;
+    
+    // Get font settings
+    const namesFontSize = document.getElementById('namesFontSize').value;
+    const namesFontColor = document.getElementById('namesFontColor').value;
+    const namesFontWeight = document.getElementById('namesFontWeight').value;
+    const namesItalic = document.getElementById('namesItalic').checked;
+    
+    const amountsFontSize = document.getElementById('amountsFontSize').value;
+    const amountsFontColor = document.getElementById('amountsFontColor').value;
+    const amountsFontWeight = document.getElementById('amountsFontWeight').value;
+    const amountsItalic = document.getElementById('amountsItalic').checked;
+    
+    const positionsFontSize = document.getElementById('positionsFontSize').value;
+    const positionsFontColor = document.getElementById('positionsFontColor').value;
+    const positionsFontWeight = document.getElementById('positionsFontWeight').value;
+    const positionsItalic = document.getElementById('positionsItalic').checked;
     
     const previewContainer = document.getElementById('leaderboardPreview');
     
@@ -261,14 +432,29 @@ function updatePreview() {
         return;
     }
     
-    // Sample data for preview
-    const sampleDonors = {{ top_donors|tojson|safe }};
-    const displayDonors = sampleDonors.slice(0, positionsCount);
+    // Always use dummy data for preview (real data only in actual overlay)
+    const dummyDonors = [
+        {donor_name: 'Болдбаатар', total_amount: 50000, donation_count: 5},
+        {donor_name: 'Түмэнбаяр', total_amount: 35000, donation_count: 3},
+        {donor_name: 'Өлзийбаяр', total_amount: 25000, donation_count: 2},
+        {donor_name: 'Баттөмөр', total_amount: 15000, donation_count: 1},
+        {donor_name: 'Энхбаяр', total_amount: 10000, donation_count: 1},
+        {donor_name: 'Дашдондог', total_amount: 8000, donation_count: 2},
+        {donor_name: 'Чингисхан', total_amount: 7500, donation_count: 1},
+        {donor_name: 'Тэмүжин', total_amount: 6000, donation_count: 3},
+        {donor_name: 'Сүхбаатар', total_amount: 5500, donation_count: 1},
+        {donor_name: 'Жамуха', total_amount: 5000, donation_count: 1}
+    ];
+    let displayDonors = dummyDonors.slice(0, positionsCount);
     
-    if (displayDonors.length === 0) {
-        previewContainer.innerHTML = '<p class="text-muted text-center py-4">Хандивч байхгүй байна</p>';
-        return;
+    // Helper function to generate font styles
+    function getFontStyle(fontSize, color, weight, italic) {
+        return `font-size: ${fontSize}px; color: ${color}; font-weight: ${weight}; font-style: ${italic ? 'italic' : 'normal'};`;
     }
+    
+    const nameStyle = getFontStyle(namesFontSize, namesFontColor, namesFontWeight, namesItalic);
+    const amountStyle = getFontStyle(amountsFontSize, amountsFontColor, amountsFontWeight, amountsItalic);
+    const positionStyle = getFontStyle(positionsFontSize, positionsFontColor, positionsFontWeight, positionsItalic);
     
     let previewHTML = '<div class="leaderboard-preview-wrapper">';
     
@@ -277,11 +463,11 @@ function updatePreview() {
         // Single throne display
         const donor = displayDonors[0];
         previewHTML += `
-            <div class="throne-display" style="background-color: ${throneBackground}; color: ${throneText};">
+            <div class="throne-display">
                 <div class="crown-icon"><i class="fas fa-crown"></i></div>
                 <div class="throne-content">
-                    <div class="donor-name">${donor.donor_name}</div>
-                    ${showAmounts ? `<div class="donor-amount">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                    <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
+                    ${showAmounts ? `<div class="donor-amount" style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
                     ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
                 </div>
             </div>
@@ -291,17 +477,14 @@ function updatePreview() {
         previewHTML += '<div class="podium-layout">';
         displayDonors.forEach((donor, index) => {
             const isThrone = index === 0;
-            const bgColor = isThrone ? throneBackground : podiumBackground;
-            const textColor = isThrone ? throneText : podiumText;
             const icon = isThrone ? 'crown' : 'medal';
             
             previewHTML += `
-                <div class="podium-position ${isThrone ? 'throne' : 'podium'}" 
-                     style="background-color: ${bgColor}; color: ${textColor};">
+                <div class="podium-position ${isThrone ? 'throne' : 'podium'}">
                     <div class="position-icon"><i class="fas fa-${icon}"></i></div>
-                    <div class="position-number">#${index + 1}</div>
-                    <div class="donor-name">${donor.donor_name}</div>
-                    ${showAmounts ? `<div class="donor-amount">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                    <div class="position-number" style="${positionStyle}">#${index + 1}</div>
+                    <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
+                    ${showAmounts ? `<div class="donor-amount" style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
                     ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
                 </div>
             `;
@@ -312,28 +495,36 @@ function updatePreview() {
         previewHTML += '<div class="list-layout">';
         displayDonors.forEach((donor, index) => {
             const isThrone = index === 0;
-            const isPodium = index <= 2;
-            let bgColor, textColor;
+            const isPodium = index === 1;
+            const isBronze = index === 2;
+            let height, width, cssClass;
             
             if (isThrone) {
-                bgColor = throneBackground;
-                textColor = throneText;
+                height = throneHeight;
+                width = throneWidth;
+                cssClass = 'throne';
             } else if (isPodium) {
-                bgColor = podiumBackground;
-                textColor = podiumText;
+                height = podiumHeight;
+                width = podiumWidth;
+                cssClass = 'podium';
+            } else if (isBronze) {
+                height = podiumHeight;
+                width = podiumWidth;
+                cssClass = 'bronze';
             } else {
-                bgColor = standardBackground;
-                textColor = standardText;
+                height = standardHeight;
+                width = standardWidth;
+                cssClass = 'standard';
             }
             
             previewHTML += `
-                <div class="list-item ${isThrone ? 'throne' : isPodium ? 'podium' : 'standard'}" 
-                     style="background-color: ${bgColor}; color: ${textColor};">
-                    <div class="position-number">#${index + 1}</div>
+                <div class="list-item ${cssClass}" 
+                     style="min-height: ${height}px; width: ${width}%;${cssClass === 'standard' ? ` background-color: ${standardBackground};` : ''}">
+                    <div class="position-number" style="${positionStyle}">#${index + 1}</div>
                     <div class="donor-info">
-                        <div class="donor-name">${donor.donor_name}</div>
+                        <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
                         ${showAmounts || showCounts ? `<div class="donor-stats">
-                            ${showAmounts ? `${Math.round(donor.total_amount).toLocaleString()}₮` : ''}
+                            ${showAmounts ? `<span style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</span>` : ''}
                             ${showAmounts && showCounts ? ' • ' : ''}
                             ${showCounts ? `${donor.donation_count} хандив` : ''}
                         </div>` : ''}
@@ -348,8 +539,7 @@ function updatePreview() {
     previewContainer.innerHTML = previewHTML;
 }
 
-// Update preview button
-document.getElementById('updatePreviewBtn').addEventListener('click', updatePreview);
+// Update preview button (removed - button doesn't exist)
 
 // Auto-update preview when settings change
 document.addEventListener('DOMContentLoaded', function() {
@@ -357,8 +547,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Listen for changes on form elements
     const form = document.getElementById('leaderboardSettingsForm');
-    form.addEventListener('change', updatePreview);
-    form.addEventListener('input', updatePreview);
+    if (form) {
+        form.addEventListener('change', updatePreview);
+        form.addEventListener('input', updatePreview);
+    }
 });
+
 </script>
 {% endblock %}

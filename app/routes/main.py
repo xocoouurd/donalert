@@ -1647,6 +1647,30 @@ def donation_callback():
             
             if success:
                 current_app.logger.info(f"Donation payment {payment.id} marked as paid and donation created")
+                
+                # Emit real-time leaderboard update
+                try:
+                    from app.models.donor_leaderboard import DonorLeaderboard
+                    from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+                    
+                    # Get streamer's leaderboard settings
+                    settings = DonorLeaderboardSettings.query.filter_by(user_id=payment.streamer_user_id).first()
+                    if settings and settings.is_enabled:
+                        # Get updated top donors
+                        top_donors = DonorLeaderboard.get_top_donors(payment.streamer_user_id, limit=settings.positions_count)
+                        
+                        # Emit leaderboard update
+                        socketio.emit('leaderboard_updated', {
+                            'settings': settings.to_dict(),
+                            'top_donors': [donor.to_dict() for donor in top_donors],
+                            'enabled': settings.is_enabled
+                        }, room=f'leaderboard_{payment.streamer_user_id}')
+                        
+                        current_app.logger.info(f"Emitted leaderboard update for user {payment.streamer_user_id}")
+                        
+                except Exception as leaderboard_error:
+                    current_app.logger.error(f"Error updating leaderboard after donation: {str(leaderboard_error)}")
+                    
             else:
                 current_app.logger.error(f"Failed to mark donation payment {payment.id} as paid")
             
@@ -2854,6 +2878,18 @@ def handle_join_marathon_room(data):
         # Send acknowledgment back to client
         emit('room_joined', {'room': room, 'status': 'success', 'type': 'marathon_overlay'})
 
+@socketio.on('join_leaderboard_room')
+def handle_join_leaderboard_room(data):
+    """Handle client joining a leaderboard overlay room"""
+    user_id = data.get('user_id')
+    
+    if user_id:
+        room = f"leaderboard_{user_id}"
+        join_room(room)
+        current_app.logger.info(f"SOCKET: Client {request.sid} joined leaderboard room: {room}")
+        # Send acknowledgment back to client
+        emit('room_joined', {'room': room, 'status': 'success', 'type': 'leaderboard'})
+
 
 # ================================
 # SOUND EFFECTS MANAGEMENT ROUTES
@@ -3361,25 +3397,59 @@ def update_donor_leaderboard_settings():
         )
         
         # Handle styling updates if provided
-        if request.form.get('throne_background_color'):
+        if request.form.get('throne_height'):
             throne_styling = settings.get_throne_styling()
-            throne_styling['background_color'] = request.form.get('throne_background_color')
-            throne_styling['text_color'] = request.form.get('throne_text_color', '#1A1A1A')
+            throne_styling['height'] = int(request.form.get('throne_height', 50))
+            throne_styling['width'] = int(request.form.get('throne_width', 100))
             settings.set_throne_styling(throne_styling)
         
-        if request.form.get('podium_background_color'):
+        if request.form.get('podium_height'):
             podium_styling = settings.get_podium_styling()
-            podium_styling['background_color'] = request.form.get('podium_background_color')
-            podium_styling['text_color'] = request.form.get('podium_text_color', '#1A1A1A')
+            podium_styling['height'] = int(request.form.get('podium_height', 45))
+            podium_styling['width'] = int(request.form.get('podium_width', 100))
             settings.set_podium_styling(podium_styling)
         
         if request.form.get('standard_background_color'):
             standard_styling = settings.get_standard_styling()
             standard_styling['background_color'] = request.form.get('standard_background_color')
-            standard_styling['text_color'] = request.form.get('standard_text_color', '#FFFFFF')
+            standard_styling['height'] = int(request.form.get('standard_height', 40))
+            standard_styling['width'] = int(request.form.get('standard_width', 100))
             settings.set_standard_styling(standard_styling)
         
+        # Handle font settings if provided
+        if request.form.get('names_font_size'):
+            global_styling = settings.get_global_styling()
+            global_styling['names_font'] = {
+                'size': int(request.form.get('names_font_size', 16)),
+                'color': request.form.get('names_font_color', '#FFFFFF'),
+                'weight': request.form.get('names_font_weight', '600'),
+                'italic': request.form.get('names_italic') == 'on'
+            }
+            global_styling['amounts_font'] = {
+                'size': int(request.form.get('amounts_font_size', 14)),
+                'color': request.form.get('amounts_font_color', '#FFD700'),
+                'weight': request.form.get('amounts_font_weight', '500'),
+                'italic': request.form.get('amounts_italic') == 'on'
+            }
+            global_styling['positions_font'] = {
+                'size': int(request.form.get('positions_font_size', 18)),
+                'color': request.form.get('positions_font_color', '#FFFFFF'),
+                'weight': request.form.get('positions_font_weight', '700'),
+                'italic': request.form.get('positions_italic') == 'on'
+            }
+            settings.set_global_styling(global_styling)
+        
         db.session.commit()
+        
+        # Emit real-time update to overlay
+        from app.models.donor_leaderboard import DonorLeaderboard
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=settings.positions_count)
+        
+        socketio.emit('leaderboard_updated', {
+            'settings': settings.to_dict(),
+            'top_donors': [donor.to_dict() for donor in top_donors],
+            'enabled': settings.is_enabled
+        }, room=f'leaderboard_{current_user.id}')
         
         current_app.logger.info(f"Updated donor leaderboard settings for user {current_user.id}")
         

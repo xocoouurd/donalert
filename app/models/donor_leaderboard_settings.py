@@ -112,9 +112,9 @@ class DonorLeaderboardSettings(db.Model):
         
         # Default standard styling
         return {
-            'background_color': 'rgba(255, 255, 255, 0.1)',
+            'background_color': '#404040',  # Dark gray instead of transparent
             'text_color': '#FFFFFF',
-            'border_color': 'rgba(255, 255, 255, 0.3)',
+            'border_color': '#606060',  # Lighter gray for border
             'font_size': '1em',
             'font_weight': 'normal',
             'animation': 'none'
