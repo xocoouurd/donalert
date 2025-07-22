@@ -167,11 +167,11 @@ function copyOverlayUrl(event) {
     
     const overlayUrl = '{{ overlay_url }}';
     
-    navigator.clipboard.writeText(overlayUrl).then(function() {
+    navigator.clipboard.writeText(overlayUrl).then(() => {
+        // Show temporary success message
         const btn = event.target.closest('button');
         const originalText = btn.innerHTML;
-        
-        btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа';
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа!';
         btn.classList.add('btn-success');
         btn.classList.remove('btn-outline-primary');
         
@@ -180,30 +180,6 @@ function copyOverlayUrl(event) {
             btn.classList.remove('btn-success');
             btn.classList.add('btn-outline-primary');
         }, 2000);
-    }).catch(function() {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = overlayUrl;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            const btn = event.target.closest('button');
-            const originalText = btn.innerHTML;
-            
-            btn.innerHTML = '<i class="fas fa-check me-1"></i>Хуулагдлаа';
-            btn.classList.add('btn-success');
-            btn.classList.remove('btn-outline-primary');
-            
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-outline-primary');
-            }, 2000);
-        } catch (err) {
-            console.error('Copy failed:', err);
-        }
-        document.body.removeChild(textArea);
     });
 }</script>
 
