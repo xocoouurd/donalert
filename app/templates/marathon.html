@@ -42,7 +42,7 @@
                                         <div class="stat-value" id="currentTime">
                                             {% set tb = marathon.get_time_breakdown() %}
                                             {% if (tb.days * 24 + tb.hours) >= 24 %}
-                                                {{ "%dд %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
+                                                {{ "%dө %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
                                             {% else %}
                                                 {{ "%02d:%02d:%02d" | format(tb.days * 24 + tb.hours, tb.minutes, tb.seconds) }}
                                             {% endif %}
@@ -280,7 +280,7 @@
                             <div class="preview-timer" id="previewTimer">
                                 {% set tb = marathon.get_time_breakdown() %}
                                 {% if (tb.days * 24 + tb.hours) >= 24 %}
-                                    {{ "%dд %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
+                                    {{ "%dө %02d:%02d:%02d" | format(tb.days, tb.hours, tb.minutes, tb.seconds) }}
                                 {% else %}
                                     {{ "%02d:%02d:%02d" | format(tb.days * 24 + tb.hours, tb.minutes, tb.seconds) }}
                                 {% endif %}
@@ -325,7 +325,7 @@ function formatTimerDisplay(timeBreakdown) {
     // If more than 24 hours total, show days
     const totalHours = days * 24 + hours;
     if (totalHours >= 24) {
-        return `${days}д ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        return `${days}ө ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     } else {
         // Show HH:MM:SS format
         return `${String(totalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -414,7 +414,6 @@ document.getElementById('marathonSettingsForm').addEventListener('submit', async
             throw new Error(result.error || 'Failed to save');
         }
     } catch (error) {
-        console.error('Error saving marathon settings:', error);
         saveBtn.innerHTML = '<i class="fas fa-times me-2"></i>Алдаа гарлаа';
         saveBtn.classList.remove('btn-primary');
         saveBtn.classList.add('btn-danger');
@@ -529,7 +528,6 @@ document.getElementById('confirmTimeBtn').addEventListener('click', async functi
             throw new Error(result.error || 'Failed to set initial time');
         }
     } catch (error) {
-        console.error('Error setting initial time:', error);
         confirmBtn.innerHTML = '<i class="fas fa-times"></i>';
         confirmBtn.classList.remove('btn-success');
         confirmBtn.classList.add('btn-danger');
@@ -565,7 +563,6 @@ async function adjustTime(minutes) {
             updateStats();
         }
     } catch (error) {
-        console.error('Error adjusting time:', error);
     }
 }
 
@@ -573,11 +570,8 @@ async function marathonControl(action) {
     try {
         // For pause, trigger overlay to save state first, then pause
         if (action === 'pause') {
-            console.log('SETTINGS: Starting pause action...');
-            console.log('SETTINGS: Current settings page time before pause:', currentMarathonData.time_breakdown);
             
             // Send message via server to overlay to save current state immediately before pause
-            console.log('SETTINGS: Sending save state request via API...');
             try {
                 await fetch('/api/marathon/request-save-state', {
                     method: 'POST',
@@ -586,16 +580,12 @@ async function marathonControl(action) {
                     },
                     body: JSON.stringify({})
                 });
-                console.log('SETTINGS: Save state request sent successfully');
             } catch (error) {
-                console.log('SETTINGS: WARNING - Failed to send save state request:', error);
             }
             
             // Wait a moment for overlay to save, then pause
-            console.log('SETTINGS: Waiting 100ms for overlay to save...');
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            console.log('SETTINGS: Calling pause API...');
             const response = await fetch(`/api/marathon/pause`, {
                 method: 'POST',
                 headers: {
@@ -605,17 +595,14 @@ async function marathonControl(action) {
             });
             
             const result = await response.json();
-            console.log('SETTINGS: Pause API response:', result);
             
             if (result.success) {
-                console.log('SETTINGS: Server returned paused marathon data:', result.marathon.time_breakdown);
                 // Use server data directly - it should contain the correct paused time from overlay
                 currentMarathonData = result.marathon;
                 // Initialize seconds if not present
                 if (!currentMarathonData.time_breakdown.seconds) {
                     currentMarathonData.time_breakdown.seconds = 0;
                 }
-                console.log('SETTINGS: Updated settings page with paused data:', currentMarathonData.time_breakdown);
                 updateStats();
                 updateControlButtons();
             }
@@ -637,7 +624,6 @@ async function marathonControl(action) {
             }
         }
     } catch (error) {
-        console.error(`Error ${action} marathon:`, error);
     }
 }
 
@@ -790,10 +776,8 @@ async function saveCountdownState() {
         });
         
         if (!response.ok) {
-            console.warn('Failed to save countdown state');
         }
     } catch (error) {
-        console.warn('Error saving countdown state:', error);
     }
 }
 
@@ -810,7 +794,6 @@ function stopCountdown() {
 let visualCountdownInterval = null;
 
 function startVisualCountdown() {
-    console.log('SETTINGS: Starting visual countdown for preview');
     stopVisualCountdown(); // Clear any existing interval
     
     // Initialize seconds if not present
@@ -842,7 +825,6 @@ function startVisualCountdown() {
             // Stop if countdown reaches zero
             if (currentMarathonData.time_breakdown.total_minutes === 0 && currentMarathonData.time_breakdown.seconds === 0) {
                 stopVisualCountdown();
-                console.log('SETTINGS: Visual countdown completed');
             }
         }
     }, 1000); // Update every second
@@ -850,7 +832,6 @@ function startVisualCountdown() {
 
 function stopVisualCountdown() {
     if (visualCountdownInterval) {
-        console.log('SETTINGS: Stopping visual countdown');
         clearInterval(visualCountdownInterval);
         visualCountdownInterval = null;
     }
@@ -996,17 +977,14 @@ function initializeSocket() {
     socket = io(socketUrl);
     
     socket.on('connect', () => {
-        console.log('Connected to marathon settings');
         // Join marathon room for this user
         socket.emit('join', { room: `marathon_overlay_${currentMarathonData.user_id}` });
     });
     
     socket.on('disconnect', () => {
-        console.log('Disconnected from marathon settings');
     });
     
     socket.on('marathon_updated', (data) => {
-        console.log('SETTINGS: Received marathon_updated:', data);
         // Update marathon data and refresh stats - this will correct any visual countdown drift
         currentMarathonData = data;
         // Ensure time_breakdown exists and initialize seconds if not present
@@ -1023,7 +1001,6 @@ function initializeSocket() {
         }
         
         // Sync visual countdown with real overlay data
-        console.log('SETTINGS: Syncing visual countdown with overlay data:', currentMarathonData.time_breakdown);
         
         updateStats();
         updateControlButtons();

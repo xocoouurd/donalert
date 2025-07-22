@@ -962,7 +962,6 @@
                         const response = await fetch(`/donation/payment/${paymentId}/status`);
                         const result = await response.json();
 
-                        console.log('Payment status check result:', result);
 
                         if (result.success) {
                             if (result.status === 'paid') {
@@ -986,7 +985,6 @@
                                     amount: result.amount || 0,
                                     message: result.message || ''
                                 };
-                                console.log('Updating donations list with:', donationData);
                                 updateDonationsList(donationData);
 
                                 // Hide payment modal after a short delay
@@ -1034,7 +1032,6 @@
                             }
                         }
                     } catch (error) {
-                        console.error('Payment status check error:', error);
                     }
                 }, 3000); // Check every 3 seconds
 
@@ -1057,18 +1054,14 @@
 
                 // Handle new donation notifications from other users
                 socket.on('new_donation', function(data) {
-                    console.log('New donation received via WebSocket:', data);
                     updateDonationsList(data);
                 });
 
                 // Handle connection confirmation
                 socket.on('room_joined', function(data) {
-                    console.log('Successfully joined donation room:', data);
                 });
 
-                console.log('WebSocket connection established for donation feed');
             } catch (error) {
-                console.error('WebSocket connection failed:', error);
             }
 
             function updateDonationsList(donation) {
@@ -1154,7 +1147,6 @@
                 playBtn.classList.add('playing');
 
                 currentAudio.play().catch(error => {
-                    console.error('Audio playback failed:', error);
                     playIcon.className = 'fas fa-play';
                     playBtn.classList.remove('playing');
                 });
@@ -1274,7 +1266,6 @@
                         alert('Алдаа: ' + result.error);
                     }
                 } catch (error) {
-                    console.error('Sound effect purchase error:', error);
                     alert('Серверийн алдаа гарлaa');
                 } finally {
                     // Restore button state

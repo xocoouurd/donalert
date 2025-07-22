@@ -646,11 +646,9 @@
         
         // Listen for leaderboard updates
         socket.on('leaderboard_updated', function(data) {
-            console.log('Leaderboard update received:', data);
             
             // Check for position changes first
             if (data.position_change) {
-                console.log('Position change detected:', data.position_change);
                 handlePositionChange(data.position_change);
             }
             
@@ -834,30 +832,25 @@
         }
         
         function handlePositionChange(changeData) {
-            console.log(`Position change: ${changeData.donor_name} moved from #${changeData.old_position} to #${changeData.new_position}`);
             
             // Handle throne takeover (someone becomes #1)
             if (changeData.is_throne_takeover) {
-                console.log(`🏆 THRONE TAKEOVER! ${changeData.donor_name} is now the #1 donor!`);
                 showThroneTakeoverAnimation(changeData);
             }
             
             // Handle new entry (someone joins leaderboard for first time)
             if (!changeData.old_position) {
-                console.log(`🌟 New donor joined: ${changeData.donor_name} at position #${changeData.new_position}`);
                 showNewEntryAnimation(changeData);
             }
             
             // Handle general position improvement
             if (changeData.old_position > changeData.new_position) {
-                console.log(`⬆️ ${changeData.donor_name} moved up from #${changeData.old_position} to #${changeData.new_position}`);
                 showPositionUpAnimation(changeData);
             }
         }
         
         function showThroneTakeoverAnimation(changeData) {
             // Phase 6: Special throne takeover animation
-            console.log('🎉 Playing throne takeover animation for:', changeData.donor_name);
             
             const container = document.querySelector('.leaderboard-container');
             if (!container) return;
@@ -929,7 +922,6 @@
         
         function showNewEntryAnimation(changeData) {
             // Phase 6: New entry highlighting animation  
-            console.log('✨ Playing new entry animation for:', changeData.donor_name);
             
             const container = document.querySelector('.leaderboard-container');
             if (!container) return;
@@ -996,7 +988,6 @@
         
         function showPositionUpAnimation(changeData) {
             // Phase 6: Position improvement animation
-            console.log('📈 Playing position up animation for:', changeData.donor_name);
             
             // For now, just add a subtle glow effect
             setTimeout(() => {
@@ -1058,9 +1049,6 @@
         }
         
         // Initial log
-        console.log('Leaderboard overlay loaded for {{ user.username }}');
-        console.log('Settings:', {{ settings.to_dict() | tojson | safe }});
-        console.log('Top donors:', {{ top_donors | tojson | safe }});
     </script>
 </body>
 </html>

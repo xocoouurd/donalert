@@ -378,7 +378,6 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function() 
         }
     })
     .catch(error => {
-        console.error('Settings save error:', error);
         btn.innerHTML = '<i class="fas fa-times"></i> Алдаа гарлаа';
         btn.classList.add('btn-danger');
         

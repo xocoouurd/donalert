@@ -291,7 +291,6 @@ function saveSoundEffectsSettings() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         showToast('Холболтын алдаа', 'error');
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -323,7 +322,6 @@ function testRandomSound() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         showToast('Холболтын алдаа', 'error');
     })
     .finally(() => {
@@ -363,7 +361,6 @@ function previewSound(soundId, soundName) {
                     // Only play if this is still the sound we want
                     if (currentSoundId === soundId) {
                         currentAudio.play().catch(error => {
-                            console.error('Audio play failed:', error);
                             showToast('Дуу тоглуулахад алдаа гарлаа', 'error');
                             resetPlayButton();
                         });
@@ -390,7 +387,6 @@ function previewSound(soundId, soundName) {
         })
         .catch(error => {
             if (currentSoundId === soundId) {
-                console.error('Error:', error);
                 showToast('Дуу ачааллахад алдаа гарлаа', 'error');
                 resetPlayButton();
             }

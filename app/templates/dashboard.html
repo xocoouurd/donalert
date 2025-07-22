@@ -776,7 +776,6 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 alert('Холболтын алдаа гарлаа');
             });
         };
@@ -819,7 +818,6 @@
                     }
                 })
                 .catch((error) => {
-                    console.error('Error:', error);
                     displayPaymentError('Холболтын алдаа гарлаа');
                 });
         };
@@ -893,7 +891,6 @@
                         }
                     })
                     .catch((error) => {
-                        console.error('Status check error:', error);
                     });
             }, 5000); // Check every 5 seconds
 

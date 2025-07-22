@@ -1057,7 +1057,7 @@ def upload_alert_asset():
         
         # Validate file size
         file_content = file.read()
-        max_size = 10 * 1024 * 1024 if asset_type == 'gif' else 5 * 1024 * 1024  # 10MB for gifs, 5MB for sounds
+        max_size = 35 * 1024 * 1024 if asset_type == 'gif' else 5 * 1024 * 1024  # 35MB for gifs, 5MB for sounds
         
         if len(file_content) > max_size:
             return jsonify({'success': False, 'error': f'File too large. Maximum {max_size // 1024 // 1024}MB allowed'}), 400

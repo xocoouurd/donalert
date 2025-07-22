@@ -260,8 +260,6 @@ const formStateManager = {
         
         // Store the state
         this.states[tabNumber] = data;
-        console.log(`📝 Saved form state for tab ${tabNumber}:`, data);
-        console.log(`📝 TTS values saved - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}`);
     },
     
     // Restore form state for a tab
@@ -275,8 +273,6 @@ const formStateManager = {
         const form = tabPane.querySelector('form');
         if (!form) return false;
         
-        console.log(`📋 Restoring form state for tab ${tabNumber}:`, savedState);
-        console.log(`📋 TTS values to restore - Speed: ${savedState.tts_speed}, Pitch: ${savedState.tts_pitch}`);
         
         // Restore all form fields
         Object.keys(savedState).forEach(fieldName => {
@@ -300,7 +296,6 @@ const formStateManager = {
     // Clear saved state for a tab (call when form is successfully saved)
     clearTabState: function(tabNumber) {
         delete this.states[tabNumber];
-        console.log(`🗑️ Cleared saved state for tab ${tabNumber}`);
     },
     
     // Check if tab has unsaved changes
@@ -513,7 +508,6 @@ function saveAllTabsWithChanges(submitButton = null) {
         return;
     }
     
-    console.log(`Saving ${unsavedTabNumbers.length} tabs with changes:`, unsavedTabNumbers);
     
     let savedCount = 0;
     let totalTabs = unsavedTabNumbers.length;
@@ -529,7 +523,6 @@ function saveAllTabsWithChanges(submitButton = null) {
         // Use the saved state directly instead of restoring to form first
         const savedState = formStateManager.states[tabNumber];
         if (!savedState) {
-            console.log(`No saved state found for tab ${tabNumber}, skipping`);
             return;
         }
         
@@ -592,31 +585,23 @@ function saveAllTabsWithChanges(submitButton = null) {
             }
         }
         
-        console.log(`Saving tab ${tabNumber} with data:`, data);
-        console.log(`TTS fields - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}, Voice: ${data.tts_voice}`);
-        console.log(`Using saved state directly - TTS Speed: ${savedState.tts_speed}, TTS Pitch: ${savedState.tts_pitch}`);
         
         // Debug: Check the actual select element values
         const speedSelect = form.querySelector('[name="tts_speed"]');
         const pitchSelect = form.querySelector('[name="tts_pitch"]');
         const voiceSelect = form.querySelector('[name="tts_voice"]');
-        console.log(`Direct select values - Speed: ${speedSelect?.value}, Pitch: ${pitchSelect?.value}, Voice: ${voiceSelect?.value}`);
-        console.log(`Select elements found - Speed: ${!!speedSelect}, Pitch: ${!!pitchSelect}, Voice: ${!!voiceSelect}`);
         
         // Check if the select elements are actually in the FormData
         const formDataEntries = [...formData.entries()];
         const hasSpeed = formDataEntries.some(([name]) => name === 'tts_speed');
         const hasPitch = formDataEntries.some(([name]) => name === 'tts_pitch');
-        console.log(`FormData contains - Speed: ${hasSpeed}, Pitch: ${hasPitch}`);
         
         // Debug: Check which options are selected in the HTML
         if (speedSelect) {
             const selectedSpeedOption = speedSelect.querySelector('option:checked') || speedSelect.querySelector('option[selected]');
-            console.log(`Speed selected option: ${selectedSpeedOption?.value} (${selectedSpeedOption?.textContent})`);
         }
         if (pitchSelect) {
             const selectedPitchOption = pitchSelect.querySelector('option:checked') || pitchSelect.querySelector('option[selected]');
-            console.log(`Pitch selected option: ${selectedPitchOption?.value} (${selectedPitchOption?.textContent})`);
         }
         
         // Save this tab
@@ -643,11 +628,9 @@ function saveAllTabsWithChanges(submitButton = null) {
                 // Clear saved state for this tab
                 formStateManager.clearTabState(tabNumber);
                 
-                console.log(`✅ Tab ${tabNumber} saved successfully (${savedCount}/${totalTabs})`);
                 
                 // Show success message when all tabs are saved
                 if (savedCount === totalTabs) {
-                    console.log(`✅ All ${totalTabs} tabs saved successfully!`);
                     
                     // Update button state if provided
                     if (submitButton) {
@@ -664,12 +647,10 @@ function saveAllTabsWithChanges(submitButton = null) {
                     }
                 }
             } else {
-                console.error(`❌ Failed to save tab ${tabNumber}:`, responseData.error);
                 alert(`Алерт ${tabNumber} хадгалахад алдаа гарлаа: ` + responseData.error);
             }
         })
         .catch(error => {
-            console.error(`❌ Network error saving tab ${tabNumber}:`, error);
             alert(`Алерт ${tabNumber} хадгалахад холболтын алдаа гарлаа: ` + error.message);
         });
     });
@@ -683,21 +664,16 @@ function saveSingleTab(form) {
     const data = Object.fromEntries(formData.entries());
     
     // Debug log to see what data is being collected
-    console.log('Form data collected:', data);
-    console.log(`TTS fields - Speed: ${data.tts_speed}, Pitch: ${data.tts_pitch}, Voice: ${data.tts_voice}`);
     
     // Debug: Check the actual select element values
     const speedSelect = form.querySelector('[name="tts_speed"]');
     const pitchSelect = form.querySelector('[name="tts_pitch"]');
     const voiceSelect = form.querySelector('[name="tts_voice"]');
-    console.log(`Direct select values - Speed: ${speedSelect?.value}, Pitch: ${pitchSelect?.value}, Voice: ${voiceSelect?.value}`);
-    console.log(`Select elements found - Speed: ${!!speedSelect}, Pitch: ${!!pitchSelect}, Voice: ${!!voiceSelect}`);
     
     // Check if the select elements are actually in the FormData
     const formDataEntries = [...formData.entries()];
     const hasSpeed = formDataEntries.some(([name]) => name === 'tts_speed');
     const hasPitch = formDataEntries.some(([name]) => name === 'tts_pitch');
-    console.log(`FormData contains - Speed: ${hasSpeed}, Pitch: ${hasPitch}`);
     
     // Handle checkboxes explicitly (FormData doesn't include unchecked checkboxes)
     const ttsEnabledCheckbox = form.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
@@ -826,7 +802,6 @@ function saveAllUnsavedTabs() {
         return; // Nothing to save
     }
     
-    console.log(`Saving ${tabsToSave.length} tabs:`, tabsToSave.map(t => t.id));
     
     // Start with a base amount and increment for each tab
     let currentAmount = 500; // Start at 500₮
@@ -847,16 +822,13 @@ function saveAllUnsavedTabs() {
             if (currentMinAmount === 0) {
                 data.minimum_amount = currentAmount;
                 currentAmount += 500; // Increment by 500₮ for next tab
-                console.log(`Tab ${tabNumber} auto-assigned amount: ${data.minimum_amount}₮`);
             } else {
-                console.log(`Tab ${tabNumber} keeping existing amount: ${currentMinAmount}₮`);
                 // Update currentAmount for next tab to avoid conflicts
                 if (currentMinAmount >= currentAmount) {
                     currentAmount = currentMinAmount + 500;
                 }
             }
             
-            console.log(`Tab ${tabNumber} form data:`, data);
             
             // Handle checkboxes explicitly
             const ttsEnabledCheckbox = form.querySelector('#ttsEnabled, [id^="ttsEnabled"]');
@@ -918,7 +890,6 @@ function saveAllUnsavedTabs() {
                     
                     // Log success for last tab
                     if (savedCount === tabsToSave.length) {
-                        console.log(`✅ ${savedCount} tabs saved successfully!`);
                     }
                 } else {
                     alert(`Алерт ${tabNumber} хадгалахад алдаа гарлаа: ${responseData.error}`);
@@ -1001,7 +972,6 @@ function loadTabConfiguration(tabNumber) {
         })
         .catch(error => {
             // Only log unexpected errors (not 404s for new tabs)
-            console.error('Error loading tab configuration:', error);
         });
     {% endif %}
 }
@@ -1012,12 +982,9 @@ function populateTabForm(tabNumber, config) {
     
     // Check if there are unsaved changes for this tab - if so, don't overwrite
     if (formStateManager.hasUnsavedChanges(tabNumber)) {
-        console.log(`⚠️ Tab ${tabNumber} has unsaved changes, skipping populate`);
         return;
     }
     
-    console.log(`🔄 Populating tab ${tabNumber} with config:`, config);
-    console.log(`🔄 TTS values to populate - Speed: ${config.tts_speed}, Pitch: ${config.tts_pitch}, Voice: ${config.tts_voice}`);
     
     // Populate form fields
     Object.keys(config).forEach(key => {
@@ -1064,11 +1031,8 @@ function populateTabForm(tabNumber, config) {
                         
                         // Debug TTS fields specifically
                         if (key === 'tts_speed' || key === 'tts_pitch' || key === 'tts_voice') {
-                            console.log(`✅ Set ${key} select: ${config[key]} -> ${valueToMatch}, actual value now: ${input.value}, selected option: ${optionToSelect.textContent}`);
                         }
                     } else if (key === 'tts_speed' || key === 'tts_pitch' || key === 'tts_voice') {
-                        console.log(`❌ Could not find option with value "${valueToMatch}" (original: ${config[key]}) for ${key} select`);
-                        console.log(`Available options:`, Array.from(input.options).map(opt => opt.value));
                     }
                 }
             }
@@ -1355,7 +1319,6 @@ function removeAlertTab(tabId, event) {
             })
             .catch(error => {
                 alert('Холболтын алдаа гарлаа');
-                console.error('Error removing tab from database:', error);
             });
         } else {
             // Tab only exists in UI - just remove from frontend
@@ -1673,7 +1636,6 @@ function updatePreview() {
     {% endif %}
     
     if (!activeForm) {
-        console.error('No active form found for preview');
         return;
     }
     
@@ -1759,7 +1721,6 @@ function generateAlertPreview(donation, settings) {
     {% endif %}
     
     if (!previewAlert) {
-        console.error('No preview container found');
         return;
     }
     
@@ -1895,23 +1856,16 @@ function testAlert() {
         // Look for existing configuration for this tab from backend data
         {% if alert_configurations %}
         const alertConfigs = {{ alert_configurations | tojson }};
-        console.log('🧪 DEBUG: Available alert configurations:', alertConfigs);
-        console.log(`🧪 DEBUG: Looking for tab ${tabNumber} in configurations`);
         
         const tabConfig = alertConfigs.find(c => c.tab_number === tabNumber);
         if (tabConfig) {
             testData.config_id = tabConfig.id;
-            console.log(`🧪 Test alert using config ID ${tabConfig.id} for tab ${tabNumber}`);
-            console.log(`🧪 Config colors: base=${tabConfig.template_base_color}, accent=${tabConfig.template_accent_color}`);
         } else {
-            console.log(`🧪 WARNING: No configuration found for tab ${tabNumber}`);
-            console.log('🧪 Available tab numbers:', alertConfigs.map(c => c.tab_number));
         }
         {% endif %}
     }
     {% endif %}
     
-    console.log('🧪 SETTINGS: Sending test alert:', testData);
     
     // Send test alert via WebSocket
     window.testSocket.emit('test_alert', testData);
@@ -1947,7 +1901,7 @@ function openAssetModal(type) {
     
     // Update allowed file types display
     const allowedTypes = type === 'gif' ? 'GIF, PNG, JPEG' : 'MP3, WAV, OGG';
-    const maxSize = type === 'gif' ? '10MB' : '5MB';
+    const maxSize = type === 'gif' ? '35MB' : '5MB';
     
     document.getElementById('allowedTypes').textContent = allowedTypes;
     document.getElementById('maxSize').textContent = maxSize;
@@ -2183,7 +2137,7 @@ function uploadAssetFromModal(file) {
     if (!file) return;
     
     // Validate file
-    const maxSize = currentModalType === 'gif' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxSize = currentModalType === 'gif' ? 35 * 1024 * 1024 : 5 * 1024 * 1024;
     if (file.size > maxSize) {
         alert(`Файлын хэмжээ хэтэрсэн байна. Хамгийн ихдээ ${maxSize / 1024 / 1024}MB байх ёстой.`);
         return;
@@ -2301,7 +2255,6 @@ function playModalSound(event, url) {
     });
     
     currentModalAudio.play().catch(error => {
-        console.error('Error playing modal sound:', error);
         currentModalAudio = null;
     });
 }
@@ -2344,7 +2297,6 @@ function playSelectedSound() {
         });
         
         currentModalAudio.play().catch(error => {
-            console.error('Error playing sound:', error);
             currentModalAudio = null;
         });
     }
@@ -2590,7 +2542,6 @@ document.addEventListener('DOMContentLoaded', function() {
         tabButton.addEventListener('hide.bs.tab', function(e) {
             const tabNumber = getTabNumberFromElement(e.target);
             if (tabNumber) {
-                console.log(`🔄 Leaving tab ${tabNumber}, saving form state`);
                 formStateManager.saveTabState(tabNumber);
             }
         });
@@ -2601,17 +2552,14 @@ document.addEventListener('DOMContentLoaded', function() {
         tabButton.addEventListener('shown.bs.tab', function(e) {
             const tabNumber = getTabNumberFromElement(e.target);
             if (tabNumber) {
-                console.log(`🔄 Entered tab ${tabNumber}, checking for saved state`);
                 
                 // Small delay to ensure tab content is fully rendered
                 setTimeout(() => {
                     const wasRestored = formStateManager.restoreTabState(tabNumber);
                     if (wasRestored) {
-                        console.log(`✅ Restored saved changes for tab ${tabNumber}`);
                         // Update preview with restored data
                         updatePreview();
                     } else {
-                        console.log(`ℹ️ No saved changes to restore for tab ${tabNumber}`);
                     }
                 }, 50);
             }
@@ -2639,8 +2587,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     tabButton.addEventListener('hide.bs.tab', function(e) {
                         const tabNumber = getTabNumberFromElement(e.target);
                         if (tabNumber) {
-                            console.log(`🔄 Leaving tab ${tabNumber}, saving form state`);
-                            formStateManager.saveTabState(tabNumber);
+                                        formStateManager.saveTabState(tabNumber);
                         }
                     });
                     
@@ -2648,18 +2595,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     tabButton.addEventListener('shown.bs.tab', function(e) {
                         const tabNumber = getTabNumberFromElement(e.target);
                         if (tabNumber) {
-                            console.log(`🔄 Entered tab ${tabNumber}, checking for saved state`);
-                            
+                                        
                             // Small delay to ensure tab content is fully rendered
                             setTimeout(() => {
                                 const wasRestored = formStateManager.restoreTabState(tabNumber);
                                 if (wasRestored) {
-                                    console.log(`✅ Restored saved changes for tab ${tabNumber}`);
-                                    // Update preview with restored data
+                                                // Update preview with restored data
                                     updatePreview();
                                 } else {
-                                    console.log(`ℹ️ No saved changes to restore for tab ${tabNumber}`);
-                                }
+                                            }
                             }, 50);
                         }
                     });

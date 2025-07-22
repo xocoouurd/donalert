@@ -36,48 +36,29 @@
         const hasAdvancedTier = false;
         {% endif %}
         
-        console.log('=== OVERLAY PAGE INITIALIZATION ===');
-        console.log('User ID:', userId);
-        console.log('Settings loaded:', !!settings);
-        console.log('Advanced tier:', hasAdvancedTier);
-        console.log('Configurations:', alertConfigurations?.length || 0);
-        console.log('typeof io:', typeof io);
         
         // Get configuration for alert based on tab number or amount
         function getConfigForAlert(alertData) {
-            console.log('🔍 Finding config for alert:', alertData);
-            console.log('🔍 Has advanced tier:', hasAdvancedTier);
-            console.log('🔍 Available configurations:', alertConfigurations?.length || 0);
             
             if (!hasAdvancedTier || !alertConfigurations) {
-                console.log('🔍 Using basic tier settings');
                 return settings;
             }
             
             // If alert has tab_number, use that specific configuration
             if (alertData.tab_number) {
-                console.log(`🔍 Looking for tab ${alertData.tab_number}`);
-                console.log('🔍 Available configurations:', alertConfigurations.map(c => ({ tab_number: c.tab_number, id: c.id, colors: { base: c.template_base_color, accent: c.template_accent_color } })));
                 const config = alertConfigurations.find(c => c.tab_number === alertData.tab_number);
                 if (config) {
-                    console.log(`🔍 Found config for tab ${alertData.tab_number}:`, config);
-                    console.log(`🔍 Using colors: base=${config.template_base_color}, accent=${config.template_accent_color}`);
                     return config;
                 } else {
-                    console.log(`🔍 No config found for tab ${alertData.tab_number}`);
-                    console.log('🔍 Available tab numbers:', alertConfigurations.map(c => c.tab_number));
                 }
             }
             
             // If alert has config_id, use that specific configuration
             if (alertData.config_id) {
-                console.log(`🔍 Looking for config ID ${alertData.config_id}`);
                 const config = alertConfigurations.find(c => c.id === alertData.config_id);
                 if (config) {
-                    console.log(`🔍 Found config by ID ${alertData.config_id}:`, config);
                     return config;
                 } else {
-                    console.log(`🔍 No config found for ID ${alertData.config_id}`);
                 }
             }
             
@@ -107,16 +88,11 @@
         let socket = null;
         
         if (typeof io !== 'undefined') {
-            console.log('✅ Socket.IO library available');
             // Connect to the correct Socket.IO server based on environment
             const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
                 ? undefined  // Use default (current domain) for production
                 : '{{ config.SOCKETIO_URL }}';  // Configurable dev server
             
-            console.log('Socket URL:', socketUrl || 'default (current domain)');
-            console.log('Current hostname:', window.location.hostname);
-            console.log('Current port:', window.location.port);
-            console.log('Expected server name:', '{{ config.SERVER_NAME }}');
             
             socket = io(socketUrl, {
                 transports: ['websocket', 'polling'],
@@ -126,7 +102,6 @@
             
             // Join user's room for personalized alerts
             const roomName = `user_${userId}`;
-            console.log('🏠 Attempting to join room:', roomName);
             socket.emit('join', {room: roomName});
             
             // Listen for donation alerts
@@ -136,7 +111,6 @@
             
             // Listen for sound effect alerts
             socket.on('sound_effect_alert', function(data) {
-                console.log('🔊 OVERLAY: Sound effect alert received!', data);
                 
                 // Queue sound effect for playback
                 queueSoundEffect(data);
@@ -144,7 +118,6 @@
             
             // Listen for test alerts
             socket.on('test_alert', function(data) {
-                console.log('🧪 OVERLAY: Test alert received!', data);
                 
                 // Use the same queueing system as real donations
                 queueAlert(data);
@@ -152,11 +125,9 @@
 
             // Listen for settings updates
             socket.on('settings_updated', function(data) {
-                console.log('🔄 OVERLAY: Settings update received:', data);
                 
                 // Handle advanced tier configuration updates (has tab_number and config)
                 if (data.tab_number && data.config && hasAdvancedTier && alertConfigurations) {
-                    console.log(`🔄 OVERLAY: Updating configuration for tab ${data.tab_number}`);
                     
                     // Find and update the specific tab configuration
                     const configIndex = alertConfigurations.findIndex(c => c.tab_number === data.tab_number);
@@ -165,55 +136,44 @@
                         
                         // Check if sound changed for this tab
                         if (data.config.sound_url !== oldConfig.sound_url) {
-                            console.log(`🔄 OVERLAY: Sound changed for tab ${data.tab_number}: ${oldConfig.sound_url} → ${data.config.sound_url}`);
                             // Preload the new sound
                             preloadSound(data.config.sound_url);
                         }
                         
                         // Check if volume changed
                         if (data.config.sound_volume !== oldConfig.sound_volume) {
-                            console.log(`🔄 OVERLAY: Volume changed for tab ${data.tab_number}: ${oldConfig.sound_volume}% → ${data.config.sound_volume}%`);
                         }
                         
                         // Update the configuration
                         alertConfigurations[configIndex] = data.config;
-                        console.log(`🔄 OVERLAY: Tab ${data.tab_number} configuration updated successfully`);
                     } else {
-                        console.log(`🔄 OVERLAY: Adding new configuration for tab ${data.tab_number}`);
                         alertConfigurations.push(data.config);
                     }
                 }
                 // Handle basic tier settings updates (legacy format)
                 else if (!data.tab_number && !data.config) {
-                    console.log('🔄 OVERLAY: Updating basic tier settings');
                     
                     // Check if sound changed
                     if (data.sound_url !== settings.sound_url) {
-                        console.log(`🔄 OVERLAY: Basic tier sound changed: ${settings.sound_url} → ${data.sound_url}`);
                         preloadSound(data.sound_url);
                     }
                     
                     // Update all settings
                     Object.assign(settings, data);
-                    console.log('🔄 OVERLAY: Basic tier settings updated successfully');
                 }
                 else {
-                    console.warn('🔄 OVERLAY: Unknown settings update format:', data);
                 }
             });
             
             // Listen for room join acknowledgments
             socket.on('room_joined', function(data) {
-                console.log('🏠 OVERLAY: Successfully joined room:', data);
             });
             
             // Connection status logging
             socket.on('connect', function() {
-                console.log('✅ OVERLAY: Socket connected!', socket.id);
                 
                 // Re-join room after connection
                 const roomName = `user_${userId}`;
-                console.log('🏠 OVERLAY: Re-joining room after connection:', roomName);
                 socket.emit('join', {room: roomName});
                 
                 // Preload initial sound after connection
@@ -221,21 +181,16 @@
             });
             
             socket.on('disconnect', function() {
-                console.log('❌ OVERLAY: Socket disconnected');
             });
             
             socket.on('error', function(error) {
-                console.log('❌ OVERLAY: Socket error:', error);
             });
             
             // Auto-reconnection
             socket.on('connect_error', function(error) {
-                console.log('❌ OVERLAY: Socket connection error:', error);
             });
             
-            console.log('✅ OVERLAY: Socket setup complete, waiting for connection...');
         } else {
-            console.log('❌ OVERLAY: Socket.IO library not available!');
         }
 
         // Preload initial sound (fallback if no socket connection)
@@ -274,7 +229,6 @@
         
         // Sound effects queue management
         function queueSoundEffect(soundData) {
-            console.log('🔊 OVERLAY: Queuing sound effect:', soundData);
             
             // Add to sound queue
             soundQueue.push(soundData);
@@ -298,7 +252,6 @@
         }
         
         function playSoundEffect(soundData) {
-            console.log('🔊 OVERLAY: Playing sound effect:', soundData);
             
             try {
                 // Create audio element for sound effect
@@ -310,22 +263,17 @@
                 
                 // Play the sound
                 audio.play().then(() => {
-                    console.log(`🔊 OVERLAY: Sound effect started playing: ${soundData.sound_name} at ${volumePercent}% volume`);
                 }).catch(error => {
-                    console.error('🔊 OVERLAY: Sound effect playback failed:', error);
                 });
                 
                 // Schedule next sound effect after duration + 1 second gap
                 const duration = (soundData.duration_seconds * 1000) + 1000;
-                console.log(`🔊 OVERLAY: Scheduling next sound after ${duration}ms`);
                 
                 setTimeout(() => {
-                    console.log('🔊 OVERLAY: Sound effect completed, processing next in queue');
                     processSoundQueue();
                 }, duration);
                 
             } catch (error) {
-                console.error('🔊 OVERLAY: Error playing sound effect:', error);
                 // Continue with queue on error
                 setTimeout(() => processSoundQueue(), 1000);
             }
@@ -333,14 +281,9 @@
         
         
         function showAlert(alertData) {
-            console.log('🎯 OVERLAY: showAlert() called with data:', alertData);
-            console.log('Current isShowingAlert state:', isShowingAlert);
             
             // Get the correct configuration for this alert
             const alertConfig = getConfigForAlert(alertData);
-            console.log('Using configuration for tab:', alertConfig.tab_number || 1);
-            console.log(`⏱️ TIMING: animation_speed=${alertConfig.animation_speed}ms, visible_time=${alertConfig.visible_time}ms`);
-            console.log(`⏱️ TOTAL DURATION: ${alertConfig.animation_speed + alertConfig.visible_time + alertConfig.animation_speed}ms`);
             
             // Set showing flag
             isShowingAlert = true;
@@ -371,11 +314,9 @@
             // RELIABLE TIMING SEQUENCE: entrance → visible → exit
             // Phase 1: Entrance animation (animation_speed ms)
             setTimeout(() => {
-                console.log('⏱️ PHASE 1: Entrance animation complete');
                 
                 // Phase 2: Visible time (visible_time ms)
                 setTimeout(() => {
-                    console.log('⏱️ PHASE 2: Visible time complete, starting exit');
                     hideAlert(alertElement, alertConfig);
                 }, alertConfig.visible_time);
                 
@@ -459,7 +400,6 @@
         }
         
         function hideAlert(alertElement, alertConfig = settings) {
-            console.log('⏱️ PHASE 3: Starting exit animation');
             
             // Get the opposite exit animation based on entrance animation
             const exitAnimation = getExitAnimation(alertConfig.transition_type);
@@ -470,8 +410,6 @@
             
             // Phase 3: Exit animation (animation_speed ms) - then immediately process next
             setTimeout(() => {
-                console.log('⏱️ PHASE 3: Exit animation complete');
-                console.log('⏱️ ALERT SEQUENCE COMPLETE - clearing container and processing queue');
                 
                 document.getElementById('alertContainer').innerHTML = '';
                 
@@ -515,10 +453,8 @@
             // Use tab-specific volume setting
             audio.volume = alertConfig.sound_volume / 100;
             
-            console.log(`🔊 Playing sound: ${alertConfig.sound_url} at volume ${alertConfig.sound_volume}%`);
             
             audio.play().catch(e => {
-                console.error('🔊 Failed to play sound:', e);
             });
         }
         
@@ -528,7 +464,6 @@
             ttsAudio.src = audioUrl;
             ttsAudio.volume = 1.0; // TTS always plays at 100% volume
             
-            console.log(`🔊 Playing TTS: ${audioUrl} at 100% volume (TTS ignores sound volume setting)`);
             
             // Play TTS after a short delay to avoid overlapping with alert sound
             setTimeout(() => {

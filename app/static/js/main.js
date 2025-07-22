@@ -2,7 +2,6 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize any JavaScript functionality here
-    console.log('DonAlert loaded successfully');
     
     // Add smooth scrolling for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                 } catch (error) {
-                    console.log('Invalid selector:', target);
+                    // Invalid selector
                 }
             }
         });

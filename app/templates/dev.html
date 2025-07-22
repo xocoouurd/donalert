@@ -492,7 +492,6 @@ function loadAvailableSounds() {
             }
         })
         .catch(error => {
-            console.error('Failed to load sounds:', error);
         });
 }
 
@@ -694,7 +693,6 @@ function loadSounds() {
             }
         })
         .catch(error => {
-            console.error('Error loading sounds:', error);
             document.getElementById('soundsList').innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
@@ -817,7 +815,6 @@ function addNewSound() {
         }
     })
     .catch(error => {
-        console.error('Error adding sound:', error);
         alert('Дуу нэмэхэд алдаа гарлаа');
     })
     .finally(() => {
@@ -864,7 +861,6 @@ function updateSound() {
         }
     })
     .catch(error => {
-        console.error('Error updating sound:', error);
         alert('Дуу шинэчлэхэд алдаа гарлаа');
     });
 }
@@ -887,7 +883,6 @@ function deleteSound(soundId, soundName) {
         }
     })
     .catch(error => {
-        console.error('Error deleting sound:', error);
         alert('Дуу устгахад алдаа гарлаа');
     });
 }
@@ -904,7 +899,6 @@ function previewAdminSound(fileUrl, soundName) {
     // Play new audio
     currentAdminAudio = new Audio(fileUrl);
     currentAdminAudio.play().catch(error => {
-        console.error('Error playing sound:', error);
         alert('Дуу тоглуулахад алдаа гарлаа');
     });
     
@@ -979,7 +973,6 @@ function massUploadSounds() {
         }
     })
     .catch(error => {
-        console.error('Error during mass upload:', error);
         progressBar.style.width = '100%';
         statusText.innerHTML = `<i class="fas fa-exclamation-triangle text-danger me-2"></i>Холболтын алдаа`;
         detailsText.textContent = 'Серверт холбогдохдоо алдаа гарлаа';
@@ -1027,7 +1020,6 @@ function clearAllSounds() {
         }
     })
     .catch(error => {
-        console.error('Error clearing all sounds:', error);
         alert('Бүх дуу устгахад алдаа гарлаа');
     });
 }

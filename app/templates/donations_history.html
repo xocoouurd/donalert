@@ -299,7 +299,6 @@ document.getElementById('copyUrlBtn').addEventListener('click', function() {
             btn.classList.add('btn-primary');
         }, 2000);
     } catch (err) {
-        console.error('Copy failed:', err);
     }
 });
 
@@ -336,7 +335,6 @@ function loadDonationsData(filters = {}) {
             }
         })
         .catch(error => {
-            console.error('Error loading donations:', error);
             showError('Холболтын алдаа гарлаа');
         })
         .finally(() => {
@@ -537,7 +535,6 @@ function hideLoadingState() {
 
 function showError(message) {
     // Simple error display - could be enhanced with a modal or toast
-    console.error(message);
 }
 
 // Form event listeners
@@ -609,7 +606,6 @@ async function loadAnalytics(days = 30) {
             updateTopDonors(analyticsData.data.top_donors);
         }
     } catch (error) {
-        console.error('Error loading analytics:', error);
     }
 }
 
