@@ -577,8 +577,9 @@
     margin-bottom: 0.5rem;
 }
 
-/* Button Styles */
-.btn {
+/* Button Styles (exclude header buttons) */
+.glass-card form .btn,
+.d-grid .btn {
     font-weight: 500;
     padding: 0.75rem 1.5rem;
     border-radius: 10px;
@@ -586,47 +587,55 @@
     border: none;
 }
 
-.btn-success {
+.glass-card form .btn-success,
+.d-grid .btn-success {
     background: #10b981;
     color: #fff;
 }
 
-.btn-success:hover {
+.glass-card form .btn-success:hover,
+.d-grid .btn-success:hover {
     background: #059669;
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
 }
 
-.btn-outline-primary {
+.glass-card form .btn-outline-primary,
+.d-grid .btn-outline-primary {
     background: transparent;
     border: 2px solid var(--primary-color);
     color: var(--primary-color);
 }
 
-.btn-outline-primary:hover {
+.glass-card form .btn-outline-primary:hover,
+.d-grid .btn-outline-primary:hover {
     background: var(--primary-color);
     color: #fff;
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
 }
 
-.btn-primary {
+.glass-card form .btn-primary,
+.d-grid .btn-primary {
     background: var(--primary-color);
     color: #fff;
 }
 
-.btn-primary:hover {
+.glass-card form .btn-primary:hover,
+.d-grid .btn-primary:hover {
     background: var(--primary-hover);
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
 }
 
-.btn-danger {
+.glass-card form .btn-danger,
+.d-grid .btn-danger {
     background: #ef4444;
     color: #fff;
 }
 
-.btn:disabled {
+.glass-card form .btn:disabled,
+.d-grid .btn:disabled {
     opacity: 0.6;
     pointer-events: none;
 }
