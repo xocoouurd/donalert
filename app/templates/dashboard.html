@@ -48,7 +48,37 @@
 
             <!-- Subscription Status -->
             {% set subscription_status = current_user.get_subscription_status()
-            %} {% if subscription_status['is_in_grace_period'] %}
+            %} {% set current_subscription = current_user.get_current_subscription()
+            %} 
+            
+            <!-- Scheduled Tier Change Warning -->
+            {% if current_subscription and current_subscription.is_pending_downgrade() %}
+            <div class="alert alert-warning mb-4" style="border-radius: 15px">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Төлөвлөсөн өөрчлөлт
+                        </h6>
+                        <small>
+                            {{ current_subscription.scheduled_change_date.strftime('%Y-%m-%d') }}-нд 
+                            {{ current_subscription.scheduled_tier_change.value.title() }} багц руу шилжинэ
+                        </small>
+                    </div>
+                    <div>
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            onclick="cancelScheduledChange()"
+                        >
+                            Цуцлах
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if subscription_status['is_in_grace_period'] %}
             <div class="alert alert-danger mb-4" style="border-radius: 15px">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
@@ -405,7 +435,7 @@
                                     </select>
                                     <button
                                         class="btn btn-primary btn-sm w-100"
-                                        onclick="purchaseSubscription('basic')"
+                                        onclick="checkTierChange('basic')"
                                     >
                                         Сонгох
                                     </button>
@@ -465,7 +495,7 @@
                                     </select>
                                     <button
                                         class="btn btn-warning btn-sm w-100"
-                                        onclick="purchaseSubscription('advanced')"
+                                        onclick="checkTierChange('advanced')"
                                     >
                                         Сонгох
                                     </button>
@@ -519,7 +549,68 @@
     </div>
 </div>
 
+<!-- Tier Change Confirmation Modal -->
+<div
+    class="modal fade"
+    id="tierChangeModal"
+    tabindex="-1"
+    aria-labelledby="tierChangeModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div
+            class="modal-content border-0"
+            style="
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+            "
+        >
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="tierChangeModalLabel">
+                    Багц өөрчлөх
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div id="tierChangeContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Цуцлах
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="confirmTierChange"
+                    onclick="confirmTierChangePurchase()"
+                >
+                    Баталгаажуулах
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    // Global variables for tier change
+    let pendingTierChange = {
+        tier: null,
+        months: null,
+        changeType: null
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         const disconnectModal = document.getElementById('disconnectModal');
         const platformName = document.getElementById('platformName');
@@ -533,6 +624,162 @@
             platformName.textContent = platformTitle;
             confirmDisconnect.href = `/oauth/disconnect/${platform}`;
         });
+
+        // Tier change checking functionality
+        window.checkTierChange = function (tier) {
+            const monthsSelect = document.getElementById(tier + 'Months');
+            const months = parseInt(monthsSelect.value);
+            
+            // Store pending change data
+            pendingTierChange = { tier, months, changeType: null };
+            
+            // Get current subscription info
+            const currentTier = '{{ current_subscription.feature_tier.value if current_subscription and current_subscription.feature_tier else "none" }}';
+            const currentEndDate = '{{ current_subscription.end_date.strftime("%Y-%m-%d") if current_subscription else "" }}';
+            const daysRemaining = {{ subscription_status.get('days_remaining', 0) }};
+            
+            // Determine change type
+            let changeType = 'extension';  // Default
+            if (currentTier === 'none' || currentTier === '') {
+                changeType = 'new';
+            } else if (currentTier !== tier) {
+                if ((currentTier === 'basic' && tier === 'advanced')) {
+                    changeType = 'upgrade';
+                } else if ((currentTier === 'advanced' && tier === 'basic')) {
+                    changeType = 'downgrade';
+                }
+            }
+            
+            pendingTierChange.changeType = changeType;
+            
+            // Show appropriate confirmation
+            showTierChangeConfirmation(tier, months, changeType, currentTier, daysRemaining, currentEndDate);
+        };
+        
+        function showTierChangeConfirmation(targetTier, months, changeType, currentTier, daysRemaining, currentEndDate) {
+            const tierChangeContent = document.getElementById('tierChangeContent');
+            const tierNames = { 'basic': 'Үндсэн', 'advanced': 'Дэвшилтэт' };
+            const monthNames = { 1: '1 сар', 3: '3 сар', 6: '6 сар', 12: '12 сар' };
+            
+            let content = '';
+            let alertClass = 'info';
+            let confirmButtonText = 'Баталгаажуулах';
+            let confirmButtonClass = 'btn-primary';
+            
+            if (changeType === 'new') {
+                content = `
+                    <div class="text-center">
+                        <h5>Шинэ багц үүсгэх</h5>
+                        <p>Та <strong>${tierNames[targetTier]} багц</strong> худалдан авахыг хүсэж байна.</p>
+                        <div class="alert alert-success">
+                            <strong>Хугацаа:</strong> ${monthNames[months]}<br>
+                            <strong>Эхлэх огноо:</strong> Одоо<br>
+                            <strong>Дуусах огноо:</strong> Төлбөр төлсний дараа тооцогдоно
+                        </div>
+                    </div>
+                `;
+            } else if (changeType === 'extension') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц сунгах</h5>
+                        <p>Та <strong>${tierNames[targetTier]} багцыг ${monthNames[months]} сунгахыг</strong> хүсэж байна.</p>
+                        <div class="alert alert-success">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Сунгах хугацаа:</strong> ${monthNames[months]}<br>
+                            <strong>Шинэ дуусах огноо:</strong> ${currentEndDate}-оос ${months} сараар сунгагдана
+                        </div>
+                    </div>
+                `;
+            } else if (changeType === 'upgrade') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц сайжруулах</h5>
+                        <p><strong>${tierNames[currentTier]}</strong>-оос <strong>${tierNames[targetTier]}</strong> багц руу шилжиж байна.</p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-star me-2"></i>
+                            <strong>Давуу тал:</strong> Шинэ онцлогууд шууд идэвхжинэ!
+                        </div>
+                        <div class="alert alert-success">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Шинэ багц:</strong> ${tierNames[targetTier]} (${monthNames[months]})<br>
+                            <strong>Үлдсэн цагийн зөрүү:</strong> Автоматаар тооцогдоно<br>
+                            <strong>Идэвхжих хугацаа:</strong> Шууд
+                        </div>
+                    </div>
+                `;
+                alertClass = 'info';
+                confirmButtonText = 'Сайжруулах';
+                confirmButtonClass = 'btn-success';
+            } else if (changeType === 'downgrade') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц буурдуулах</h5>
+                        <p><strong>${tierNames[currentTier]}</strong>-оос <strong>${tierNames[targetTier]}</strong> багц руу шилжиж байна.</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Анхаар:</strong> Зарим онцлогууд алга болно!
+                        </div>
+                        <div class="alert alert-info">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Шинэ багц:</strong> ${tierNames[targetTier]} (${monthNames[months]})<br>
+                            <strong>Шилжих хугацаа:</strong> ${currentEndDate}-нд (одоогийн багц дууссаны дараа)<br>
+                            <strong>Онцлог алдагдах хугацаа:</strong> ${currentEndDate}-нд
+                        </div>
+                    </div>
+                `;
+                alertClass = 'warning';
+                confirmButtonText = 'Төлөвлөх';
+                confirmButtonClass = 'btn-warning';
+            }
+            
+            tierChangeContent.innerHTML = content;
+            
+            // Update button style
+            const confirmButton = document.getElementById('confirmTierChange');
+            confirmButton.className = `btn ${confirmButtonClass}`;
+            confirmButton.textContent = confirmButtonText;
+            
+            // Show modal
+            const subscriptionModal = bootstrap.Modal.getInstance(document.getElementById('subscriptionModal'));
+            const tierChangeModal = new bootstrap.Modal(document.getElementById('tierChangeModal'));
+            
+            subscriptionModal.hide();
+            tierChangeModal.show();
+        }
+        
+        window.confirmTierChangePurchase = function () {
+            // Hide tier change modal
+            const tierChangeModal = bootstrap.Modal.getInstance(document.getElementById('tierChangeModal'));
+            tierChangeModal.hide();
+            
+            // Proceed with purchase
+            purchaseSubscription(pendingTierChange.tier);
+        };
+        
+        window.cancelScheduledChange = function () {
+            if (!confirm('Та төлөвлөсөн өөрчлөлтийг цуцлахыг хүсэж байна уу?')) {
+                return;
+            }
+            
+            fetch('/subscription/cancel-scheduled-change', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();  // Refresh page to update UI
+                } else {
+                    alert('Алдаа гарлаа: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Холболтын алдаа гарлаа');
+            });
+        };
 
         // Subscription purchase functionality
         window.purchaseSubscription = function (tier) {
@@ -550,7 +797,7 @@
             subscriptionModal.hide();
             paymentModal.show();
 
-            // Make API call to create subscription
+            // Make API call to create subscription with tier change support
             fetch('/subscription/purchase', {
                 method: 'POST',
                 headers: {
@@ -559,6 +806,7 @@
                 body: JSON.stringify({
                     tier: tier,
                     months: months,
+                    use_tier_change_logic: true  // Signal to use new tier change logic
                 }),
             })
                 .then((response) => response.json())

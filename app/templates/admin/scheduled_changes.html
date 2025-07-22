@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Төлөвлөсөн өөрчлөлтүүд - Admin{% endblock %}
+
+{% block body_class %}admin-page{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Төлөвлөсөн багц өөрчлөлтүүд
+                    </h2>
+                    <div>
+                        <button type="button" class="btn btn-primary me-2" onclick="processScheduledChanges()">
+                            <i class="fas fa-play me-2"></i>Боловсруулах
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
+                            <i class="fas fa-sync me-2"></i>Шинэчлэх
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ overdue_changes|length }}</h5>
+                                <p class="card-text">Хугацаа хэтэрсэн</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ upcoming_changes|length }}</h5>
+                                <p class="card-text">Төлөвлөгдсөн</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">{{ (overdue_changes|length) + (upcoming_changes|length) }}</h5>
+                                <p class="card-text">Нийт</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing Status -->
+                <div id="processingStatus" class="alert alert-info" style="display: none;">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Боловсруулж байна...</span>
+                        </div>
+                        <span>Төлөвлөсөн өөрчлөлтүүдийг боловсруулж байна...</span>
+                    </div>
+                </div>
+
+                <!-- Overdue Changes -->
+                {% if overdue_changes %}
+                <div class="mb-5">
+                    <h4 class="text-danger mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Хугацаа хэтэрсэн өөрчлөлтүүд ({{ overdue_changes|length }})
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Хэрэглэгч</th>
+                                    <th>Одоогийн багц</th>
+                                    <th>Шинэ багц</th>
+                                    <th>Төлөвлөсөн огноо</th>
+                                    <th>Хугацаа хэтэрсэн</th>
+                                    <th>Үйлдэл</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in overdue_changes %}
+                                <tr class="table-danger">
+                                    <td>
+                                        <strong>{{ change.user.get_display_name() }}</strong><br>
+                                        <small class="text-muted">{{ change.user.email }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ change.get_feature_tier_display_name() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if change.scheduled_tier_change %}
+                                        <span class="badge bg-warning">
+                                            {{ 'Үндсэн' if change.scheduled_tier_change.value == 'basic' else 'Дэвшилтэт' }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">Тодорхойгүй</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ change.scheduled_change_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td class="text-danger">
+                                        {{ ((current_time - change.scheduled_change_date).days) }} хоног
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" 
+                                                onclick="processSpecificChange({{ change.id }})">
+                                            Боловсруулах
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Upcoming Changes -->
+                {% if upcoming_changes %}
+                <div class="mb-4">
+                    <h4 class="text-warning mb-3">
+                        <i class="fas fa-clock me-2"></i>
+                        Төлөвлөгдсөн өөрчлөлтүүд ({{ upcoming_changes|length }})
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Хэрэглэгч</th>
+                                    <th>Одоогийн багц</th>
+                                    <th>Шинэ багц</th>
+                                    <th>Төлөвлөсөн огноо</th>
+                                    <th>Үлдсэн хоног</th>
+                                    <th>Төлөв</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in upcoming_changes %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ change.user.get_display_name() }}</strong><br>
+                                        <small class="text-muted">{{ change.user.email }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">
+                                            {{ change.get_feature_tier_display_name() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if change.scheduled_tier_change %}
+                                        <span class="badge bg-warning">
+                                            {{ 'Үндсэн' if change.scheduled_tier_change.value == 'basic' else 'Дэвшилтэт' }}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">Тодорхойгүй</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ change.scheduled_change_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td class="text-info">
+                                        {{ ((change.scheduled_change_date - current_time).days + 1) }} хоног
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">Хүлээж байна</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- No Changes Message -->
+                {% if not overdue_changes and not upcoming_changes %}
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Төлөвлөсөн өөрчлөлт байхгүй</h5>
+                    <p class="text-muted">Бүх багц өөрчлөлтүүд боловсруулагдсан байна.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function processScheduledChanges() {
+    const statusDiv = document.getElementById('processingStatus');
+    statusDiv.style.display = 'block';
+    
+    fetch('/admin/process-scheduled-changes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        statusDiv.style.display = 'none';
+        
+        if (data.success) {
+            alert(`Амжилттай! ${data.changes_processed} өөрчлөлт боловсруулагдлаа.`);
+            location.reload();
+        } else {
+            alert('Алдаа гарлаа: ' + data.error);
+        }
+    })
+    .catch(error => {
+        statusDiv.style.display = 'none';
+        console.error('Error:', error);
+        alert('Холболтын алдаа гарлаа');
+    });
+}
+
+function processSpecificChange(subscriptionId) {
+    if (!confirm('Та энэ өөрчлөлтийг боловсруулахыг хүсэж байна уу?')) {
+        return;
+    }
+    
+    // For now, just process all changes. In the future, this could be enhanced
+    // to process a specific change only
+    processScheduledChanges();
+}
+</script>
+
+{% endblock %}

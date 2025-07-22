@@ -584,7 +584,10 @@ def purchase_subscription():
         if not invoice_result.get('success'):
             return jsonify({'error': invoice_result.get('error', 'Failed to create invoice')}), 500
         
-        # Create payment record
+        # Check if we should use new tier change logic
+        use_tier_change_logic = data.get('use_tier_change_logic', False)
+        
+        # Create payment record with tier change metadata
         payment = SubscriptionPayment.create_payment_record(
             user_id=current_user.id,
             tier=tier,
@@ -592,6 +595,15 @@ def purchase_subscription():
             amount=invoice_result.get('amount'),
             invoice_data=invoice_result
         )
+        
+        # Store tier change intent in payment metadata
+        if use_tier_change_logic:
+            metadata = payment.get_metadata()
+            metadata['use_tier_change_logic'] = True
+            metadata['target_feature_tier'] = feature_tier
+            metadata['target_billing_cycle'] = billing_cycle
+            payment.set_metadata(metadata)
+            db.session.commit()
         
         # Return payment info
         return jsonify({
@@ -611,6 +623,91 @@ def purchase_subscription():
         
     except Exception as e:
         return jsonify({'error': f'Payment creation failed: {str(e)}'}), 500
+
+@main_bp.route('/subscription/cancel-scheduled-change', methods=['POST'])
+@login_required
+def cancel_scheduled_change():
+    """Cancel a scheduled tier change"""
+    try:
+        current_subscription = current_user.get_current_subscription()
+        
+        if not current_subscription:
+            return jsonify({'error': 'Идэвхтэй багц олдсонгүй'}), 404
+        
+        if not current_subscription.is_pending_downgrade():
+            return jsonify({'error': 'Төлөвлөсөн өөрчлөлт байхгүй'}), 400
+        
+        # Cancel the scheduled change
+        current_subscription.cancel_scheduled_change()
+        
+        # Also remove any pending subscription records
+        from app.models.subscription import SubscriptionStatus
+        pending_subscriptions = Subscription.query.filter_by(
+            user_id=current_user.id,
+            status=SubscriptionStatus.PENDING
+        ).all()
+        
+        for pending_sub in pending_subscriptions:
+            db.session.delete(pending_sub)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Төлөвлөсөн өөрчлөлт амжилттай цуцлагдлаа'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Алдаа гарлаа: {str(e)}'}), 500
+
+@main_bp.route('/admin/scheduled-changes', methods=['GET'])
+@login_required
+def admin_scheduled_changes():
+    """Admin page to view and manage scheduled tier changes"""
+    if not current_user.is_admin:
+        abort(403)
+    
+    from app.models.subscription import SubscriptionStatus
+    from datetime import datetime
+    
+    # Get all scheduled changes
+    current_time = datetime.utcnow()
+    scheduled_changes = Subscription.query.filter(
+        Subscription.scheduled_change_date.isnot(None),
+        Subscription.status == SubscriptionStatus.ACTIVE
+    ).order_by(Subscription.scheduled_change_date.asc()).all()
+    
+    # Categorize changes
+    overdue_changes = [s for s in scheduled_changes if s.scheduled_change_date < current_time]
+    upcoming_changes = [s for s in scheduled_changes if s.scheduled_change_date >= current_time]
+    
+    return render_template('admin/scheduled_changes.html', 
+                         overdue_changes=overdue_changes,
+                         upcoming_changes=upcoming_changes,
+                         current_time=current_time)
+
+@main_bp.route('/admin/process-scheduled-changes', methods=['POST'])
+@login_required  
+def admin_process_scheduled_changes():
+    """Admin endpoint to manually trigger scheduled change processing"""
+    if not current_user.is_admin:
+        abort(403)
+    
+    try:
+        changes_processed = Subscription.process_scheduled_changes()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Амжилттай {changes_processed} өөрчлөлт боловсруулсан',
+            'changes_processed': changes_processed
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Алдаа гарлаа: {str(e)}'
+        }), 500
 
 @main_bp.route('/subscription/payment/<int:payment_id>/status')
 @login_required
@@ -656,13 +753,39 @@ def check_payment_status(payment_id):
                 if quickpay_status == 'PAID':
                     payment.mark_as_paid(payment_data)
                     
-                    # Activate subscription
-                    subscription = Subscription.create_or_extend_subscription(
-                        user_id=current_user.id,
-                        tier=payment.tier,
-                        months=payment.months,
-                        payment_id=payment.id
-                    )
+                    # Activate subscription using appropriate logic
+                    metadata = payment.get_metadata()
+                    if metadata.get('use_tier_change_logic'):
+                        # Use new tier change logic
+                        from app.models.subscription import SubscriptionTier, BillingCycle
+                        
+                        # Convert strings to enums
+                        target_tier_str = metadata.get('target_feature_tier', payment.tier)
+                        billing_cycle_str = metadata.get('target_billing_cycle', 'monthly')
+                        
+                        target_tier = SubscriptionTier.BASIC if target_tier_str == 'basic' else SubscriptionTier.ADVANCED
+                        billing_cycle_map = {
+                            'monthly': BillingCycle.MONTHLY,
+                            'quarterly': BillingCycle.QUARTERLY,
+                            'biannual': BillingCycle.BIANNUAL,
+                            'annual': BillingCycle.ANNUAL
+                        }
+                        billing_cycle = billing_cycle_map.get(billing_cycle_str, BillingCycle.MONTHLY)
+                        
+                        subscription = Subscription.handle_tier_change(
+                            user_id=current_user.id,
+                            target_tier=target_tier,
+                            billing_cycle=billing_cycle,
+                            payment_id=payment.id
+                        )
+                    else:
+                        # Use legacy logic
+                        subscription = Subscription.create_or_extend_subscription(
+                            user_id=current_user.id,
+                            tier=payment.tier,
+                            months=payment.months,
+                            payment_id=payment.id
+                        )
                     
                     return jsonify({
                         'success': True,
