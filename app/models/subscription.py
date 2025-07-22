@@ -86,6 +86,260 @@ class Subscription(db.Model):
         }
     
     @staticmethod
+    def get_tier_hierarchy():
+        """Get tier hierarchy for comparisons (higher number = more expensive)"""
+        return {
+            SubscriptionTier.BASIC: 1,
+            SubscriptionTier.ADVANCED: 2,
+        }
+    
+    @staticmethod
+    def is_upgrade(current_tier, target_tier):
+        """Check if target tier is an upgrade from current tier"""
+        hierarchy = Subscription.get_tier_hierarchy()
+        return hierarchy.get(target_tier, 0) > hierarchy.get(current_tier, 0)
+    
+    @staticmethod
+    def is_downgrade(current_tier, target_tier):
+        """Check if target tier is a downgrade from current tier"""
+        hierarchy = Subscription.get_tier_hierarchy()
+        return hierarchy.get(target_tier, 0) < hierarchy.get(current_tier, 0)
+    
+    @staticmethod
+    def is_same_tier(current_tier, target_tier):
+        """Check if current and target tiers are the same"""
+        return current_tier == target_tier
+    
+    @staticmethod
+    def calculate_remaining_credit(subscription, target_tier):
+        """Calculate credit value when changing tiers"""
+        if not subscription or not subscription.feature_tier:
+            return 0
+            
+        # Days remaining on current subscription (not including grace period)
+        current_time = datetime.utcnow()
+        if subscription.end_date <= current_time:
+            return 0  # No time remaining
+            
+        remaining_days = (subscription.end_date - current_time).days
+        if remaining_days <= 0:
+            return 0
+        
+        # Get monthly prices
+        monthly_prices = Subscription.get_tier_monthly_price()
+        current_monthly_price = monthly_prices.get(subscription.feature_tier, 0)
+        target_monthly_price = monthly_prices.get(target_tier, 0)
+        
+        if target_monthly_price == 0:
+            return 0
+            
+        # Calculate daily rates
+        current_daily_value = current_monthly_price / 30.0  # Assume 30 days per month
+        target_daily_value = target_monthly_price / 30.0
+        
+        # Calculate credit value in MNT
+        credit_value_mnt = remaining_days * current_daily_value
+        
+        # Convert to days in target tier
+        credit_days = credit_value_mnt / target_daily_value
+        
+        return int(credit_days)  # Return as whole days
+    
+    @staticmethod
+    def handle_tier_change(user_id, target_tier, billing_cycle, payment_id=None):
+        """Handle tier change with proper upgrade/downgrade logic"""
+        from app.models.user import User
+        
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError(f"User not found: {user_id}")
+        
+        # Get current subscription
+        current_subscription = user.get_current_subscription()
+        if not current_subscription:
+            # No current subscription, create new one normally
+            return Subscription.create_paid_subscription(
+                user_id, target_tier, billing_cycle, payment_id
+            )
+        
+        # Determine if this is an upgrade, downgrade, or same tier
+        current_tier = current_subscription.feature_tier
+        if not current_tier:
+            # Legacy subscription, treat as Basic tier
+            current_tier = SubscriptionTier.BASIC
+        
+        if Subscription.is_same_tier(current_tier, target_tier):
+            # Same tier - extend normally using existing logic
+            return Subscription._extend_same_tier(user_id, current_subscription, billing_cycle, payment_id)
+            
+        elif Subscription.is_upgrade(current_tier, target_tier):
+            # Upgrade - apply immediately with credit
+            return Subscription._handle_upgrade(user_id, current_subscription, target_tier, billing_cycle, payment_id)
+            
+        elif Subscription.is_downgrade(current_tier, target_tier):
+            # Downgrade - schedule for future
+            return Subscription._handle_downgrade(user_id, current_subscription, target_tier, billing_cycle, payment_id)
+            
+        else:
+            # Fallback - shouldn't happen
+            return Subscription.create_paid_subscription(
+                user_id, target_tier, billing_cycle, payment_id
+            )
+    
+    @staticmethod
+    def _extend_same_tier(user_id, current_subscription, billing_cycle, payment_id):
+        """Extend subscription with same tier (existing logic)"""
+        months = Subscription.get_billing_cycle_months()[billing_cycle]
+        cost = Subscription.calculate_price(current_subscription.feature_tier, billing_cycle)
+        
+        # Clear any scheduled changes since user is extending current tier
+        if current_subscription.is_pending_downgrade():
+            current_subscription.cancel_scheduled_change()
+        
+        # Calculate dates (extend from current end date)
+        start_date = current_subscription.end_date
+        end_date = start_date + relativedelta(months=months)
+        
+        # Create new subscription
+        new_subscription = Subscription(
+            user_id=user_id,
+            feature_tier=current_subscription.feature_tier,
+            billing_cycle=billing_cycle,
+            status=SubscriptionStatus.ACTIVE,
+            price_mnt=cost,
+            start_date=start_date,
+            end_date=end_date,
+            payment_id=str(payment_id) if payment_id else None,
+            payment_method='quickpay',
+            payment_status='completed'
+        )
+        
+        # Mark current subscription as expired
+        current_subscription.status = SubscriptionStatus.EXPIRED
+        
+        db.session.add(new_subscription)
+        db.session.commit()
+        return new_subscription
+    
+    @staticmethod
+    def _handle_upgrade(user_id, current_subscription, target_tier, billing_cycle, payment_id):
+        """Handle immediate upgrade with credit calculation"""
+        months = Subscription.get_billing_cycle_months()[billing_cycle]
+        cost = Subscription.calculate_price(target_tier, billing_cycle)
+        
+        # Calculate credit from current subscription
+        credit_days = Subscription.calculate_remaining_credit(current_subscription, target_tier)
+        
+        # Calculate dates (start immediately)
+        current_time = datetime.utcnow()
+        start_date = current_time
+        end_date = current_time + relativedelta(months=months)
+        
+        # Apply credit by extending end date
+        if credit_days > 0:
+            end_date = end_date + timedelta(days=credit_days)
+        
+        # Create new subscription
+        new_subscription = Subscription(
+            user_id=user_id,
+            feature_tier=target_tier,
+            billing_cycle=billing_cycle,
+            status=SubscriptionStatus.ACTIVE,
+            price_mnt=cost,
+            start_date=start_date,
+            end_date=end_date,
+            payment_id=str(payment_id) if payment_id else None,
+            payment_method='quickpay',
+            payment_status='completed'
+        )
+        
+        # Mark current subscription as expired
+        current_subscription.status = SubscriptionStatus.EXPIRED
+        
+        db.session.add(new_subscription)
+        db.session.commit()
+        return new_subscription
+    
+    @staticmethod
+    def _handle_downgrade(user_id, current_subscription, target_tier, billing_cycle, payment_id):
+        """Handle scheduled downgrade to preserve current tier until expiration"""
+        months = Subscription.get_billing_cycle_months()[billing_cycle]
+        
+        # Schedule the tier change for when current subscription expires
+        current_subscription.schedule_tier_change(
+            target_tier=target_tier,
+            change_date=current_subscription.end_date,
+            months=months
+        )
+        
+        # Create the future subscription record but don't activate it yet
+        cost = Subscription.calculate_price(target_tier, billing_cycle)
+        start_date = current_subscription.end_date
+        end_date = start_date + relativedelta(months=months)
+        
+        scheduled_subscription = Subscription(
+            user_id=user_id,
+            feature_tier=target_tier,
+            billing_cycle=billing_cycle,
+            status=SubscriptionStatus.PENDING,  # Will be activated when current expires
+            price_mnt=cost,
+            start_date=start_date,
+            end_date=end_date,
+            payment_id=str(payment_id) if payment_id else None,
+            payment_method='quickpay',
+            payment_status='completed'
+        )
+        
+        db.session.add(scheduled_subscription)
+        db.session.commit()
+        return scheduled_subscription
+    
+    @staticmethod
+    def process_scheduled_changes():
+        """Process all due scheduled tier changes (for background job)"""
+        current_time = datetime.utcnow()
+        processed_count = 0
+        
+        # Find subscriptions with scheduled changes that are due
+        subscriptions_due = Subscription.query.filter(
+            Subscription.scheduled_change_date.isnot(None),
+            Subscription.scheduled_change_date <= current_time,
+            Subscription.status == SubscriptionStatus.ACTIVE
+        ).all()
+        
+        for subscription in subscriptions_due:
+            try:
+                # Find the pending subscription that should be activated
+                pending_subscription = Subscription.query.filter(
+                    Subscription.user_id == subscription.user_id,
+                    Subscription.status == SubscriptionStatus.PENDING,
+                    Subscription.start_date == subscription.scheduled_change_date
+                ).first()
+                
+                if pending_subscription:
+                    # Activate the pending subscription
+                    pending_subscription.status = SubscriptionStatus.ACTIVE
+                    
+                    # Mark current subscription as expired
+                    subscription.status = SubscriptionStatus.EXPIRED
+                    
+                    # Clear scheduled change fields
+                    subscription.scheduled_tier_change = None
+                    subscription.scheduled_change_date = None
+                    subscription.scheduled_change_months = None
+                    
+                    processed_count += 1
+                    
+            except Exception as e:
+                # Log error but continue processing others
+                print(f"Error processing scheduled change for subscription {subscription.id}: {e}")
+        
+        if processed_count > 0:
+            db.session.commit()
+            
+        return processed_count
+    
+    @staticmethod
     def get_billing_cycle_months():
         """Get duration in months for each billing cycle"""
         return {
