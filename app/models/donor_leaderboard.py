@@ -63,6 +63,12 @@ class DonorLeaderboard(db.Model):
     
     def add_donation(self, amount, donation_date):
         """Add a donation to this leaderboard entry"""
+        from decimal import Decimal
+        
+        # Convert amount to Decimal if it's not already
+        if not isinstance(amount, Decimal):
+            amount = Decimal(str(amount))
+            
         self.total_amount += amount
         self.donation_count += 1
         
