@@ -19,5 +19,10 @@ gunicorn.pid
 gunicorn.sock
 *.md
 !README.md
+!CLAUDE.md
 docs/
 discord_integration/
+
+# Uploaded sound effects and TTS files
+app/static/assets/sound_effects/*.mp3
+app/static/uploads/tts/*.wav

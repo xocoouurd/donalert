@@ -47,12 +47,21 @@ class DonationGoal(db.Model):
     @classmethod
     def get_or_create_for_user(cls, user_id):
         """Get or create donation goal settings for a user"""
-        goal = cls.query.filter_by(user_id=user_id, is_active=True).first()
-        if not goal:
+        # First check for any existing goal (regardless of active status)
+        goal = cls.query.filter_by(user_id=user_id).first()
+        if goal:
+            # If goal exists but is inactive, reactivate it to preserve accumulated amounts
+            if not goal.is_active:
+                goal.is_active = True
+                goal.updated_at = datetime.utcnow()
+                db.session.commit()
+            return goal
+        else:
+            # Only create new goal if no goal exists at all
             goal = cls(user_id=user_id)
             db.session.add(goal)
             db.session.commit()
-        return goal
+            return goal
     
     def get_progress_percentage(self):
         """Calculate progress percentage"""

@@ -1,6 +1,5 @@
 {% extends "base.html" %} {% block title %}Хянах самбар - DonAlert{% endblock %}
-{% block body_class %}dashboard-page{% endblock %}
-{% block content %}
+{% block body_class %}dashboard-page{% endblock %} {% block content %}
 <div class="dashboard-wrapper">
     {% include 'components/sidebar.html' %}
 
@@ -9,14 +8,9 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="mb-0">Удирдлагын самбар</h2>
                 <div class="d-flex align-items-center">
-                    <span class="text-muted fs-5"
+                    <span class="fs-5"
                         >{{ current_user.get_display_name() }}</span
                     >
-                    <!-- DEV: Tier Toggle Button (Remove in production) -->
-                    <button id="tierToggleBtn" class="btn btn-sm ms-2 me-2" style="font-size: 10px; padding: 2px 8px;" onclick="toggleTier()">
-                        <i class="fas fa-crown me-1"></i>
-                        <span id="currentTier">Үндсэн</span>
-                    </button>
                     <img
                         src="{{ current_user.get_profile_picture_or_default() }}"
                         alt="Profile"
@@ -24,104 +18,189 @@
                         width="32"
                         height="32"
                     />
-                    {% set primary_platform = current_user.get_primary_platform() %}
-                    {% if primary_platform %}
-                        <div class="platform-indicator rounded-circle ms-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: white;">
-                            {% if primary_platform == 'twitch' %}
-                                <i class="fab fa-twitch" style="color: #9146FF; font-size: 18px;"></i>
-                            {% elif primary_platform == 'youtube' %}
-                                <i class="fab fa-youtube" style="color: #FF0000; font-size: 18px;"></i>
-                            {% elif primary_platform == 'kick' %}
-                                <i class="fas fa-play" style="color: #53FC18; font-size: 18px;"></i>
-                            {% endif %}
-                        </div>
+                    {% set primary_platform =
+                    current_user.get_primary_platform() %} {% if
+                    primary_platform %}
+                    <div
+                        class="platform-indicator rounded-circle ms-1 d-flex align-items-center justify-content-center"
+                        style="width: 32px; height: 32px; background: white"
+                    >
+                        {% if primary_platform == 'twitch' %}
+                        <i
+                            class="fab fa-twitch"
+                            style="color: #9146ff; font-size: 18px"
+                        ></i>
+                        {% elif primary_platform == 'youtube' %}
+                        <i
+                            class="fab fa-youtube"
+                            style="color: #ff0000; font-size: 18px"
+                        ></i>
+                        {% elif primary_platform == 'kick' %}
+                        <i
+                            class="fas fa-play"
+                            style="color: #53fc18; font-size: 18px"
+                        ></i>
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Subscription Status -->
-            {% set subscription_status = current_user.get_subscription_status() %}
+            {% set subscription_status = current_user.get_subscription_status()
+            %} {% set current_subscription = current_user.get_current_subscription()
+            %} 
+            
+            <!-- Scheduled Tier Change Warning -->
+            {% if current_subscription and current_subscription.is_pending_downgrade() %}
+            <div class="alert alert-warning mb-4" style="border-radius: 15px">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Төлөвлөсөн өөрчлөлт
+                        </h6>
+                        <small>
+                            {{ current_subscription.scheduled_change_date.strftime('%Y-%m-%d') }}-нд 
+                            {{ current_subscription.scheduled_tier_change.value.title() }} багц руу шилжинэ
+                        </small>
+                    </div>
+                    <div>
+                        <button
+                            type="button"
+                            class="btn btn-warning btn-sm"
+                            onclick="cancelScheduledChange()"
+                        >
+                            Цуцлах
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             {% if subscription_status['is_in_grace_period'] %}
-                <div class="alert alert-danger mb-4" style="border-radius: 15px;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Багц дууссан - {{ subscription_status['hours_remaining_in_grace'] }} цаг үлдсэн
-                            </h6>
-                            <small>24 цагийн зөвшөөрөх хугацаа. Үргэлжлүүлэхийн тулд төлбөр хийнэ үү.</small>
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#subscriptionModal">Яаралтай төлөх</button>
-                        </div>
+            <div class="alert alert-danger mb-4" style="border-radius: 15px">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Багц дууссан - {{
+                            subscription_status['hours_remaining_in_grace'] }}
+                            цаг үлдсэн
+                        </h6>
+                        <small
+                            >24 цагийн зөвшөөрөх хугацаа. Үргэлжлүүлэхийн тулд
+                            төлбөр хийнэ үү.</small
+                        >
+                    </div>
+                    <div>
+                        <button
+                            type="button"
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#subscriptionModal"
+                        >
+                            Яаралтай төлөх
+                        </button>
                     </div>
                 </div>
+            </div>
             {% else %}
-                <div class="alert alert-{{ 'success' if subscription_status['is_active'] else 'warning' }} mb-4" style="border-radius: 15px;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">
-                                <i class="fas fa-crown me-2"></i>
-                                Багц: {{ subscription_status['tier_display'] }}
-                            </h6>
-                            {% if subscription_status['is_active'] %}
-                                <small>
-                                    {% if subscription_status['is_trial'] %}
-                                        Үнэгүй туршилт - {{ subscription_status['days_remaining'] }} хоног үлдсэн
-                                    {% else %}
-                                        {{ subscription_status['days_remaining'] }} хоног үлдсэн
-                                    {% endif %}
-                                </small>
-                            {% else %}
-                                <small>Багц дууссан эсвэл идэвхгүй</small>
-                            {% endif %}
-                        </div>
-                        <div>
-                            {% if subscription_status['is_expired'] or not subscription_status['is_active'] %}
-                                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#subscriptionModal">Багц худалдан авах</button>
-                            {% elif subscription_status['days_remaining'] <= 7 %}
-                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#subscriptionModal">Сунгах</button>
-                            {% endif %}
-                        </div>
+            <div
+                class="alert alert-{{ 'success' if subscription_status['is_active'] else 'warning' }} mb-4"
+                style="border-radius: 15px"
+            >
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-crown me-2"></i>
+                            Багц: {{ subscription_status['tier_display'] }}
+                        </h6>
+                        {% if subscription_status['is_active'] %}
+                        <small>
+                            {% if subscription_status['is_trial'] %} Үнэгүй
+                            туршилт - {{ subscription_status['days_remaining']
+                            }} хоног үлдсэн {% else %} {{
+                            subscription_status['days_remaining'] }} хоног
+                            үлдсэн {% endif %}
+                        </small>
+                        {% else %}
+                        <small>Багц дууссан эсвэл идэвхгүй</small>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if subscription_status['is_expired'] or not
+                        subscription_status['is_active'] %}
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#subscriptionModal"
+                        >
+                            Багц худалдан авах
+                        </button>
+                        {% elif subscription_status['days_remaining'] <= 7 %}
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#subscriptionModal"
+                        >
+                            Сунгах
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
+            </div>
             {% endif %}
 
             <!-- Bank Account Status -->
             {% if current_user.has_bank_account() %}
-                <div class="alert alert-success mb-4" style="border-radius: 15px;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">
-                                <i class="fas fa-university me-2"></i>
-                                Банкны данс: {{ current_user.bank_name }}
-                            </h6>
-                            <small>{{ current_user.bank_account_name }} - {{ current_user.get_formatted_iban() }}</small>
-                        </div>
-                        <div>
-                            <a href="{{ url_for('main.bank_account') }}" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-cog me-1"></i>Тохируулах
-                            </a>
-                        </div>
+            <div class="alert alert-success mb-4" style="border-radius: 15px">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-university me-2"></i>
+                            Банкны данс: {{ current_user.bank_name }}
+                        </h6>
+                        <small
+                            >{{ current_user.bank_account_name }} - {{
+                            current_user.get_formatted_iban() }}</small
+                        >
+                    </div>
+                    <div>
+                        <a
+                            href="{{ url_for('main.bank_account') }}"
+                            class="btn btn-outline-primary btn-sm"
+                        >
+                            <i class="fas fa-cog me-1"></i>Тохируулах
+                        </a>
                     </div>
                 </div>
+            </div>
             {% else %}
-                <div class="alert alert-warning mb-4" style="border-radius: 15px;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Банкны данс бүртгэлгүй
-                            </h6>
-                            <small>Донейт хүлээн авахын тулд банкны данс бүртгэнэ үү.</small>
-                        </div>
-                        <div>
-                            <a href="{{ url_for('main.bank_account') }}" class="btn btn-warning btn-sm">
-                                <i class="fas fa-plus me-1"></i>Данс нэмэх
-                            </a>
-                        </div>
+            <div class="alert alert-warning mb-4" style="border-radius: 15px">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Банкны данс бүртгэлгүй
+                        </h6>
+                        <small
+                            >Донейт хүлээн авахын тулд банкны данс бүртгэнэ
+                            үү.</small
+                        >
+                    </div>
+                    <div>
+                        <a
+                            href="{{ url_for('main.bank_account') }}"
+                            class="btn btn-warning btn-sm"
+                        >
+                            <i class="fas fa-plus me-1"></i>Данс нэмэх
+                        </a>
                     </div>
                 </div>
+            </div>
             {% endif %}
 
             <div class="row">
@@ -157,10 +236,17 @@
                                     <span>{{ platform.title() }}</span>
                                 </div>
                                 <div class="d-flex align-items-center">
-                                    {% if current_user.get_primary_platform() == platform %}
-                                        <span class="badge bg-primary me-2">Үндсэн</span>
+                                    {% if current_user.get_primary_platform() ==
+                                    platform %}
+                                    <span class="badge bg-primary me-2"
+                                        >Үндсэн</span
+                                    >
                                     {% else %}
-                                        <a href="{{ url_for('oauth.set_primary_platform', platform=platform) }}" class="btn btn-sm btn-outline-primary me-2">Үндсэн болгох</a>
+                                    <a
+                                        href="{{ url_for('oauth.set_primary_platform', platform=platform) }}"
+                                        class="btn btn-sm btn-outline-primary me-2"
+                                        >Үндсэн болгох</a
+                                    >
                                     {% endif %}
                                     <button
                                         type="button"
@@ -169,8 +255,9 @@
                                         data-bs-target="#disconnectModal"
                                         data-platform="{{ platform }}"
                                         data-platform-title="{{ platform.title() }}"
-                                        >Салгах</button
                                     >
+                                        Салгах
+                                    </button>
                                 </div>
                             </div>
                             {% else %}
@@ -210,42 +297,106 @@
 </div>
 
 <!-- Disconnect Confirmation Modal -->
-<div class="modal fade" id="disconnectModal" tabindex="-1" aria-labelledby="disconnectModalLabel" aria-hidden="true">
+<div
+    class="modal fade"
+    id="disconnectModal"
+    tabindex="-1"
+    aria-labelledby="disconnectModalLabel"
+    aria-hidden="true"
+>
     <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+        <div
+            class="modal-content border-0"
+            style="
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+            "
+        >
             <div class="modal-header border-0 pb-1">
-                <h6 class="modal-title" id="disconnectModalLabel">Платформ салгах</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h6 class="modal-title" id="disconnectModalLabel">
+                    Платформ салгах
+                </h6>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
             </div>
             <div class="modal-body py-2">
                 <div class="text-center">
-                    <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
-                    <p class="mb-1" style="font-size: 0.9rem;">Та үнэхээр <strong id="platformName"></strong>-ээс салгахыг хүсэж байна уу?</p>
-                    <p class="text-muted" style="font-size: 0.8rem;">Энэ үйлдлийг буцаах боломжгүй.</p>
+                    <i
+                        class="fas fa-exclamation-triangle text-warning fa-2x mb-2"
+                    ></i>
+                    <p class="mb-1" style="font-size: 0.9rem">
+                        Та үнэхээр <strong id="platformName"></strong>-ээс
+                        салгахыг хүсэж байна уу?
+                    </p>
+                    <p class="text-muted" style="font-size: 0.8rem">
+                        Энэ үйлдлийг буцаах боломжгүй.
+                    </p>
                 </div>
             </div>
             <div class="modal-footer border-0 justify-content-center pt-1">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Цуцлах</button>
-                <a href="#" id="confirmDisconnect" class="btn btn-danger btn-sm">Салгах</a>
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    data-bs-dismiss="modal"
+                >
+                    Цуцлах
+                </button>
+                <a href="#" id="confirmDisconnect" class="btn btn-danger btn-sm"
+                    >Салгах</a
+                >
             </div>
         </div>
     </div>
 </div>
 
 <!-- Subscription Purchase Modal -->
-<div class="modal fade" id="subscriptionModal" tabindex="-1" aria-labelledby="subscriptionModalLabel" aria-hidden="true">
+<div
+    class="modal fade"
+    id="subscriptionModal"
+    tabindex="-1"
+    aria-labelledby="subscriptionModalLabel"
+    aria-hidden="true"
+>
     <div class="modal-dialog modal-dialog-centered modal-md">
-        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+        <div
+            class="modal-content border-0"
+            style="
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+            "
+        >
             <div class="modal-header border-0">
-                <h5 class="modal-title" id="subscriptionModalLabel">Багц сонгох</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="subscriptionModalLabel">
+                    Багц сонгох
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
             </div>
             <div class="modal-body">
                 <div class="row justify-content-center">
                     <!-- Basic Tier -->
                     <div class="col-md-6 mb-3">
-                        <div class="card h-100" style="background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(5px); border-radius: 10px;">
-                            <div class="card-body text-center d-flex flex-column">
+                        <div
+                            class="card h-100"
+                            style="
+                                background: rgba(255, 255, 255, 0.3);
+                                backdrop-filter: blur(5px);
+                                border-radius: 10px;
+                            "
+                        >
+                            <div
+                                class="card-body text-center d-flex flex-column"
+                            >
                                 <h6 class="card-title">Үндсэн багц</h6>
                                 <h4 class="text-primary">40,000₮</h4>
                                 <p class="text-muted">сар тутам</p>
@@ -256,22 +407,56 @@
                                     <li>&nbsp;</li>
                                 </ul>
                                 <div class="mt-auto">
-                                    <select class="form-select form-select-sm mb-2" id="basicMonths">
-                                        <option value="1">1 сар - 40,000₮</option>
-                                        <option value="3">3 сар - 110,400₮ <span class="text-success">(8% хямдрал)</span></option>
-                                        <option value="6">6 сар - 199,200₮ <span class="text-success">(17% хямдрал)</span></option>
-                                        <option value="12">12 сар - 384,000₮ <span class="text-success">(20% хямдрал)</span></option>
+                                    <select
+                                        class="form-select form-select-sm mb-2"
+                                        id="basicMonths"
+                                    >
+                                        <option value="1">
+                                            1 сар - 40,000₮
+                                        </option>
+                                        <option value="3">
+                                            3 сар - 110,400₮
+                                            <span class="text-success"
+                                                >(8% хямдрал)</span
+                                            >
+                                        </option>
+                                        <option value="6">
+                                            6 сар - 199,200₮
+                                            <span class="text-success"
+                                                >(17% хямдрал)</span
+                                            >
+                                        </option>
+                                        <option value="12">
+                                            12 сар - 384,000₮
+                                            <span class="text-success"
+                                                >(20% хямдрал)</span
+                                            >
+                                        </option>
                                     </select>
-                                    <button class="btn btn-primary btn-sm w-100" onclick="purchaseSubscription('basic')">Сонгох</button>
+                                    <button
+                                        class="btn btn-primary btn-sm w-100"
+                                        onclick="checkTierChange('basic')"
+                                    >
+                                        Сонгох
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Advanced Tier -->
                     <div class="col-md-6 mb-3">
-                        <div class="card h-100" style="background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(5px); border-radius: 10px;">
-                            <div class="card-body text-center d-flex flex-column">
+                        <div
+                            class="card h-100"
+                            style="
+                                background: rgba(255, 255, 255, 0.3);
+                                backdrop-filter: blur(5px);
+                                border-radius: 10px;
+                            "
+                        >
+                            <div
+                                class="card-body text-center d-flex flex-column"
+                            >
                                 <h6 class="card-title">Дэвшилтэт багц</h6>
                                 <h4 class="text-warning">80,000₮</h4>
                                 <p class="text-muted">сар тутам</p>
@@ -282,13 +467,38 @@
                                     <li>✓ Илүү боломжууд</li>
                                 </ul>
                                 <div class="mt-auto">
-                                    <select class="form-select form-select-sm mb-2" id="advancedMonths">
-                                        <option value="1">1 сар - 80,000₮</option>
-                                        <option value="3">3 сар - 220,800₮ <span class="text-success">(8% хямдрал)</span></option>
-                                        <option value="6">6 сар - 398,400₮ <span class="text-success">(17% хямдрал)</span></option>
-                                        <option value="12">12 сар - 768,000₮ <span class="text-success">(20% хямдрал)</span></option>
+                                    <select
+                                        class="form-select form-select-sm mb-2"
+                                        id="advancedMonths"
+                                    >
+                                        <option value="1">
+                                            1 сар - 80,000₮
+                                        </option>
+                                        <option value="3">
+                                            3 сар - 220,800₮
+                                            <span class="text-success"
+                                                >(8% хямдрал)</span
+                                            >
+                                        </option>
+                                        <option value="6">
+                                            6 сар - 398,400₮
+                                            <span class="text-success"
+                                                >(17% хямдрал)</span
+                                            >
+                                        </option>
+                                        <option value="12">
+                                            12 сар - 768,000₮
+                                            <span class="text-success"
+                                                >(20% хямдрал)</span
+                                            >
+                                        </option>
                                     </select>
-                                    <button class="btn btn-warning btn-sm w-100" onclick="purchaseSubscription('advanced')">Сонгох</button>
+                                    <button
+                                        class="btn btn-warning btn-sm w-100"
+                                        onclick="checkTierChange('advanced')"
+                                    >
+                                        Сонгох
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -300,12 +510,30 @@
 </div>
 
 <!-- Payment Modal -->
-<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+<div
+    class="modal fade"
+    id="paymentModal"
+    tabindex="-1"
+    aria-labelledby="paymentModalLabel"
+    aria-hidden="true"
+>
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 15px;">
+        <div
+            class="modal-content border-0"
+            style="
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+            "
+        >
             <div class="modal-header border-0">
                 <h5 class="modal-title" id="paymentModalLabel">Төлбөр төлөх</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
             </div>
             <div class="modal-body">
                 <div id="paymentContent">
@@ -321,73 +549,297 @@
     </div>
 </div>
 
+<!-- Tier Change Confirmation Modal -->
+<div
+    class="modal fade"
+    id="tierChangeModal"
+    tabindex="-1"
+    aria-labelledby="tierChangeModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div
+            class="modal-content border-0"
+            style="
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+            "
+        >
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="tierChangeModalLabel">
+                    Багц өөрчлөх
+                </h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div id="tierChangeContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Цуцлах
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="confirmTierChange"
+                    onclick="confirmTierChangePurchase()"
+                >
+                    Баталгаажуулах
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const disconnectModal = document.getElementById('disconnectModal');
-    const platformName = document.getElementById('platformName');
-    const confirmDisconnect = document.getElementById('confirmDisconnect');
-    
-    disconnectModal.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        const platform = button.getAttribute('data-platform');
-        const platformTitle = button.getAttribute('data-platform-title');
-        
-        platformName.textContent = platformTitle;
-        confirmDisconnect.href = `/oauth/disconnect/${platform}`;
-    });
-    
-    // Subscription purchase functionality
-    window.purchaseSubscription = function(tier) {
-        const monthsSelect = document.getElementById(tier + 'Months');
-        const months = parseInt(monthsSelect.value);
-        
-        // Hide subscription modal and show payment modal
-        const subscriptionModal = bootstrap.Modal.getInstance(document.getElementById('subscriptionModal'));
-        const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-        
-        subscriptionModal.hide();
-        paymentModal.show();
-        
-        // Make API call to create subscription
-        fetch('/subscription/purchase', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                tier: tier,
-                months: months
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                displayPaymentOptions(data);
-                startPaymentStatusCheck(data.payment_id);
-            } else {
-                displayPaymentError(data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            displayPaymentError('Холболтын алдаа гарлаа');
-        });
+    // Global variables for tier change
+    let pendingTierChange = {
+        tier: null,
+        months: null,
+        changeType: null
     };
-    
-    function displayPaymentOptions(paymentData) {
-        const paymentContent = document.getElementById('paymentContent');
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const disconnectModal = document.getElementById('disconnectModal');
+        const platformName = document.getElementById('platformName');
+        const confirmDisconnect = document.getElementById('confirmDisconnect');
+
+        disconnectModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const platform = button.getAttribute('data-platform');
+            const platformTitle = button.getAttribute('data-platform-title');
+
+            platformName.textContent = platformTitle;
+            confirmDisconnect.href = `/oauth/disconnect/${platform}`;
+        });
+
+        // Tier change checking functionality
+        window.checkTierChange = function (tier) {
+            const monthsSelect = document.getElementById(tier + 'Months');
+            const months = parseInt(monthsSelect.value);
+            
+            // Store pending change data
+            pendingTierChange = { tier, months, changeType: null };
+            
+            // Get current subscription info
+            const currentTier = '{{ current_subscription.feature_tier.value if current_subscription and current_subscription.feature_tier else "none" }}';
+            const currentEndDate = '{{ current_subscription.end_date.strftime("%Y-%m-%d") if current_subscription else "" }}';
+            const daysRemaining = {{ subscription_status.get('days_remaining', 0) }};
+            
+            // Determine change type
+            let changeType = 'extension';  // Default
+            if (currentTier === 'none' || currentTier === '') {
+                changeType = 'new';
+            } else if (currentTier !== tier) {
+                if ((currentTier === 'basic' && tier === 'advanced')) {
+                    changeType = 'upgrade';
+                } else if ((currentTier === 'advanced' && tier === 'basic')) {
+                    changeType = 'downgrade';
+                }
+            }
+            
+            pendingTierChange.changeType = changeType;
+            
+            // Show appropriate confirmation
+            showTierChangeConfirmation(tier, months, changeType, currentTier, daysRemaining, currentEndDate);
+        };
         
-        paymentContent.innerHTML = `
+        function showTierChangeConfirmation(targetTier, months, changeType, currentTier, daysRemaining, currentEndDate) {
+            const tierChangeContent = document.getElementById('tierChangeContent');
+            const tierNames = { 'basic': 'Үндсэн', 'advanced': 'Дэвшилтэт' };
+            const monthNames = { 1: '1 сар', 3: '3 сар', 6: '6 сар', 12: '12 сар' };
+            
+            let content = '';
+            let alertClass = 'info';
+            let confirmButtonText = 'Баталгаажуулах';
+            let confirmButtonClass = 'btn-primary';
+            
+            if (changeType === 'new') {
+                content = `
+                    <div class="text-center">
+                        <h5>Шинэ багц үүсгэх</h5>
+                        <p>Та <strong>${tierNames[targetTier]} багц</strong> худалдан авахыг хүсэж байна.</p>
+                        <div class="alert alert-success">
+                            <strong>Хугацаа:</strong> ${monthNames[months]}<br>
+                            <strong>Эхлэх огноо:</strong> Одоо<br>
+                            <strong>Дуусах огноо:</strong> Төлбөр төлсний дараа тооцогдоно
+                        </div>
+                    </div>
+                `;
+            } else if (changeType === 'extension') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц сунгах</h5>
+                        <p>Та <strong>${tierNames[targetTier]} багцыг ${monthNames[months]} сунгахыг</strong> хүсэж байна.</p>
+                        <div class="alert alert-success">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Сунгах хугацаа:</strong> ${monthNames[months]}<br>
+                            <strong>Шинэ дуусах огноо:</strong> ${currentEndDate}-оос ${months} сараар сунгагдана
+                        </div>
+                    </div>
+                `;
+            } else if (changeType === 'upgrade') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц сайжруулах</h5>
+                        <p><strong>${tierNames[currentTier]}</strong>-оос <strong>${tierNames[targetTier]}</strong> багц руу шилжиж байна.</p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-star me-2"></i>
+                            <strong>Давуу тал:</strong> Шинэ онцлогууд шууд идэвхжинэ!
+                        </div>
+                        <div class="alert alert-success">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Шинэ багц:</strong> ${tierNames[targetTier]} (${monthNames[months]})<br>
+                            <strong>Үлдсэн цагийн зөрүү:</strong> Автоматаар тооцогдоно<br>
+                            <strong>Идэвхжих хугацаа:</strong> Шууд
+                        </div>
+                    </div>
+                `;
+                alertClass = 'info';
+                confirmButtonText = 'Сайжруулах';
+                confirmButtonClass = 'btn-success';
+            } else if (changeType === 'downgrade') {
+                content = `
+                    <div class="text-center">
+                        <h5>Багц буурдуулах</h5>
+                        <p><strong>${tierNames[currentTier]}</strong>-оос <strong>${tierNames[targetTier]}</strong> багц руу шилжиж байна.</p>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Анхаар:</strong> Зарим онцлогууд алга болно!
+                        </div>
+                        <div class="alert alert-info">
+                            <strong>Одоогийн багц:</strong> ${tierNames[currentTier]} (${daysRemaining} хоног үлдсэн)<br>
+                            <strong>Шинэ багц:</strong> ${tierNames[targetTier]} (${monthNames[months]})<br>
+                            <strong>Шилжих хугацаа:</strong> ${currentEndDate}-нд (одоогийн багц дууссаны дараа)<br>
+                            <strong>Онцлог алдагдах хугацаа:</strong> ${currentEndDate}-нд
+                        </div>
+                    </div>
+                `;
+                alertClass = 'warning';
+                confirmButtonText = 'Төлөвлөх';
+                confirmButtonClass = 'btn-warning';
+            }
+            
+            tierChangeContent.innerHTML = content;
+            
+            // Update button style
+            const confirmButton = document.getElementById('confirmTierChange');
+            confirmButton.className = `btn ${confirmButtonClass}`;
+            confirmButton.textContent = confirmButtonText;
+            
+            // Show modal
+            const subscriptionModal = bootstrap.Modal.getInstance(document.getElementById('subscriptionModal'));
+            const tierChangeModal = new bootstrap.Modal(document.getElementById('tierChangeModal'));
+            
+            subscriptionModal.hide();
+            tierChangeModal.show();
+        }
+        
+        window.confirmTierChangePurchase = function () {
+            // Hide tier change modal
+            const tierChangeModal = bootstrap.Modal.getInstance(document.getElementById('tierChangeModal'));
+            tierChangeModal.hide();
+            
+            // Proceed with purchase
+            purchaseSubscription(pendingTierChange.tier);
+        };
+        
+        window.cancelScheduledChange = function () {
+            if (!confirm('Та төлөвлөсөн өөрчлөлтийг цуцлахыг хүсэж байна уу?')) {
+                return;
+            }
+            
+            fetch('/subscription/cancel-scheduled-change', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();  // Refresh page to update UI
+                } else {
+                    alert('Алдаа гарлаа: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Холболтын алдаа гарлаа');
+            });
+        };
+
+        // Subscription purchase functionality
+        window.purchaseSubscription = function (tier) {
+            const monthsSelect = document.getElementById(tier + 'Months');
+            const months = parseInt(monthsSelect.value);
+
+            // Hide subscription modal and show payment modal
+            const subscriptionModal = bootstrap.Modal.getInstance(
+                document.getElementById('subscriptionModal')
+            );
+            const paymentModal = new bootstrap.Modal(
+                document.getElementById('paymentModal')
+            );
+
+            subscriptionModal.hide();
+            paymentModal.show();
+
+            // Make API call to create subscription with tier change support
+            fetch('/subscription/purchase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    tier: tier,
+                    months: months,
+                    use_tier_change_logic: true  // Signal to use new tier change logic
+                }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        displayPaymentOptions(data);
+                        startPaymentStatusCheck(data.payment_id);
+                    } else {
+                        displayPaymentError(data.error);
+                    }
+                })
+                .catch((error) => {
+                    displayPaymentError('Холболтын алдаа гарлаа');
+                });
+        };
+
+        function displayPaymentOptions(paymentData) {
+            const paymentContent = document.getElementById('paymentContent');
+
+            paymentContent.innerHTML = `
             <div class="text-center">
                 <h5>Төлбөрийн мэдээлэл</h5>
-                <p class="text-muted">Төлбөрийн дугаар: ${paymentData.payment_reference}</p>
+                <p class="text-muted">Төлбөрийн дугаар: ${
+                    paymentData.payment_reference
+                }</p>
                 <h4 class="text-primary">${paymentData.amount.toLocaleString()}₮</h4>
                 <p>${paymentData.description}</p>
                 
                 <div class="mb-3">
                     <h6>QR код-оор төлөх:</h6>
                     <div class="d-flex justify-content-center">
-                        <img src="data:image/png;base64,${paymentData.qr_image}" alt="QR Code" style="max-width: 200px;">
+                        <img src="data:image/png;base64,${
+                            paymentData.qr_image
+                        }" alt="QR Code" style="max-width: 200px;">
                     </div>
                     <small class="text-muted">Банкны апп-аараа QR код-ыг уншуулна уу</small>
                 </div>
@@ -405,11 +857,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
-    }
-    
-    function displayPaymentError(error) {
-        const paymentContent = document.getElementById('paymentContent');
-        paymentContent.innerHTML = `
+        }
+
+        function displayPaymentError(error) {
+            const paymentContent = document.getElementById('paymentContent');
+            paymentContent.innerHTML = `
             <div class="text-center">
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
@@ -418,142 +870,62 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Хаах</button>
             </div>
         `;
-    }
-    
-    function startPaymentStatusCheck(paymentId) {
-        const checkInterval = setInterval(() => {
-            fetch(`/subscription/payment/${paymentId}/status`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.status === 'paid') {
-                            clearInterval(checkInterval);
-                            showPaymentSuccess();
-                        } else if (data.status === 'failed' || data.status === 'expired') {
-                            clearInterval(checkInterval);
-                            showPaymentFailure(data.status);
+        }
+
+        function startPaymentStatusCheck(paymentId) {
+            const checkInterval = setInterval(() => {
+                fetch(`/subscription/payment/${paymentId}/status`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            if (data.status === 'paid') {
+                                clearInterval(checkInterval);
+                                showPaymentSuccess();
+                            } else if (
+                                data.status === 'failed' ||
+                                data.status === 'expired'
+                            ) {
+                                clearInterval(checkInterval);
+                                showPaymentFailure(data.status);
+                            }
                         }
-                    }
-                })
-                .catch(error => {
-                    console.error('Status check error:', error);
-                });
-        }, 5000); // Check every 5 seconds
-        
-        // Stop checking after 10 minutes
-        setTimeout(() => {
-            clearInterval(checkInterval);
-        }, 600000);
-    }
-    
-    function showPaymentSuccess() {
-        const paymentStatus = document.getElementById('paymentStatus');
-        paymentStatus.innerHTML = `
+                    })
+                    .catch((error) => {
+                    });
+            }, 5000); // Check every 5 seconds
+
+            // Stop checking after 10 minutes
+            setTimeout(() => {
+                clearInterval(checkInterval);
+            }, 600000);
+        }
+
+        function showPaymentSuccess() {
+            const paymentStatus = document.getElementById('paymentStatus');
+            paymentStatus.innerHTML = `
             <div class="alert alert-success">
                 <i class="fas fa-check-circle me-2"></i>
                 Төлбөр амжилттай төлөгдлөө! Таны багц сунгагдлаа.
             </div>
             <button type="button" class="btn btn-primary" onclick="location.reload()">Хаах</button>
         `;
-    }
-    
-    function showPaymentFailure(status) {
-        const paymentStatus = document.getElementById('paymentStatus');
-        const message = status === 'expired' ? 'Төлбөрийн хугацаа дууссан' : 'Төлбөр амжилтгүй';
-        paymentStatus.innerHTML = `
+        }
+
+        function showPaymentFailure(status) {
+            const paymentStatus = document.getElementById('paymentStatus');
+            const message =
+                status === 'expired'
+                    ? 'Төлбөрийн хугацаа дууссан'
+                    : 'Төлбөр амжилтгүй';
+            paymentStatus.innerHTML = `
             <div class="alert alert-danger">
                 <i class="fas fa-times-circle me-2"></i>
                 ${message}
             </div>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Хаах</button>
         `;
-    }
-    
-    // DEV: Tier Toggle functionality (Remove in production)
-    window.toggleTier = function() {
-        const btn = document.getElementById('tierToggleBtn');
-        const tierSpan = document.getElementById('currentTier');
-        
-        // Disable button during request
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Өөрчилж байна...';
-        
-        fetch('/dev/toggle-tier', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update button text and style
-                tierSpan.textContent = data.new_tier_display;
-                updateTierButtonStyle(data.new_tier);
-                
-                // Show success feedback
-                showTierChangeSuccess(data.new_tier_display);
-            } else {
-                alert('Tier солиход алдаа гарлаа: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error toggling tier:', error);
-            alert('Tier солиход алдаа гарлаа: ' + error);
-        })
-        .finally(() => {
-            // Re-enable button
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-crown me-1"></i><span id="currentTier">' + tierSpan.textContent + '</span>';
-        });
-    };
-    
-    function updateTierButtonStyle(tier) {
-        const btn = document.getElementById('tierToggleBtn');
-        btn.className = 'btn btn-sm ms-2 me-2'; // Reset classes
-        
-        if (tier === 'basic') {
-            btn.classList.add('btn-primary');
-        } else if (tier === 'advanced') {
-            btn.classList.add('btn-warning');
         }
-        btn.style.fontSize = '10px';
-        btn.style.padding = '2px 8px';
-    }
-    
-    function showTierChangeSuccess(tierDisplay) {
-        // Create a small toast notification
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-success position-fixed';
-        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 200px;';
-        toast.innerHTML = `<i class="fas fa-check-circle me-2"></i>Tier солигдлоо: ${tierDisplay}`;
-        
-        document.body.appendChild(toast);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 3000);
-    }
-    
-    // Initialize tier button style on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get current tier from subscription status and update button
-        {% if current_user.get_current_subscription() %}
-            {% set current_sub = current_user.get_current_subscription() %}
-            {% if current_sub.feature_tier %}
-                updateTierButtonStyle('{{ current_sub.feature_tier.value }}');
-                document.getElementById('currentTier').textContent = '{{ current_sub.get_feature_tier_display_name() }}';
-            {% else %}
-                updateTierButtonStyle('basic');  // Default for legacy subscriptions
-            {% endif %}
-        {% else %}
-            updateTierButtonStyle('basic');  // Default for no subscription
-        {% endif %}
     });
-});
 </script>
 
 {% endblock %}

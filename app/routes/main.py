@@ -13,6 +13,9 @@ import time
 from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
+from werkzeug.utils import secure_filename
+import shutil
+import re
 
 main_bp = Blueprint('main', __name__)
 
@@ -58,11 +61,15 @@ def generate_tts_audio(user_id, text, voice, speed, pitch, request_type='donatio
     try:
         from app.utils.chimege_tts import ChimegeTTS
         from app.utils.tts_limiter import TTSLimiter
+        from app.models.user import User
         
         current_app.logger.info(f"TTS GENERATION: Starting for user {user_id}, text: '{text}'")
         
+        # Get user object for tier checking
+        user = User.query.get(user_id)
+        
         # Check usage limits
-        limiter = TTSLimiter()
+        limiter = TTSLimiter(user)
         limit_check = limiter.check_limits(user_id, text, request_type)
         
         if not limit_check['allowed']:
@@ -133,14 +140,279 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
+# DEV: Tier Toggle Endpoint (Remove in production)
+@main_bp.route('/dev')
+@login_required
+def dev_page():
+    """Development tools and utilities page"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
+    return render_template('dev.html')
+
+@main_bp.route('/dev/simulate-donation', methods=['POST'])
+@login_required
+def simulate_donation():
+    """Simulate a donation for testing all systems - uses REAL donation flow"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
+    try:
+        data = request.get_json()
+        
+        # Validate input
+        amount = float(data.get('amount', 0))
+        message = data.get('message', 'Туршилтын хандив')
+        donator_name = data.get('donator_name', 'Туршилтын хэрэглэгч')
+        
+        if amount <= 0:
+            return jsonify({'success': False, 'error': 'Invalid amount'}), 400
+        
+        current_app.logger.info(f"DEV: Simulating donation via REAL donation flow for user {current_user.id}: {amount}₮")
+        
+        # Import required models
+        from app.models.donation_payment import DonationPayment
+        import uuid
+        from datetime import datetime
+        
+        # Create a test DonationPayment record that mimics a real payment
+        # This will go through the exact same flow as real donations
+        test_payment = DonationPayment(
+            streamer_user_id=current_user.id,
+            donor_name=donator_name,
+            donor_platform='dev_test',
+            donor_user_id=None,  # Guest donation
+            amount=amount,
+            currency='MNT',
+            message=message,
+            type='alert',
+            sound_effect_id=None,
+            quickpay_invoice_id=f'test_{uuid.uuid4().hex[:12]}',
+            status='paid',  # Mark as paid so mark_as_paid() works
+            payment_date=datetime.utcnow(),
+            payment_method='dev_test',
+            expires_at=datetime.utcnow()
+        )
+        
+        # Add to session but don't commit (keep it as test-only)
+        db.session.add(test_payment)
+        db.session.flush()  # Get the ID without committing to database
+        
+        current_app.logger.info(f"DEV: Created test payment record {test_payment.id}")
+        
+        # Now use the REAL donation flow - call mark_as_paid()
+        # This will handle everything: donation creation, alerts, marathon, goal, leaderboard
+        success = test_payment.mark_as_paid(payment_method='dev_test')
+        
+        if success:
+            current_app.logger.info(f"DEV: Test donation processed successfully via real donation flow")
+            
+            # Keep the test payment record - it's clearly marked as 'dev_test'
+            # This allows test donations to go through the exact same flow as real donations
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Test donation processed via real donation flow',
+                'alert_triggered': True,
+                'marathon_updated': True,
+                'goal_updated': True,
+                'leaderboard_updated': True
+            })
+        else:
+            current_app.logger.error(f"DEV: Test donation processing failed")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'Test donation processing failed'}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"DEV: Donation simulation failed: {str(e)}")
+        import traceback
+        current_app.logger.error(f"DEV: Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/dev/toggle-tier', methods=['POST'])
+@login_required
+def toggle_tier():
+    """Toggle user's subscription tier for development testing"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(404)
+    try:
+        from app.models.subscription import SubscriptionTier
+        
+        # Get current subscription
+        current_subscription = current_user.get_current_subscription()
+        
+        if not current_subscription:
+            return jsonify({'success': False, 'error': 'No active subscription found'}), 400
+        
+        # Toggle between basic and advanced
+        if current_subscription.feature_tier == SubscriptionTier.BASIC:
+            new_tier = SubscriptionTier.ADVANCED
+            new_tier_display = "Дэвшилтэт"
+        else:
+            new_tier = SubscriptionTier.BASIC  
+            new_tier_display = "Үндсэн"
+        
+        # Update the subscription
+        current_subscription.feature_tier = new_tier
+        db.session.commit()
+        
+        current_app.logger.info(f"DEV: User {current_user.id} tier toggled to {new_tier.value}")
+        
+        return jsonify({
+            'success': True,
+            'new_tier': new_tier.value,
+            'new_tier_display': new_tier_display,
+            'message': f'Tier солигдлоо: {new_tier_display}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling tier: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/list', methods=['GET'])
+@login_required
+def list_sound_effects():
+    """Get list of available sound effects for dev testing"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        sounds = SoundEffect.query.filter_by(is_active=True).all()
+        sound_list = []
+        
+        for sound in sounds:
+            sound_list.append({
+                'id': sound.id,
+                'name': sound.name,
+                'category': sound.category,
+                'duration': float(sound.duration_seconds)
+            })
+        
+        return jsonify({
+            'success': True,
+            'sounds': sound_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error listing sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/dev/simulate-sound-effect', methods=['POST'])
+@login_required  
+def simulate_sound_effect():
+    """Simulate a sound effect for testing - uses REAL donation flow"""
+    if not current_user.dev_access:
+        from flask import abort
+        abort(403)
+    
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.donation_payment import DonationPayment
+        import uuid
+        from datetime import datetime
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        amount = data.get('amount')
+        sound_effect_id = data.get('sound_effect_id')
+        donator_name = data.get('donator_name', 'Test User')
+        
+        if not amount or not sound_effect_id:
+            return jsonify({'success': False, 'error': 'Amount and sound effect ID are required'}), 400
+        
+        # Get sound effect
+        sound_effect = SoundEffect.query.get(sound_effect_id)
+        if not sound_effect or not sound_effect.is_active:
+            return jsonify({'success': False, 'error': 'Sound effect not found or inactive'}), 404
+        
+        current_app.logger.info(f"DEV: Simulating sound effect via REAL donation flow for user {current_user.id}: {amount}₮")
+        
+        # Create a test DonationPayment record for sound effect
+        # This will go through the exact same flow as real sound effect donations
+        test_payment = DonationPayment(
+            streamer_user_id=current_user.id,
+            donor_name=donator_name,
+            donor_platform='dev_test',
+            donor_user_id=None,  # Guest donation
+            amount=amount,
+            currency='MNT',
+            message='',
+            type='sound_effect',
+            sound_effect_id=sound_effect_id,
+            quickpay_invoice_id=f'test_{uuid.uuid4().hex[:12]}',
+            status='paid',  # Mark as paid so mark_as_paid() works
+            payment_date=datetime.utcnow(),
+            payment_method='dev_test',
+            expires_at=datetime.utcnow()
+        )
+        
+        # Add to session but don't commit yet
+        db.session.add(test_payment)
+        db.session.flush()  # Get the ID without committing to database
+        
+        current_app.logger.info(f"DEV: Created test sound effect payment record {test_payment.id}")
+        
+        # Now use the REAL donation flow - call mark_as_paid()
+        # This will handle everything: donation creation, sound effect, leaderboard
+        success = test_payment.mark_as_paid(payment_method='dev_test')
+        
+        if success:
+            current_app.logger.info(f"DEV: Test sound effect processed successfully via real donation flow")
+            
+            # Keep the test payment record - it's clearly marked as 'dev_test'
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Test sound effect processed via real donation flow: {sound_effect.name}',
+                'sound_effect_triggered': True,
+                'leaderboard_updated': True
+            })
+        else:
+            current_app.logger.error(f"DEV: Test sound effect processing failed")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'Test sound effect processing failed'}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error simulating sound effect: {str(e)}")
+        import traceback
+        current_app.logger.error(f"DEV: Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/donation-alert')
 @login_required
 def donation_alert():
     from app.models.donation_alert_settings import DonationAlertSettings
+    from app.models.alert_configuration import AlertConfiguration
     from app.models.user_asset import UserAsset
     
-    # Get or create settings for user
-    settings = DonationAlertSettings.get_or_create_for_user(current_user.id)
+    # Check if user has advanced tier
+    subscription = current_user.get_current_subscription()
+    has_advanced_tier = (subscription and 
+                        subscription.feature_tier and 
+                        subscription.feature_tier.value == 'advanced')
+    
+    if has_advanced_tier:
+        # For advanced tier, get all alert configurations
+        alert_configs = AlertConfiguration.get_user_configs(current_user.id)
+        
+        # If no configurations exist, create default one
+        if not alert_configs:
+            default_config = AlertConfiguration.create_default_config(current_user.id, 1)
+            db.session.add(default_config)
+            db.session.commit()
+            alert_configs = [default_config]
+        
+        # Use first config as default for template compatibility
+        settings = alert_configs[0]
+    else:
+        # For basic tier, use legacy settings
+        settings = DonationAlertSettings.get_or_create_for_user(current_user.id)
     
     # Ensure user has an overlay token
     overlay_token = current_user.get_overlay_token()
@@ -153,13 +425,20 @@ def donation_alert():
     default_gifs = get_default_assets('gifs')
     default_sounds = get_default_assets('sounds')
     
-    return render_template('donation_alert.html', 
-                         settings=settings,
-                         user_gifs=user_gifs,
-                         user_sounds=user_sounds,
-                         default_gifs=default_gifs,
-                         default_sounds=default_sounds,
-                         overlay_token=overlay_token)
+    template_vars = {
+        'settings': settings,
+        'user_gifs': user_gifs,
+        'user_sounds': user_sounds,
+        'default_gifs': default_gifs,
+        'default_sounds': default_sounds,
+        'overlay_token': overlay_token
+    }
+    
+    # For advanced tier, also pass alert configurations
+    if has_advanced_tier:
+        template_vars['alert_configurations'] = [config.to_dict() for config in alert_configs]
+    
+    return render_template('donation_alert.html', **template_vars)
 
 @main_bp.route('/donation-goal')
 @login_required
@@ -306,7 +585,10 @@ def purchase_subscription():
         if not invoice_result.get('success'):
             return jsonify({'error': invoice_result.get('error', 'Failed to create invoice')}), 500
         
-        # Create payment record
+        # Check if we should use new tier change logic
+        use_tier_change_logic = data.get('use_tier_change_logic', False)
+        
+        # Create payment record with tier change metadata
         payment = SubscriptionPayment.create_payment_record(
             user_id=current_user.id,
             tier=tier,
@@ -314,6 +596,15 @@ def purchase_subscription():
             amount=invoice_result.get('amount'),
             invoice_data=invoice_result
         )
+        
+        # Store tier change intent in payment metadata
+        if use_tier_change_logic:
+            metadata = payment.get_metadata()
+            metadata['use_tier_change_logic'] = True
+            metadata['target_feature_tier'] = feature_tier
+            metadata['target_billing_cycle'] = billing_cycle
+            payment.set_metadata(metadata)
+            db.session.commit()
         
         # Return payment info
         return jsonify({
@@ -333,6 +624,91 @@ def purchase_subscription():
         
     except Exception as e:
         return jsonify({'error': f'Payment creation failed: {str(e)}'}), 500
+
+@main_bp.route('/subscription/cancel-scheduled-change', methods=['POST'])
+@login_required
+def cancel_scheduled_change():
+    """Cancel a scheduled tier change"""
+    try:
+        current_subscription = current_user.get_current_subscription()
+        
+        if not current_subscription:
+            return jsonify({'error': 'Идэвхтэй багц олдсонгүй'}), 404
+        
+        if not current_subscription.is_pending_downgrade():
+            return jsonify({'error': 'Төлөвлөсөн өөрчлөлт байхгүй'}), 400
+        
+        # Cancel the scheduled change
+        current_subscription.cancel_scheduled_change()
+        
+        # Also remove any pending subscription records
+        from app.models.subscription import SubscriptionStatus
+        pending_subscriptions = Subscription.query.filter_by(
+            user_id=current_user.id,
+            status=SubscriptionStatus.PENDING
+        ).all()
+        
+        for pending_sub in pending_subscriptions:
+            db.session.delete(pending_sub)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Төлөвлөсөн өөрчлөлт амжилттай цуцлагдлаа'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Алдаа гарлаа: {str(e)}'}), 500
+
+@main_bp.route('/admin/scheduled-changes', methods=['GET'])
+@login_required
+def admin_scheduled_changes():
+    """Admin page to view and manage scheduled tier changes"""
+    if not current_user.is_admin:
+        abort(403)
+    
+    from app.models.subscription import SubscriptionStatus
+    from datetime import datetime
+    
+    # Get all scheduled changes
+    current_time = datetime.utcnow()
+    scheduled_changes = Subscription.query.filter(
+        Subscription.scheduled_change_date.isnot(None),
+        Subscription.status == SubscriptionStatus.ACTIVE
+    ).order_by(Subscription.scheduled_change_date.asc()).all()
+    
+    # Categorize changes
+    overdue_changes = [s for s in scheduled_changes if s.scheduled_change_date < current_time]
+    upcoming_changes = [s for s in scheduled_changes if s.scheduled_change_date >= current_time]
+    
+    return render_template('admin/scheduled_changes.html', 
+                         overdue_changes=overdue_changes,
+                         upcoming_changes=upcoming_changes,
+                         current_time=current_time)
+
+@main_bp.route('/admin/process-scheduled-changes', methods=['POST'])
+@login_required  
+def admin_process_scheduled_changes():
+    """Admin endpoint to manually trigger scheduled change processing"""
+    if not current_user.is_admin:
+        abort(403)
+    
+    try:
+        changes_processed = Subscription.process_scheduled_changes()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Амжилттай {changes_processed} өөрчлөлт боловсруулсан',
+            'changes_processed': changes_processed
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Алдаа гарлаа: {str(e)}'
+        }), 500
 
 @main_bp.route('/subscription/payment/<int:payment_id>/status')
 @login_required
@@ -378,13 +754,39 @@ def check_payment_status(payment_id):
                 if quickpay_status == 'PAID':
                     payment.mark_as_paid(payment_data)
                     
-                    # Activate subscription
-                    subscription = Subscription.create_or_extend_subscription(
-                        user_id=current_user.id,
-                        tier=payment.tier,
-                        months=payment.months,
-                        payment_id=payment.id
-                    )
+                    # Activate subscription using appropriate logic
+                    metadata = payment.get_metadata()
+                    if metadata.get('use_tier_change_logic'):
+                        # Use new tier change logic
+                        from app.models.subscription import SubscriptionTier, BillingCycle
+                        
+                        # Convert strings to enums
+                        target_tier_str = metadata.get('target_feature_tier', payment.tier)
+                        billing_cycle_str = metadata.get('target_billing_cycle', 'monthly')
+                        
+                        target_tier = SubscriptionTier.BASIC if target_tier_str == 'basic' else SubscriptionTier.ADVANCED
+                        billing_cycle_map = {
+                            'monthly': BillingCycle.MONTHLY,
+                            'quarterly': BillingCycle.QUARTERLY,
+                            'biannual': BillingCycle.BIANNUAL,
+                            'annual': BillingCycle.ANNUAL
+                        }
+                        billing_cycle = billing_cycle_map.get(billing_cycle_str, BillingCycle.MONTHLY)
+                        
+                        subscription = Subscription.handle_tier_change(
+                            user_id=current_user.id,
+                            target_tier=target_tier,
+                            billing_cycle=billing_cycle,
+                            payment_id=payment.id
+                        )
+                    else:
+                        # Use legacy logic
+                        subscription = Subscription.create_or_extend_subscription(
+                            user_id=current_user.id,
+                            tier=payment.tier,
+                            months=payment.months,
+                            payment_id=payment.id
+                        )
                     
                     return jsonify({
                         'success': True,
@@ -656,7 +1058,7 @@ def upload_alert_asset():
         
         # Validate file size
         file_content = file.read()
-        max_size = 10 * 1024 * 1024 if asset_type == 'gif' else 5 * 1024 * 1024  # 10MB for gifs, 5MB for sounds
+        max_size = 35 * 1024 * 1024 if asset_type == 'gif' else 5 * 1024 * 1024  # 35MB for gifs, 5MB for sounds
         
         if len(file_content) > max_size:
             return jsonify({'success': False, 'error': f'File too large. Maximum {max_size // 1024 // 1024}MB allowed'}), 400
@@ -710,12 +1112,235 @@ def delete_alert_asset(asset_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# New API endpoints for multi-tab alert system
+
+@main_bp.route('/donation-alert/configurations', methods=['GET'])
+@login_required
+def get_alert_configurations():
+    """Get all alert configurations for the current user"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        configs = AlertConfiguration.get_user_configs(current_user.id)
+        return jsonify({
+            'success': True,
+            'configurations': [config.to_dict() for config in configs]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting alert configurations: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['GET'])
+@login_required
+def get_alert_configuration(tab_number):
+    """Get specific alert configuration by tab number"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not config:
+            return jsonify({'success': False, 'error': 'Configuration not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'configuration': config.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['POST'])
+@login_required
+def update_alert_configuration(tab_number):
+    """Update or create alert configuration for specific tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        from app.extensions import socketio
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        data = request.get_json()
+        current_app.logger.info(f"SETTINGS UPDATE: Tab {tab_number} - Received data: {data}")
+        
+        # Validate minimum_amount for duplicates and provide suggestions
+        if 'minimum_amount' in data:
+            min_amount = data['minimum_amount']
+            duplicate_config = AlertConfiguration.query.filter_by(
+                user_id=current_user.id,
+                is_active=True
+            ).filter(
+                AlertConfiguration.tab_number != tab_number,
+                AlertConfiguration.minimum_amount == min_amount
+            ).first()
+            
+            if duplicate_config:
+                suggested_amount = AlertConfiguration.find_next_available_amount(
+                    current_user.id, min_amount, exclude_tab_number=tab_number
+                )
+                return jsonify({
+                    'success': False, 
+                    'error': f'₮{min_amount} дүнг Алерт {duplicate_config.tab_number}-д ашигласан байна.',
+                    'suggestion': float(suggested_amount),
+                    'suggestion_message': f'Санал болгох: ₮{suggested_amount}'
+                }), 400
+        
+        # Get or create configuration (check for ANY existing config, not just active ones)
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number
+        ).first()
+        
+        if not config:
+            config = AlertConfiguration.create_default_config(current_user.id, tab_number)
+            db.session.add(config)
+        else:
+            # If config exists but was inactive, reactivate it
+            config.is_active = True
+        
+        # Update configuration
+        config.update_from_dict(data)
+        db.session.commit()
+        
+        current_app.logger.info(f"SETTINGS UPDATE: Tab {tab_number} - Settings updated successfully")
+        
+        # Emit settings update to user's overlay
+        socketio.emit('settings_updated', {
+            'tab_number': tab_number,
+            'config': config.to_dict()
+        }, room=f'user_{current_user.id}')
+        
+        return jsonify({'success': True, 'message': 'Configuration updated successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"SETTINGS UPDATE: Error updating tab {tab_number}: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>', methods=['DELETE'])
+@login_required
+def delete_alert_configuration(tab_number):
+    """Delete alert configuration for specific tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        # Cannot delete tab 1
+        if tab_number == 1:
+            return jsonify({'success': False, 'error': 'Cannot delete default tab'}), 400
+        
+        config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not config:
+            return jsonify({'success': False, 'error': 'Configuration not found'}), 404
+        
+        # Soft delete by setting is_active to False
+        config.is_active = False
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Configuration deleted successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donation-alert/configurations/<int:tab_number>/duplicate', methods=['POST'])
+@login_required
+def duplicate_alert_configuration(tab_number):
+    """Duplicate alert configuration to a new tab"""
+    try:
+        from app.models.alert_configuration import AlertConfiguration
+        
+        # Check if user has advanced tier
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Advanced tier required'}), 403
+        
+        data = request.get_json()
+        new_tab_number = data.get('new_tab_number')
+        
+        if not new_tab_number:
+            return jsonify({'success': False, 'error': 'New tab number required'}), 400
+        
+        # Check if new tab number already exists
+        existing = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=new_tab_number,
+            is_active=True
+        ).first()
+        
+        if existing:
+            return jsonify({'success': False, 'error': 'Tab number already exists'}), 400
+        
+        # Get source configuration
+        source_config = AlertConfiguration.query.filter_by(
+            user_id=current_user.id,
+            tab_number=tab_number,
+            is_active=True
+        ).first()
+        
+        if not source_config:
+            return jsonify({'success': False, 'error': 'Source configuration not found'}), 404
+        
+        # Duplicate configuration
+        new_config = source_config.duplicate_to_tab(new_tab_number)
+        db.session.add(new_config)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Configuration duplicated successfully',
+            'configuration': new_config.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error duplicating alert configuration: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/overlay/<token>')
 def overlay(token):
     """Donation alert overlay page for OBS"""
     try:
         from app.models.user import User
         from app.models.donation_alert_settings import DonationAlertSettings
+        from app.models.alert_configuration import AlertConfiguration
         
         # Get user by overlay token
         user = User.query.filter_by(overlay_token=token).first()
@@ -723,9 +1348,28 @@ def overlay(token):
             current_app.logger.warning(f"Invalid overlay token attempted: {token}")
             abort(404)
         
-        settings = DonationAlertSettings.get_or_create_for_user(user.id)
+        # Check if user has advanced tier
+        subscription = user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
         
-        return render_template('overlay.html', user=user, settings=settings)
+        if has_advanced_tier:
+            # Get all alert configurations for advanced tier
+            configs = AlertConfiguration.get_user_configs(user.id)
+            # Use first config as default settings for template compatibility
+            settings = configs[0] if configs else AlertConfiguration.create_default_config(user.id, 1)
+            if not configs:
+                db.session.add(settings)
+                db.session.commit()
+            
+            return render_template('overlay.html', user=user, settings=settings, 
+                                 alert_configurations=[config.to_dict() for config in configs], has_advanced_tier=True)
+        else:
+            # Use legacy settings for basic tier
+            settings = DonationAlertSettings.get_or_create_for_user(user.id)
+            return render_template('overlay.html', user=user, settings=settings, 
+                                 has_advanced_tier=False)
         
     except Exception as e:
         current_app.logger.error(f"Error loading overlay for token {token}: {str(e)}")
@@ -738,6 +1382,8 @@ def donate_page(username):
         from app.models.user import User
         from app.models.platform_connection import PlatformConnection
         from app.models.donation import Donation
+        from app.models.user_sound_settings import UserSoundSettings
+        from app.models.sound_effect import SoundEffect
         
         # Get user by username (from any platform connection)
         platform_connection = PlatformConnection.query.filter_by(platform_username=username).first()
@@ -760,11 +1406,46 @@ def donate_page(username):
             .limit(10)\
             .all()
         
+        # Check streamer's subscription tier
+        subscription = user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        # Get sound effects settings and available sounds
+        sound_settings = UserSoundSettings.query.filter_by(user_id=user.id).first()
+        sound_effects_enabled = sound_settings and sound_settings.is_enabled if sound_settings else False
+        sound_effect_price = float(sound_settings.price_per_sound) if sound_settings else 1000.0
+        
+        # Only allow sound effects if streamer has advanced tier AND has enabled them
+        sound_effects_available = has_advanced_tier and sound_effects_enabled
+        
+        # Get available sound effects if available
+        available_sounds = []
+        sound_categories = []
+        if sound_effects_available:
+            available_sounds = SoundEffect.query.filter_by(is_active=True)\
+                .order_by(SoundEffect.category, SoundEffect.name)\
+                .all()
+            
+            # Get unique categories for filtering
+            sound_categories = db.session.query(SoundEffect.category)\
+                .filter_by(is_active=True)\
+                .distinct()\
+                .all()
+            sound_categories = [cat[0] for cat in sound_categories if cat[0]]
+        
         return render_template('donate.html', 
                              streamer=user, 
                              connected_platforms=connected_platforms,
                              recent_donations=recent_donations,
-                             username=username)
+                             username=username,
+                             sound_effects_enabled=sound_effects_enabled,
+                             sound_effects_available=sound_effects_available,
+                             has_advanced_tier=has_advanced_tier,
+                             sound_effect_price=sound_effect_price,
+                             available_sounds=available_sounds,
+                             sound_categories=sound_categories)
         
     except Exception as e:
         current_app.logger.error(f"Error loading donation page for {username}: {str(e)}")
@@ -853,6 +1534,108 @@ def process_donation(username):
         current_app.logger.error(f"Error processing donation for {username}: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to process donation'}), 500
 
+@main_bp.route('/donate/<username>/sound-effect', methods=['POST'])
+def process_sound_effect_purchase(username):
+    """Process sound effect purchase - create payment invoice"""
+    try:
+        from app.models.user import User
+        from app.models.platform_connection import PlatformConnection
+        from app.models.donation_payment import DonationPayment
+        from app.models.user_sound_settings import UserSoundSettings
+        from app.models.sound_effect import SoundEffect
+        from flask_login import current_user
+        
+        # Get user by username
+        platform_connection = PlatformConnection.query.filter_by(platform_username=username).first()
+        
+        if not platform_connection:
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                return jsonify({'success': False, 'error': 'Streamer not found'}), 404
+        else:
+            user = platform_connection.user
+        
+        # Check if streamer has bank account configured
+        if not user.bank_iban or not user.bank_account_name:
+            return jsonify({
+                'success': False, 
+                'error': 'Streamer has not configured bank account for sound effects'
+            }), 400
+        
+        # Check if sound effects are enabled for this streamer
+        sound_settings = UserSoundSettings.query.filter_by(user_id=user.id).first()
+        if not sound_settings or not sound_settings.is_enabled:
+            return jsonify({
+                'success': False, 
+                'error': 'Sound effects are not enabled for this streamer'
+            }), 400
+        
+        # Get sound effect purchase data
+        data = request.get_json()
+        donor_name = data.get('donor_name', 'Anonymous')
+        sound_effect_id = data.get('sound_effect_id')
+        
+        if not sound_effect_id:
+            return jsonify({'success': False, 'error': 'Sound effect not specified'}), 400
+        
+        # Validate sound effect exists and is active
+        sound_effect = SoundEffect.query.filter_by(id=sound_effect_id, is_active=True).first()
+        if not sound_effect:
+            return jsonify({'success': False, 'error': 'Sound effect not found or inactive'}), 400
+        
+        # Use streamer's configured price
+        amount = float(sound_settings.price_per_sound)
+        
+        # Determine donor info
+        donor_platform = 'guest'
+        donor_user_id = None
+        
+        if current_user.is_authenticated:
+            donor_name = current_user.get_display_name()
+            donor_platform = current_user.get_primary_platform() or 'authenticated'
+            donor_user_id = current_user.id
+        
+        # Create sound effect payment and QPay invoice
+        payment_result = DonationPayment.create_donation_payment(
+            streamer_user_id=user.id,
+            donor_name=donor_name,
+            amount=amount,
+            message='',  # Sound effects don't have messages
+            donor_platform=donor_platform,
+            donor_user_id=donor_user_id,
+            payment_type='sound_effect',
+            sound_effect_id=sound_effect_id
+        )
+        
+        if not payment_result.get('success'):
+            return jsonify({
+                'success': False, 
+                'error': payment_result.get('error', 'Failed to create payment')
+            }), 500
+        
+        current_app.logger.info(f"Sound effect payment created for user {user.id}: {sound_effect.name} ({amount} MNT) from {donor_name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Sound effect payment created successfully',
+            'payment_data': {
+                'donation_payment_id': payment_result['donation_payment_id'],
+                'invoice_id': payment_result['invoice_id'],
+                'qr_code': payment_result['qr_code'],
+                'qr_image': payment_result['qr_image'],
+                'payment_url': payment_result['payment_url'],
+                'app_links': payment_result['app_links'],
+                'amount': payment_result['amount'],
+                'currency': payment_result['currency'],
+                'expires_at': payment_result['expires_at'],
+                'sound_effect_name': sound_effect.name
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error processing sound effect purchase for {username}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to process sound effect purchase'}), 500
+
 @main_bp.route('/donation/callback', methods=['GET', 'POST'])
 def donation_callback():
     """Handle QPay donation payment callback"""
@@ -934,6 +1717,30 @@ def donation_callback():
             
             if success:
                 current_app.logger.info(f"Donation payment {payment.id} marked as paid and donation created")
+                
+                # Emit real-time leaderboard update
+                try:
+                    from app.models.donor_leaderboard import DonorLeaderboard
+                    from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+                    
+                    # Get streamer's leaderboard settings
+                    settings = DonorLeaderboardSettings.query.filter_by(user_id=payment.streamer_user_id).first()
+                    if settings and settings.is_enabled:
+                        # Get updated top donors
+                        top_donors = DonorLeaderboard.get_top_donors(payment.streamer_user_id, limit=settings.positions_count)
+                        
+                        # Emit leaderboard update
+                        socketio.emit('leaderboard_updated', {
+                            'settings': settings.to_dict(),
+                            'top_donors': [donor.to_dict() for donor in top_donors],
+                            'enabled': settings.is_enabled
+                        }, room=f'leaderboard_{payment.streamer_user_id}')
+                        
+                        current_app.logger.info(f"Emitted leaderboard update for user {payment.streamer_user_id}")
+                        
+                except Exception as leaderboard_error:
+                    current_app.logger.error(f"Error updating leaderboard after donation: {str(leaderboard_error)}")
+                    
             else:
                 current_app.logger.error(f"Failed to mark donation payment {payment.id} as paid")
             
@@ -1061,6 +1868,69 @@ def donations_history():
         current_app.logger.error(f"Error loading donations history: {str(e)}")
         flash('Хандивын түүх ачаалахад алдаа гарлаа.', 'error')
         return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/api/donations/history')
+@login_required
+def donations_history_api():
+    """AJAX API endpoint for donation history table"""
+    try:
+        from app.models.donation import Donation
+        
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        
+        # Validate per_page
+        if per_page not in [20, 50, 100]:
+            per_page = 20
+        
+        # Get donations with pagination
+        donations = Donation.get_user_donations(
+            user_id=current_user.id,
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        
+        # Convert donations to JSON-serializable format
+        donations_data = []
+        for donation in donations.items:
+            donations_data.append({
+                'id': donation.id,
+                'donor_name': donation.donor_name,
+                'amount': float(donation.amount),
+                'message': donation.message,
+                'platform': donation.platform,
+                'created_at': donation.created_at.strftime('%Y-%m-%d %H:%M'),
+                'created_at_display': {
+                    'date': donation.created_at.strftime('%Y-%m-%d'),
+                    'time': donation.created_at.strftime('%H:%M')
+                }
+            })
+        
+        return jsonify({
+            'success': True,
+            'donations': donations_data,
+            'pagination': {
+                'page': donations.page,
+                'pages': donations.pages,
+                'total': donations.total,
+                'per_page': donations.per_page,
+                'has_prev': donations.has_prev,
+                'has_next': donations.has_next,
+                'prev_num': donations.prev_num,
+                'next_num': donations.next_num
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error loading donations history API: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @main_bp.route('/api/donations/analytics')
 @login_required
@@ -2058,6 +2928,188 @@ def toggle_tier():
 
 
 # Marathon SocketIO handlers
+# Sound Effects Routes
+@main_bp.route('/sound-effects')
+@login_required
+def sound_effects_settings():
+    """Sound Effects settings page - Advanced tier only"""
+    from app.models.user_sound_settings import UserSoundSettings
+    from app.models.sound_effect import SoundEffect
+    
+    # Check if user has advanced tier subscription
+    subscription = current_user.get_current_subscription()
+    has_advanced_tier = (subscription and 
+                        subscription.feature_tier and 
+                        subscription.feature_tier.value == 'advanced')
+    
+    if not has_advanced_tier:
+        flash('Дууны эффект нь дэвшилтэт тарифын онцлог юм', 'warning')
+        return redirect(url_for('main.index'))
+    
+    # Get or create sound settings for user
+    settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+    
+    # Get available sound effects
+    sound_effects = SoundEffect.query.filter_by(is_active=True).order_by(SoundEffect.name).all()
+    
+    # Ensure user has an overlay token
+    overlay_token = current_user.get_overlay_token()
+    
+    return render_template('sound_effects.html', 
+                         settings=settings,
+                         sound_effects=sound_effects,
+                         overlay_token=overlay_token)
+
+@main_bp.route('/sound-effects/settings', methods=['POST'])
+@login_required
+def update_sound_effects_settings():
+    """Update sound effects settings"""
+    try:
+        from app.models.user_sound_settings import UserSoundSettings
+        
+        # Check if user has advanced tier subscription
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Дэвшилтэт тариф шаардлагатай'}), 403
+        
+        # Get or create sound settings for user
+        settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+        
+        # Update settings
+        is_enabled = request.form.get('is_enabled') == 'on'
+        price_per_sound = None
+        volume_level = None
+        
+        # Update price if provided and valid
+        if request.form.get('price_per_sound'):
+            price = float(request.form.get('price_per_sound'))
+            if price >= 100:  # Minimum 100 MNT
+                price_per_sound = price
+            else:
+                return jsonify({'success': False, 'error': 'Хамгийн бага үнэ 100₮'}), 400
+        
+        # Update volume level if provided and valid
+        if request.form.get('volume_level'):
+            volume = int(request.form.get('volume_level'))
+            if 0 <= volume <= 100:
+                volume_level = volume
+            else:
+                return jsonify({'success': False, 'error': 'Дууны түвшин 0-100% хооронд байна'}), 400
+        
+        # Apply updates using the model method
+        settings.update_settings(
+            is_enabled=is_enabled,
+            price_per_sound=price_per_sound,
+            volume_level=volume_level
+        )
+        
+        current_app.logger.info(f"Sound effects settings updated for user {current_user.id}")
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating sound effects settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/test', methods=['POST'])
+@login_required  
+def test_random_sound():
+    """Send random sound effect to overlay for testing"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.user_sound_settings import UserSoundSettings
+        import random
+        
+        # Check if user has advanced tier subscription
+        subscription = current_user.get_current_subscription()
+        has_advanced_tier = (subscription and 
+                            subscription.feature_tier and 
+                            subscription.feature_tier.value == 'advanced')
+        
+        if not has_advanced_tier:
+            return jsonify({'success': False, 'error': 'Дэвшилтэт тариф шаардлагатай'}), 403
+        
+        # Check if sound effects are enabled
+        settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+        if not settings.is_enabled:
+            return jsonify({'success': False, 'error': 'Дууны эффектүүд идэвхгүй байна'}), 400
+        
+        # Get random sound effect
+        sound_effects = SoundEffect.query.filter_by(is_active=True).all()
+        if not sound_effects:
+            return jsonify({'success': False, 'error': 'Дууны эффект олдсонгүй'}), 404
+        
+        # Select random sound from first 5 (as per plan)
+        available_sounds = sound_effects[:5] if len(sound_effects) > 5 else sound_effects
+        random_sound = random.choice(available_sounds)
+        
+        # Get user's sound settings for volume level
+        from app.models.user_sound_settings import UserSoundSettings
+        try:
+            user_settings = UserSoundSettings.get_or_create_for_user(current_user.id)
+            volume_level = user_settings.volume_level if user_settings.volume_level is not None else 70
+        except Exception as e:
+            current_app.logger.warning(f"Test sound: Failed to get volume settings for user {current_user.id}, using default: {str(e)}")
+            volume_level = 70
+        
+        # Prepare test sound data
+        test_sound_data = {
+            'type': 'sound_effect_test',
+            'id': f'test_{uuid.uuid4().hex[:8]}',
+            'sound_effect_id': random_sound.id,
+            'sound_filename': random_sound.filename,
+            'sound_name': random_sound.name,
+            'duration_seconds': float(random_sound.duration_seconds),
+            'donor_name': 'Тест',
+            'amount': 0,
+            'created_at': datetime.utcnow().isoformat(),
+            'file_url': random_sound.get_file_url(),
+            'volume_level': volume_level,
+            'is_test': True
+        }
+        
+        # Send to overlay
+        room = f"user_{current_user.id}"
+        socketio.emit('sound_effect_alert', test_sound_data, room=room)
+        
+        current_app.logger.info(f"Test sound effect sent: {random_sound.name}")
+        return jsonify({
+            'success': True, 
+            'sound_name': random_sound.name,
+            'message': f'Тестийн дуу илгээгдлээ: {random_sound.name}'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error testing sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/sound-effects/preview/<int:sound_id>')
+def preview_sound(sound_id):
+    """Serve sound file for preview (with basic rate limiting)"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        if not sound.is_active:
+            abort(404)
+        
+        # Return the file URL for frontend to use
+        return jsonify({
+            'success': True,
+            'file_url': sound.get_file_url(),
+            'name': sound.name,
+            'duration': float(sound.duration_seconds)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error previewing sound: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @socketio.on('join_marathon_room')
 def handle_join_marathon_room(data):
     """Handle client joining a marathon overlay room"""
@@ -2070,4 +3122,652 @@ def handle_join_marathon_room(data):
         current_app.logger.info(f"SOCKET: Client {request.sid} joined marathon overlay room: {room}")
         # Send acknowledgment back to client
         emit('room_joined', {'room': room, 'status': 'success', 'type': 'marathon_overlay'})
+
+@socketio.on('join_leaderboard_room')
+def handle_join_leaderboard_room(data):
+    """Handle client joining a leaderboard overlay room"""
+    user_id = data.get('user_id')
+    
+    if user_id:
+        room = f"leaderboard_{user_id}"
+        join_room(room)
+        current_app.logger.info(f"SOCKET: Client {request.sid} joined leaderboard room: {room}")
+        # Send acknowledgment back to client
+        emit('room_joined', {'room': room, 'status': 'success', 'type': 'leaderboard'})
+
+
+# ================================
+# SOUND EFFECTS MANAGEMENT ROUTES
+# ================================
+
+@main_bp.route('/api/admin/sound-effects', methods=['GET'])
+@login_required
+def admin_list_sound_effects():
+    """Get all sound effects for admin management"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sounds = SoundEffect.query.order_by(SoundEffect.name).all()
+        return jsonify({
+            'success': True,
+            'sounds': [sound.to_dict() for sound in sounds]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error listing sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects', methods=['POST'])
+@login_required
+def admin_add_sound_effect():
+    """Add new sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        import mutagen
+        from mutagen.wave import WAVE
+        from mutagen.mp3 import MP3
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Check if file was uploaded
+        if 'audio_file' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio file provided'}), 400
+        
+        file = request.files['audio_file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Get form data
+        name = request.form.get('name', '').strip()
+        category = request.form.get('category', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'error': 'Name is required'}), 400
+        
+        # Check file extension
+        allowed_extensions = {'.wav', '.mp3', '.ogg'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return jsonify({'success': False, 'error': 'Only WAV, MP3, and OGG files are allowed'}), 400
+        
+        # Generate unique filename
+        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+        
+        # Save file temporarily to analyze it
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+        temp_path = os.path.join(upload_folder, 'temp', unique_filename)
+        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+        file.save(temp_path)
+        
+        try:
+            # Get duration and file size
+            audio_file = mutagen.File(temp_path)
+            if audio_file is None:
+                raise ValueError("Invalid audio file")
+            
+            duration_seconds = audio_file.info.length
+            
+            # Normalize audio to -20 dBFS
+            normalized_path = normalize_audio(temp_path, target_dbfs=-20.0)
+            file_size = os.path.getsize(normalized_path)
+            
+            # Move to permanent location
+            assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+            os.makedirs(assets_folder, exist_ok=True)
+            final_path = os.path.join(assets_folder, unique_filename)
+            shutil.move(normalized_path, final_path)
+            
+            # Clean up temp file if it still exists
+            if os.path.exists(temp_path) and temp_path != normalized_path:
+                os.remove(temp_path)
+            
+            # Create database record
+            sound_effect = SoundEffect(
+                name=name,
+                filename=unique_filename,
+                duration_seconds=duration_seconds,
+                file_size=file_size,
+                category=category or None,
+                is_active=True
+            )
+            
+            db.session.add(sound_effect)
+            db.session.commit()
+            
+            current_app.logger.info(f"Sound effect added: {name} ({unique_filename})")
+            return jsonify({
+                'success': True,
+                'sound': sound_effect.to_dict(),
+                'message': f'Sound effect "{name}" added successfully'
+            })
+            
+        except Exception as e:
+            # Clean up file if database operation fails
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            raise e
+            
+    except Exception as e:
+        current_app.logger.error(f"Error adding sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/<int:sound_id>', methods=['PUT'])
+@login_required
+def admin_update_sound_effect(sound_id):
+    """Update existing sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        data = request.get_json()
+        
+        # Update fields
+        if 'name' in data:
+            sound.name = data['name'].strip()
+        if 'category' in data:
+            sound.category = data['category'].strip() or None
+        if 'is_active' in data:
+            sound.is_active = bool(data['is_active'])
+        
+        sound.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        current_app.logger.info(f"Sound effect updated: {sound.name} (ID: {sound_id})")
+        return jsonify({
+            'success': True,
+            'sound': sound.to_dict(),
+            'message': f'Sound effect "{sound.name}" updated successfully'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/<int:sound_id>', methods=['DELETE'])
+@login_required
+def admin_delete_sound_effect(sound_id):
+    """Delete sound effect"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.sound_effect_donation import SoundEffectDonation
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        sound = SoundEffect.query.get_or_404(sound_id)
+        sound_name = sound.name
+        filename = sound.filename
+        
+        # Check if there are any donations using this sound effect
+        donation_count = SoundEffectDonation.query.filter_by(sound_effect_id=sound_id).count()
+        
+        if donation_count > 0:
+            # Delete related donation records first
+            SoundEffectDonation.query.filter_by(sound_effect_id=sound_id).delete()
+            current_app.logger.info(f"Deleted {donation_count} related donation records for sound effect: {sound_name}")
+        
+        # Delete file from filesystem
+        file_path = os.path.join('app', 'static', 'assets', 'sound_effects', filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            current_app.logger.info(f"Deleted audio file: {file_path}")
+        
+        # Delete sound effect from database
+        db.session.delete(sound)
+        db.session.commit()
+        
+        if donation_count > 0:
+            current_app.logger.info(f"Sound effect force deleted (removed {donation_count} donation records): {sound_name} (ID: {sound_id})")
+            return jsonify({
+                'success': True,
+                'message': f'Sound effect "{sound_name}" deleted successfully (removed {donation_count} related donation records)',
+                'deleted': True
+            })
+        else:
+            current_app.logger.info(f"Sound effect deleted: {sound_name} (ID: {sound_id})")
+            return jsonify({
+                'success': True,
+                'message': f'Sound effect "{sound_name}" deleted successfully',
+                'deleted': True
+            })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting sound effect: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def normalize_audio(input_path, target_dbfs=-20.0):
+    """Normalize audio file to target dBFS level"""
+    try:
+        from pydub import AudioSegment
+        
+        current_app.logger.info(f"Starting normalization for: {input_path}")
+        
+        # Load audio file
+        audio = AudioSegment.from_file(input_path)
+        original_dbfs = audio.dBFS
+        
+        # Calculate the change needed to reach target dBFS
+        change_in_dbfs = target_dbfs - original_dbfs
+        
+        # Apply normalization
+        normalized_audio = audio + change_in_dbfs
+        final_dbfs = normalized_audio.dBFS
+        
+        # Generate output path
+        base_name, ext = os.path.splitext(input_path)
+        output_path = f"{base_name}_normalized{ext}"
+        
+        # Export normalized audio
+        normalized_audio.export(output_path, format=ext[1:])  # Remove dot from extension
+        
+        current_app.logger.info(f"✅ Audio normalized successfully: {original_dbfs:.1f} dBFS -> {final_dbfs:.1f} dBFS (target: {target_dbfs} dBFS)")
+        return output_path
+        
+    except Exception as e:
+        current_app.logger.error(f"❌ Error normalizing audio: {str(e)}")
+        # Return original path if normalization fails
+        return input_path
+
+def clean_filename_for_name(filename):
+    """Convert filename to clean sound name"""
+    # Remove extension
+    name_without_ext = re.sub(r'\.[^.]+$', '', filename)
+    
+    # Replace underscores, dashes, and dots with spaces
+    cleaned = re.sub(r'[_\-\.]+', ' ', name_without_ext)
+    
+    # Remove multiple spaces
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    # Capitalize first letter of each word
+    cleaned = ' '.join(word.capitalize() for word in cleaned.split())
+    
+    return cleaned.strip()
+
+@main_bp.route('/api/admin/sound-effects/mass-upload', methods=['POST'])
+@login_required
+def admin_mass_upload_sound_effects():
+    """Mass upload multiple sound effects"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        import mutagen
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Get form data
+        category = request.form.get('category', '').strip()
+        if not category:
+            return jsonify({'success': False, 'error': 'Category is required'}), 400
+        
+        # Check if files were uploaded
+        if 'audio_files' not in request.files:
+            return jsonify({'success': False, 'error': 'No audio files provided'}), 400
+        
+        files = request.files.getlist('audio_files')
+        if not files or len(files) == 0:
+            return jsonify({'success': False, 'error': 'No files selected'}), 400
+        
+        # Process each file
+        successful_uploads = 0
+        failed_uploads = 0
+        errors = []
+        total_files = len(files)
+        
+        allowed_extensions = {'.wav', '.mp3', '.ogg'}
+        
+        for i, file in enumerate(files):
+            try:
+                if file.filename == '':
+                    errors.append(f"File {i+1}: Empty filename")
+                    failed_uploads += 1
+                    continue
+                
+                # Check file extension
+                file_ext = os.path.splitext(file.filename)[1].lower()
+                if file_ext not in allowed_extensions:
+                    errors.append(f"{file.filename}: Invalid format (only WAV, MP3, OGG allowed)")
+                    failed_uploads += 1
+                    continue
+                
+                # Generate clean name from filename
+                sound_name = clean_filename_for_name(file.filename)
+                
+                # Generate unique filename
+                unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+                
+                # Save file temporarily
+                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+                temp_path = os.path.join(upload_folder, 'temp', unique_filename)
+                os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                file.save(temp_path)
+                
+                try:
+                    # Get duration
+                    audio_file = mutagen.File(temp_path)
+                    if audio_file is None:
+                        raise ValueError("Invalid audio file")
+                    
+                    duration_seconds = audio_file.info.length
+                    
+                    # Normalize audio to -20 dBFS
+                    normalized_path = normalize_audio(temp_path, target_dbfs=-20.0)
+                    file_size = os.path.getsize(normalized_path)
+                    
+                    # Move to permanent location
+                    assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+                    os.makedirs(assets_folder, exist_ok=True)
+                    final_path = os.path.join(assets_folder, unique_filename)
+                    shutil.move(normalized_path, final_path)
+                    
+                    # Clean up temp files
+                    if os.path.exists(temp_path) and temp_path != normalized_path:
+                        os.remove(temp_path)
+                    if os.path.exists(normalized_path) and normalized_path != final_path:
+                        os.remove(normalized_path)
+                    
+                    # Create database record
+                    sound_effect = SoundEffect(
+                        name=sound_name,
+                        filename=unique_filename,
+                        duration_seconds=duration_seconds,
+                        file_size=file_size,
+                        category=category,
+                        is_active=True
+                    )
+                    
+                    db.session.add(sound_effect)
+                    successful_uploads += 1
+                    current_app.logger.info(f"Mass upload: Added {sound_name} from {file.filename}")
+                    
+                except Exception as e:
+                    # Clean up files on error
+                    for cleanup_path in [temp_path, normalized_path if 'normalized_path' in locals() else None]:
+                        if cleanup_path and os.path.exists(cleanup_path):
+                            os.remove(cleanup_path)
+                    
+                    errors.append(f"{file.filename}: Processing error - {str(e)}")
+                    failed_uploads += 1
+                    current_app.logger.error(f"Error processing {file.filename}: {str(e)}")
+                    
+            except Exception as e:
+                errors.append(f"{file.filename}: Upload error - {str(e)}")
+                failed_uploads += 1
+                current_app.logger.error(f"Error uploading {file.filename}: {str(e)}")
+        
+        # Commit all successful uploads
+        if successful_uploads > 0:
+            db.session.commit()
+        
+        current_app.logger.info(f"Mass upload completed: {successful_uploads}/{total_files} successful")
+        
+        return jsonify({
+            'success': True,
+            'results': {
+                'successful': successful_uploads,
+                'failed': failed_uploads,
+                'total': total_files
+            },
+            'errors': errors if errors else None,
+            'message': f'Mass upload completed: {successful_uploads}/{total_files} files processed successfully'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in mass upload: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/admin/sound-effects/clear-all', methods=['DELETE'])
+@login_required
+def admin_clear_all_sound_effects():
+    """Delete all sound effects"""
+    try:
+        from app.models.sound_effect import SoundEffect
+        from app.models.sound_effect_donation import SoundEffectDonation
+        
+        # Only allow dev access for now
+        if not hasattr(current_user, 'dev_access') or not current_user.dev_access:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+        
+        # Get all sound effects
+        all_sounds = SoundEffect.query.all()
+        total_count = len(all_sounds)
+        
+        if total_count == 0:
+            return jsonify({
+                'success': True,
+                'deleted_count': 0,
+                'message': 'No sound effects to delete'
+            })
+        
+        # Delete all related donation records first
+        deleted_donations = SoundEffectDonation.query.count()
+        if deleted_donations > 0:
+            SoundEffectDonation.query.delete()
+            current_app.logger.info(f"Deleted {deleted_donations} sound effect donation records")
+        
+        # Delete all audio files from filesystem
+        assets_folder = os.path.join('app', 'static', 'assets', 'sound_effects')
+        deleted_files = 0
+        
+        for sound in all_sounds:
+            file_path = os.path.join(assets_folder, sound.filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    deleted_files += 1
+                except Exception as e:
+                    current_app.logger.warning(f"Could not delete file {file_path}: {str(e)}")
+        
+        # Delete all sound effects from database
+        SoundEffect.query.delete()
+        db.session.commit()
+        
+        current_app.logger.info(f"Cleared all sound effects: {total_count} sounds, {deleted_donations} donations, {deleted_files} files")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': total_count,
+            'deleted_donations': deleted_donations,
+            'deleted_files': deleted_files,
+            'message': f'Successfully deleted {total_count} sound effects and {deleted_donations} related donation records'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error clearing all sound effects: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/donor-leaderboard')
+@login_required
+def donor_leaderboard_settings():
+    """Donor leaderboard settings page"""
+    try:
+        from app.models.donor_leaderboard import DonorLeaderboard
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get or create settings for user
+        settings = DonorLeaderboardSettings.get_or_create_for_user(current_user.id)
+        
+        # Get current leaderboard data
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=10)
+        
+        # Generate secure overlay URL
+        overlay_url = url_for('main.leaderboard_overlay', token=settings.overlay_token, _external=True)
+        
+        return render_template('donor_leaderboard.html',
+                             settings=settings,
+                             top_donors=[donor.to_dict() for donor in top_donors],
+                             overlay_url=overlay_url)
+                             
+    except Exception as e:
+        current_app.logger.error(f"Error loading donor leaderboard settings: {str(e)}")
+        flash('Хандивчдын жагсаалт ачаалахад алдаа гарлаа', 'error')
+        return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/donor-leaderboard/update', methods=['POST'])
+@login_required
+def update_donor_leaderboard_settings():
+    """Update donor leaderboard settings"""
+    try:
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get or create settings
+        settings = DonorLeaderboardSettings.get_or_create_for_user(current_user.id)
+        
+        # Get form data
+        is_enabled = request.form.get('is_enabled') == 'on'
+        positions_count = request.form.get('positions_count', 3, type=int)
+        show_amounts = request.form.get('show_amounts') == 'on'
+        show_donation_counts = request.form.get('show_donation_counts') == 'on'
+        
+        # Update settings
+        settings.update_settings(
+            is_enabled=is_enabled,
+            positions_count=positions_count,
+            show_amounts=show_amounts,
+            show_donation_counts=show_donation_counts
+        )
+        
+        # Handle styling updates if provided
+        if request.form.get('throne_height'):
+            throne_styling = settings.get_throne_styling()
+            throne_styling['height'] = int(request.form.get('throne_height', 50))
+            throne_styling['width'] = int(request.form.get('throne_width', 100))
+            settings.set_throne_styling(throne_styling)
+        
+        if request.form.get('podium_height'):
+            podium_styling = settings.get_podium_styling()
+            podium_styling['height'] = int(request.form.get('podium_height', 45))
+            podium_styling['width'] = int(request.form.get('podium_width', 100))
+            settings.set_podium_styling(podium_styling)
+        
+        if request.form.get('standard_background_color'):
+            standard_styling = settings.get_standard_styling()
+            standard_styling['background_color'] = request.form.get('standard_background_color')
+            standard_styling['height'] = int(request.form.get('standard_height', 40))
+            standard_styling['width'] = int(request.form.get('standard_width', 100))
+            settings.set_standard_styling(standard_styling)
+        
+        # Handle font settings if provided
+        if request.form.get('names_font_size'):
+            global_styling = settings.get_global_styling()
+            global_styling['names_font'] = {
+                'size': int(request.form.get('names_font_size', 16)),
+                'color': request.form.get('names_font_color', '#FFFFFF'),
+                'weight': request.form.get('names_font_weight', '600'),
+                'italic': request.form.get('names_italic') == 'on'
+            }
+            global_styling['amounts_font'] = {
+                'size': int(request.form.get('amounts_font_size', 14)),
+                'color': request.form.get('amounts_font_color', '#FFD700'),
+                'weight': request.form.get('amounts_font_weight', '500'),
+                'italic': request.form.get('amounts_italic') == 'on'
+            }
+            global_styling['positions_font'] = {
+                'size': int(request.form.get('positions_font_size', 18)),
+                'color': request.form.get('positions_font_color', '#FFFFFF'),
+                'weight': request.form.get('positions_font_weight', '700'),
+                'italic': request.form.get('positions_italic') == 'on'
+            }
+            settings.set_global_styling(global_styling)
+        
+        db.session.commit()
+        
+        # Emit real-time update to overlay
+        from app.models.donor_leaderboard import DonorLeaderboard
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=settings.positions_count)
+        
+        socketio.emit('leaderboard_updated', {
+            'settings': settings.to_dict(),
+            'top_donors': [donor.to_dict() for donor in top_donors],
+            'enabled': settings.is_enabled
+        }, room=f'leaderboard_{current_user.id}')
+        
+        current_app.logger.info(f"Updated donor leaderboard settings for user {current_user.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Тохиргоо амжилттай хадгалагдлаа',
+            'settings': settings.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating donor leaderboard settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/donor-leaderboard/refresh', methods=['POST'])
+@login_required
+def refresh_leaderboard_data():
+    """Force recalculation of leaderboard data"""
+    try:
+        current_app.logger.info(f"Manual leaderboard refresh requested by user {current_user.id}")
+        
+        # For now, just return current data
+        # In the future, this could trigger a background recalculation
+        from app.models.donor_leaderboard import DonorLeaderboard
+        
+        top_donors = DonorLeaderboard.get_top_donors(current_user.id, limit=10)
+        total_donors = DonorLeaderboard.query.filter_by(user_id=current_user.id).count()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Мэдээлэл шинэчлэгдлээ',
+            'total_donors': total_donors,
+            'top_donors': [donor.to_dict() for donor in top_donors]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error refreshing leaderboard data: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/leaderboard-overlay/<token>')
+def leaderboard_overlay(token):
+    """Public leaderboard overlay page for OBS integration"""
+    try:
+        from app.models.user import User
+        from app.models.donor_leaderboard import DonorLeaderboard
+        from app.models.donor_leaderboard_settings import DonorLeaderboardSettings
+        
+        # Get settings by token
+        settings = DonorLeaderboardSettings.query.filter_by(overlay_token=token).first()
+        if not settings:
+            abort(404)
+        
+        # Get user from settings
+        user = settings.user
+        
+        # If leaderboard is disabled, show empty page
+        if not settings.is_enabled:
+            return render_template('leaderboard_overlay.html',
+                                 user=user,
+                                 settings=settings,
+                                 top_donors=[],
+                                 enabled=False)
+        
+        # Get top donors based on position count
+        top_donors = DonorLeaderboard.get_top_donors(user.id, limit=settings.positions_count)
+        
+        return render_template('leaderboard_overlay.html',
+                             user=user,
+                             settings=settings,
+                             top_donors=[donor.to_dict() for donor in top_donors],
+                             enabled=True)
+                             
+    except Exception as e:
+        current_app.logger.error(f"Error loading leaderboard overlay for token {token}: {str(e)}")
+        abort(500)
 

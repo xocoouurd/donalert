@@ -28,7 +28,7 @@ class Config:
     
     # File upload configuration
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'app/static/uploads')
-    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_IMAGE_SIZE_MB', 16)) * 1024 * 1024
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_IMAGE_SIZE_MB', 40)) * 1024 * 1024
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
     
     # Server configuration

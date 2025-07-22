@@ -394,7 +394,7 @@
             // If more than 24 hours total, show days
             const totalHours = days * 24 + hours;
             if (totalHours >= 24) {
-                return `${days}д ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                return `${days}ө ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             } else {
                 // Show HH:MM:SS format
                 return `${String(totalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -436,7 +436,6 @@
                 this.socket = io(socketUrl);
                 
                 this.socket.on('connect', () => {
-                    console.log('Connected to marathon overlay');
                     // Join room if we already have marathon data (for reconnections)
                     if (this.currentMarathon && this.currentMarathon.user_id) {
                         this.joinMarathonRoom();
@@ -444,11 +443,9 @@
                 });
                 
                 this.socket.on('disconnect', () => {
-                    console.log('Disconnected from marathon overlay');
                 });
                 
                 this.socket.on('marathon_updated', (data) => {
-                    console.log('OVERLAY: Received marathon_updated:', data);
                     this.updateMarathon(data);
                 });
                 
@@ -457,11 +454,8 @@
                 });
                 
                 this.socket.on('request_save_state', (data) => {
-                    console.log('OVERLAY: Received save state request');
-                    console.log('OVERLAY: Current time before forced save:', this.currentMarathon?.remaining_time);
                     // Save current countdown state immediately
                     this.saveCountdownState();
-                    console.log('OVERLAY: Forced save completed');
                 });
                 
                 this.socket.on('force_countdown_save', (data) => {
@@ -473,50 +467,40 @@
                 });
                 
                 this.socket.on('connect_error', (error) => {
-                    console.error('Socket connection error:', error);
                 });
             }
             
             joinMarathonRoom() {
                 if (this.token && this.currentMarathon) {
                     this.socket.emit('join', { room: `marathon_overlay_${this.currentMarathon.user_id}` });
-                    console.log(`Joined marathon overlay room: marathon_overlay_${this.currentMarathon.user_id}`);
                 }
             }
             
             async loadInitialMarathonData() {
                 try {
-                    console.log('OVERLAY: Loading initial data with token:', this.token);
                     const response = await fetch(`/api/marathon/data?token=${this.token}`);
                     const result = await response.json();
                     
                     if (result.success) {
-                        console.log('OVERLAY: Initial marathon data loaded:', result.marathon);
                         this.updateMarathon(result.marathon);
                         this.joinMarathonRoom(); // Join room after we have marathon data
                     } else {
-                        console.error('Failed to load marathon data:', result.error);
                         this.hideMarathonTimer();
                     }
                 } catch (error) {
-                    console.error('Error loading marathon data:', error);
                     this.hideMarathonTimer();
                 }
             }
             
             updateMarathon(marathonData) {
-                console.log('OVERLAY: updateMarathon called with data:', marathonData);
-                console.log('OVERLAY: Current overlay time before update:', this.currentMarathon?.remaining_time);
                 
                 // If we're currently running a countdown, preserve the client-side state
                 const wasRunning = this.currentMarathon && this.countdownInterval;
                 const currentSeconds = wasRunning && this.currentMarathon.remaining_time ? this.currentMarathon.remaining_time.seconds : 0;
                 const currentMinutes = wasRunning && this.currentMarathon.remaining_time ? this.currentMarathon.remaining_time.total_minutes : 0;
                 
-                console.log('OVERLAY: Was running countdown:', wasRunning, 'current overlay time:', {minutes: currentMinutes, seconds: currentSeconds});
                 
                 this.currentMarathon = marathonData;
-                console.log('OVERLAY: Updated to server data:', this.currentMarathon.remaining_time);
                 
                 // Ensure remaining_time exists (use server data, don't override with time_breakdown)
                 if (!this.currentMarathon.remaining_time) {
@@ -537,7 +521,6 @@
                 // If we were running and this is a pause, don't override server data
                 // The server should have the exact paused time from the settings page
                 if (wasRunning && marathonData.is_paused) {
-                    console.log('OVERLAY: Marathon paused, using server time data');
                     // Use server data as-is - it should contain the exact pause time
                 }
                 
@@ -572,14 +555,6 @@
                     }, 1000);
                 }
                 
-                // Check for low time warning (4 minutes or less, including 0:XX but not 0:00)
-                if (totalMinutes <= 4 && (totalMinutes > 0 || timeBreakdown.seconds > 0)) {
-                    this.timerElement.classList.add('low-time');
-                    this.timerElement.classList.remove('critical-time');
-                } else {
-                    this.timerElement.classList.remove('low-time');
-                }
-                
                 // Check for marathon completion - only when BOTH minutes AND seconds are 0
                 if (totalMinutes === 0 && timeBreakdown.seconds === 0) {
                     this.marathonElement.classList.add('marathon-completed');
@@ -589,7 +564,19 @@
                     // Auto-reset marathon when it naturally reaches 0
                     this.autoResetMarathon();
                 } else {
+                    // Timer has time remaining - remove all warning classes
                     this.marathonElement.classList.remove('marathon-completed');
+                    this.timerElement.classList.remove('critical-time');
+                    
+                    // Check for low time warning (4 minutes or less, but not 0:00)
+                    if (totalMinutes <= 4 && totalMinutes > 0) {
+                        this.timerElement.classList.add('low-time');
+                    } else if (totalMinutes === 0 && timeBreakdown.seconds > 0) {
+                        // 0 minutes but has seconds (0:XX) - also low time warning
+                        this.timerElement.classList.add('low-time');
+                    } else {
+                        this.timerElement.classList.remove('low-time');
+                    }
                 }
                 
                 this.timerElement.textContent = timeString;
@@ -707,7 +694,6 @@
             // Save countdown state to database
             async saveCountdownState() {
                 try {
-                    console.log('OVERLAY: Saving countdown state - minutes:', this.currentMarathon.remaining_time.total_minutes, 'seconds:', this.currentMarathon.remaining_time.seconds);
                     
                     const response = await fetch('/api/marathon/update-countdown', {
                         method: 'POST',
@@ -722,19 +708,15 @@
                     });
                     
                     if (!response.ok) {
-                        console.warn('OVERLAY: Failed to save countdown state - HTTP', response.status);
                     } else {
-                        console.log('OVERLAY: Successfully saved countdown state to database');
                     }
                 } catch (error) {
-                    console.warn('OVERLAY: Error saving countdown state:', error);
                 }
             }
             
             // Auto-reset marathon when timer reaches 0
             async autoResetMarathon() {
                 try {
-                    console.log('OVERLAY: Auto-resetting marathon at 0:00');
                     
                     const response = await fetch('/api/marathon/auto-reset', {
                         method: 'POST',
@@ -749,14 +731,11 @@
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
-                            console.log('OVERLAY: Marathon auto-reset successful');
                             // The backend will send a marathon_updated event via WebSocket
                         }
                     } else {
-                        console.warn('Failed to auto-reset marathon');
                     }
                 } catch (error) {
-                    console.warn('Error auto-resetting marathon:', error);
                 }
             }
             

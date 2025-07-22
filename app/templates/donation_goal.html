@@ -327,7 +327,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('Алдаа гарлаа', 'error');
         });
     });
@@ -376,7 +375,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('Алдаа гарлаа', 'error');
         })
         .finally(() => {
@@ -434,7 +432,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('Алдаа гарлаа', 'error');
         })
         .finally(() => {
@@ -497,7 +494,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('Алдаа гарлаа', 'error');
         })
         .finally(() => {
@@ -522,7 +518,6 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 showNotification('Алдаа гарлаа', 'error');
             });
         }
@@ -534,7 +529,6 @@
         navigator.clipboard.writeText(goalUrl).then(() => {
             showNotification('Goal URL хуулагдлаа', 'success');
         }).catch(err => {
-            console.error('Could not copy text: ', err);
             showNotification('Хуулахад алдаа гарлаа', 'error');
         });
     }

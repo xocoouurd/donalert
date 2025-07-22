@@ -48,6 +48,7 @@ class SubscriptionPayment(db.Model):
     response_data = db.Column(db.Text, nullable=True)
     customer_name = db.Column(db.String(200), nullable=True)
     description = db.Column(db.Text, nullable=True)
+    metadata_json = db.Column(db.Text, nullable=True)  # JSON string for additional metadata
     
     # Timestamps
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -199,6 +200,22 @@ class SubscriptionPayment(db.Model):
             return json.loads(self.response_data)
         except:
             return {}
+    
+    def get_metadata(self):
+        """Get metadata as dict"""
+        if not self.metadata_json:
+            return {}
+        try:
+            return json.loads(self.metadata_json)
+        except:
+            return {}
+            
+    def set_metadata(self, metadata_dict):
+        """Set metadata from dict"""
+        if metadata_dict is None:
+            self.metadata_json = None
+        else:
+            self.metadata_json = json.dumps(metadata_dict)
     
     @classmethod
     def get_by_invoice_id(cls, invoice_id):

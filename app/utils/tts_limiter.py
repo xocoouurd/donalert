@@ -5,23 +5,42 @@ import os
 class TTSLimiter:
     """TTS usage limiter and rate controller"""
     
-    # Default limits (can be overridden via environment variables)
-    DEFAULT_DAILY_REQUESTS = 5
-    DEFAULT_MONTHLY_REQUESTS = 150
-    DEFAULT_DAILY_CHARACTERS = 750
-    DEFAULT_MONTHLY_CHARACTERS = 22500
-    DEFAULT_RATE_LIMIT_REQUESTS = 3  # requests per 5 minutes
+    # Default limits for basic tier users (can be overridden via environment variables)
+    DEFAULT_DAILY_REQUESTS = 15
+    DEFAULT_MONTHLY_REQUESTS = 450
     DEFAULT_TEST_DAILY_LIMIT = 3  # test requests per day
-    DEFAULT_MAX_MESSAGE_LENGTH = 150  # characters
     
-    def __init__(self):
-        self.daily_requests = int(os.environ.get('TTS_DAILY_REQUESTS', self.DEFAULT_DAILY_REQUESTS))
-        self.monthly_requests = int(os.environ.get('TTS_MONTHLY_REQUESTS', self.DEFAULT_MONTHLY_REQUESTS))
-        self.daily_characters = int(os.environ.get('TTS_DAILY_CHARACTERS', self.DEFAULT_DAILY_CHARACTERS))
-        self.monthly_characters = int(os.environ.get('TTS_MONTHLY_CHARACTERS', self.DEFAULT_MONTHLY_CHARACTERS))
-        self.rate_limit_requests = int(os.environ.get('TTS_RATE_LIMIT_REQUESTS', self.DEFAULT_RATE_LIMIT_REQUESTS))
+    # Advanced tier multiplier
+    ADVANCED_TIER_MULTIPLIER = 3
+    
+    def __init__(self, user=None):
+        # Get base limits from environment variables
+        base_daily_requests = int(os.environ.get('TTS_DAILY_REQUESTS', self.DEFAULT_DAILY_REQUESTS))
+        base_monthly_requests = int(os.environ.get('TTS_MONTHLY_REQUESTS', self.DEFAULT_MONTHLY_REQUESTS))
+        
+        # Check if user has advanced tier subscription
+        is_advanced_user = False
+        if user:
+            try:
+                subscription = user.get_current_subscription()
+                is_advanced_user = (subscription and 
+                                   subscription.feature_tier and 
+                                   subscription.feature_tier.value == 'advanced')
+            except Exception:
+                # If subscription check fails, default to basic tier
+                is_advanced_user = False
+        
+        # Apply multiplier for advanced tier users
+        multiplier = self.ADVANCED_TIER_MULTIPLIER if is_advanced_user else 1
+        
+        self.daily_requests = base_daily_requests * multiplier
+        self.monthly_requests = base_monthly_requests * multiplier
+        
+        # Test limits don't scale with tier
         self.test_daily_limit = int(os.environ.get('TTS_TEST_DAILY_LIMIT', self.DEFAULT_TEST_DAILY_LIMIT))
-        self.max_message_length = int(os.environ.get('TTS_MAX_MESSAGE_LENGTH', self.DEFAULT_MAX_MESSAGE_LENGTH))
+        
+        # Store user tier for display purposes
+        self.user_tier = 'advanced' if is_advanced_user else 'basic'
     
     def check_limits(self, user_id, text, request_type='donation'):
         """
@@ -33,33 +52,14 @@ class TTSLimiter:
         # Get current usage
         daily_requests = TTSUsage.get_user_usage_today(user_id)
         monthly_requests = TTSUsage.get_user_usage_this_month(user_id)
-        daily_characters = TTSUsage.get_user_character_count_today(user_id)
-        monthly_characters = TTSUsage.get_user_character_count_this_month(user_id)
-        recent_requests = TTSUsage.get_recent_requests(user_id, minutes=5)
-        
         usage_info = {
             'daily_requests': daily_requests,
-            'monthly_requests': monthly_requests,
-            'daily_characters': daily_characters,
-            'monthly_characters': monthly_characters,
-            'recent_requests': recent_requests
+            'monthly_requests': monthly_requests
         }
         
-        # Check text length
-        if len(text) > self.max_message_length:
-            return {
-                'allowed': False,
-                'reason': f'Message too long. Maximum {self.max_message_length} characters allowed.',
-                'usage_info': usage_info
-            }
+        # No character limits - Chimege only has request limits
         
-        # Check rate limiting (10 requests per 5 minutes)
-        if recent_requests >= self.rate_limit_requests:
-            return {
-                'allowed': False,
-                'reason': 'Rate limit exceeded. Please wait a few minutes before trying again.',
-                'usage_info': usage_info
-            }
+        # Rate limiting removed for live streaming donations - streamers can get multiple donations rapidly
         
         # Special limits for test requests
         if request_type == 'test':
@@ -78,12 +78,6 @@ class TTSLimiter:
                 'usage_info': usage_info
             }
         
-        if daily_characters + len(text) > self.daily_characters:
-            return {
-                'allowed': False,
-                'reason': f'Daily character limit would be exceeded ({self.daily_characters} characters per day).',
-                'usage_info': usage_info
-            }
         
         # Check monthly limits
         if monthly_requests >= self.monthly_requests:
@@ -93,12 +87,6 @@ class TTSLimiter:
                 'usage_info': usage_info
             }
         
-        if monthly_characters + len(text) > self.monthly_characters:
-            return {
-                'allowed': False,
-                'reason': f'Monthly character limit would be exceeded ({self.monthly_characters} characters per month).',
-                'usage_info': usage_info
-            }
         
         return {
             'allowed': True,
@@ -112,7 +100,7 @@ class TTSLimiter:
         return TTSUsage.log_usage(
             user_id=user_id,
             request_type=request_type,
-            character_count=len(text),
+            character_count=0,  # Character counting disabled - Chimege only limits requests
             voice_id=voice_id,
             success=success,
             error_message=error_message,
@@ -124,18 +112,11 @@ class TTSLimiter:
         return {
             'daily': {
                 'requests': TTSUsage.get_user_usage_today(user_id),
-                'characters': TTSUsage.get_user_character_count_today(user_id),
-                'limit_requests': self.daily_requests,
-                'limit_characters': self.daily_characters
+                'limit_requests': self.daily_requests
             },
             'monthly': {
                 'requests': TTSUsage.get_user_usage_this_month(user_id),
-                'characters': TTSUsage.get_user_character_count_this_month(user_id),
-                'limit_requests': self.monthly_requests,
-                'limit_characters': self.monthly_characters
+                'limit_requests': self.monthly_requests
             },
-            'recent': {
-                'requests': TTSUsage.get_recent_requests(user_id, minutes=5),
-                'limit_requests': self.rate_limit_requests
-            }
+            'tier': self.user_tier
         }

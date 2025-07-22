@@ -101,6 +101,7 @@
     color: #fff;
     font-weight: 500;
     transition: all 0.3s ease;
+    height: 40px;
 }
 
 #copyUrlBtn:hover {
@@ -173,7 +174,7 @@
 
 /* Hide background image when select dropdown is open */
 .filters-section .form-select:active,
-.filters-section .form-select[size]:not([size="1"]) {
+.filters-section .form-select[size]:not([size='1']) {
     background-image: none !important;
     background: rgba(255, 255, 255, 0.15) !important;
     background-repeat: no-repeat !important;
@@ -266,8 +267,26 @@
     transition: all 0.3s ease;
 }
 
-.table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+/* Alternating row colors - Override Bootstrap's box-shadow trick */
+.table tbody tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.03) !important;
+    box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.03) !important;
+}
+
+.table tbody tr:nth-child(odd) td {
+    background: rgba(255, 255, 255, 0.01) !important;
+    box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.01) !important;
+}
+
+.table tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Reset Bootstrap table variables for our custom styling */
+.table {
+    --bs-table-accent-bg: transparent;
+    --bs-table-bg: transparent;
 }
 
 .table tbody td {
@@ -304,12 +323,10 @@
 
 .date-primary {
     font-weight: 600;
-    color: #fff;
 }
 
 .date-secondary {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.7);
 }
 
 /* Donor Info */
@@ -326,7 +343,6 @@
 
 .donor-name {
     font-weight: 500;
-    color: #fff;
 }
 
 /* Donation Message */
@@ -335,7 +351,6 @@
 }
 
 .message-content {
-    color: #fff;
     line-height: 1.4;
     word-wrap: break-word;
     overflow-wrap: break-word;
@@ -362,15 +377,22 @@
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #fff;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.platform-twitch { background: rgba(145, 70, 255, 0.3); }
-.platform-youtube { background: rgba(255, 0, 0, 0.3); }
-.platform-kick { background: rgba(83, 255, 26, 0.3); }
-.platform-guest { background: rgba(255, 255, 255, 0.2); }
+.platform-twitch {
+    background: rgba(145, 70, 255, 0.3);
+}
+.platform-youtube {
+    background: rgba(255, 0, 0, 0.3);
+}
+.platform-kick {
+    background: rgba(83, 255, 26, 0.3);
+}
+.platform-guest {
+    background: rgba(255, 255, 255, 0.2);
+}
 
 /* No Donations */
 .no-donations {
@@ -438,33 +460,33 @@
         gap: 1rem;
         align-items: center;
     }
-    
+
     .stat-item {
         min-width: 100px;
     }
-    
+
     .page-header h1 {
         font-size: 2rem;
     }
-    
+
     .filters-section .row {
         gap: 1rem;
     }
-    
+
     .filters-section .col-md-2,
     .filters-section .col-md-4 {
         width: 100%;
         margin-bottom: 1rem;
     }
-    
+
     .table-responsive {
         font-size: 0.85rem;
     }
-    
+
     .donation-message {
         max-width: 200px;
     }
-    
+
     .donation-stats {
         justify-content: center;
     }
@@ -474,23 +496,23 @@
     .donations-history-container {
         padding: 0 0.5rem;
     }
-    
+
     .page-header,
     .donation-link-card,
     .filters-section,
     .table-section {
         padding: 1rem;
     }
-    
+
     .table thead th,
     .table tbody td {
         padding: 0.75rem 0.5rem;
     }
-    
+
     .donation-link-card .input-group {
         flex-direction: column;
     }
-    
+
     .donation-link-card .input-group .form-control {
         margin-bottom: 0.5rem;
     }
@@ -529,6 +551,43 @@
 
 .table-section {
     animation-delay: 0.4s;
+}
+
+/* Loading States */
+.table-section.loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.table-section.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    z-index: 10;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.filters-section.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.pagination-section.loading {
+    pointer-events: none;
+    opacity: 0.7;
 }
 
 /* Hover Effects */
@@ -738,7 +797,6 @@
 }
 
 .donor-name {
-    color: #fff;
     font-weight: 600;
     font-size: 1rem;
     margin-bottom: 0.25rem;
@@ -773,11 +831,11 @@
     .analytics-dashboard {
         padding: 1.5rem;
     }
-    
+
     .stats-value {
         font-size: 1.5rem;
     }
-    
+
     .stats-icon {
         width: 45px;
         height: 45px;
@@ -789,28 +847,28 @@
     .analytics-dashboard {
         padding: 1rem;
     }
-    
+
     .analytics-dashboard h4 {
         font-size: 1.2rem;
         margin-bottom: 1rem;
     }
-    
+
     .analytics-controls {
         margin-top: 1rem;
     }
-    
+
     .stats-card {
         padding: 1rem;
     }
-    
+
     .stats-value {
         font-size: 1.3rem;
     }
-    
+
     .chart-container {
         padding: 1rem;
     }
-    
+
     .chart-container canvas {
         max-height: 250px;
     }

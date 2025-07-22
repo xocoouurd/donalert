@@ -14,12 +14,15 @@ class Donation(db.Model):
     donor_platform_id = db.Column(db.String(100), nullable=True)
     donation_id = db.Column(db.String(50), nullable=False, unique=True)
     donation_payment_id = db.Column(db.Integer, db.ForeignKey('donation_payments.id'), nullable=True)
+    type = db.Column(db.Enum('alert', 'sound_effect', name='donation_type'), default='alert')
+    sound_effect_id = db.Column(db.Integer, db.ForeignKey('sound_effects.id'), nullable=True)
     is_test = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     processed_at = db.Column(db.DateTime, nullable=True)
     
-    # Relationship to user
+    # Relationships
     user = db.relationship('User', backref=db.backref('donations', lazy=True))
+    sound_effect = db.relationship('SoundEffect', backref='alert_donations')
     
     def __repr__(self):
         return f'<Donation {self.id}: {self.donor_name} - {self.amount}₮>'
@@ -32,12 +35,15 @@ class Donation(db.Model):
             'message': self.message,
             'platform': self.platform,
             'donation_id': self.donation_id,
+            'type': self.type,
+            'sound_effect_id': self.sound_effect_id,
+            'sound_effect_name': self.sound_effect.name if self.sound_effect else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'processed_at': self.processed_at.isoformat() if self.processed_at else None
         }
     
     @classmethod
-    def create_donation(cls, user_id, donor_name, amount, message, platform='guest', donor_platform_id=None, donation_id=None):
+    def create_donation(cls, user_id, donor_name, amount, message, platform='guest', donor_platform_id=None, donation_id=None, is_test=False, donation_type='alert', sound_effect_id=None):
         """Create a new donation record"""
         import uuid
         
@@ -52,6 +58,9 @@ class Donation(db.Model):
             platform=platform,
             donor_platform_id=donor_platform_id,
             donation_id=donation_id,
+            type=donation_type,
+            sound_effect_id=sound_effect_id,
+            is_test=is_test,
             processed_at=datetime.utcnow()
         )
         

@@ -1,0 +1,27 @@
+# DonAlert Scheduled Changes Systemd Timer
+#
+# This timer runs the scheduled changes processor daily at 2:00 AM
+#
+# To install:
+#   sudo cp scripts/donalert-scheduled-changes.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable donalert-scheduled-changes.timer
+#   sudo systemctl start donalert-scheduled-changes.timer
+#
+# To check timer status:
+#   sudo systemctl list-timers donalert-scheduled-changes.timer
+#
+# To check service logs:
+#   sudo journalctl -u donalert-scheduled-changes.service
+
+[Unit]
+Description=Run DonAlert Scheduled Changes Processor Daily
+Requires=donalert-scheduled-changes.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

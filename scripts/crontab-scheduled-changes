@@ -1,0 +1,26 @@
+# DonAlert Scheduled Subscription Changes Cron Jobs
+# 
+# This file contains cron job definitions for processing scheduled subscription
+# tier changes and sending notification emails.
+#
+# To install these cron jobs, run:
+#   crontab scripts/crontab-scheduled-changes
+#
+# To view current cron jobs:
+#   crontab -l
+
+# Set PATH and environment variables
+PATH=/usr/local/bin:/usr/bin:/bin
+DONALERT_HOME=/srv/www/donalert.invictamotus.com
+
+# Process scheduled tier changes daily at 2:00 AM
+0 2 * * * cd $DONALERT_HOME && python scripts/process_scheduled_changes.py >> logs/cron_scheduled_changes.log 2>&1
+
+# Send warning emails for upcoming changes daily at 9:00 AM
+0 9 * * * cd $DONALERT_HOME && python scripts/process_scheduled_changes.py --warnings-only >> logs/cron_warnings.log 2>&1
+
+# Health check twice daily (6 AM and 6 PM)
+0 6,18 * * * cd $DONALERT_HOME && python scripts/process_scheduled_changes.py --health-check >> logs/cron_health.log 2>&1
+
+# Weekly dry run report (Sundays at 1 AM)
+0 1 * * 0 cd $DONALERT_HOME && python scripts/process_scheduled_changes.py --dry-run --verbose >> logs/cron_weekly_report.log 2>&1

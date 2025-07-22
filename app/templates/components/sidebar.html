@@ -31,6 +31,35 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link {{ 'active' if request.endpoint == 'main.donor_leaderboard_settings' }}" 
+                   href="{{ url_for('main.donor_leaderboard_settings') }}" 
+                   title="Хандивчдын жагсаалт">
+                    <i class="fas fa-trophy"></i>
+                </a>
+            </li>
+            
+            <!-- Sound Effects -->
+            {% set subscription = current_user.get_current_subscription() %}
+            {% set has_advanced_tier = (subscription and subscription.feature_tier and subscription.feature_tier.value == 'advanced') %}
+            <li class="nav-item">
+                {% if has_advanced_tier %}
+                <a class="nav-link {{ 'active' if request.endpoint == 'main.sound_effects_settings' }}" 
+                   href="{{ url_for('main.sound_effects_settings') }}" 
+                   title="Дууны эффект">
+                    <i class="fas fa-volume-up"></i>
+                </a>
+                {% else %}
+                <span class="nav-link disabled disabled-feature" 
+                      style="opacity: 0.5; cursor: not-allowed; pointer-events: auto;" 
+                      title="Дэвшилтэт захиалга эсвэл түүнээс дээш түвшин шаардлагатай"
+                      data-bs-toggle="tooltip" 
+                      data-bs-placement="right"
+                      onclick="event.preventDefault(); return false;">
+                    <i class="fas fa-volume-up"></i>
+                </span>
+                {% endif %}
+            </li>
+            <li class="nav-item">
                 <a class="nav-link {{ 'active' if request.endpoint == 'main.donations_history' }}" 
                    href="{{ url_for('main.donations_history') }}" 
                    title="Хандивын түүх">
@@ -44,6 +73,18 @@
                     <i class="fas fa-university"></i>
                 </a>
             </li>
+            
+            <!-- Development Tools (only show for users with dev access) -->
+            {% if current_user.dev_access %}
+            <li class="nav-item mt-3 border-top pt-3">
+                <a class="nav-link {{ 'active' if request.endpoint == 'main.dev_page' }}" 
+                   href="{{ url_for('main.dev_page') }}" 
+                   title="Хөгжүүлэгчийн хэрэгслүүд"
+                   style="opacity: 0.6;">
+                    <i class="fas fa-code"></i>
+                </a>
+            </li>
+            {% endif %}
         </ul>
     </nav>
 </div>

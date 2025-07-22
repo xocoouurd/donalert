@@ -16,7 +16,6 @@
 <body>
     <!-- Main alert container -->
     <div id="alertContainer"></div>
-    
 
     <!-- Audio element for sound effects -->
     <audio id="alertSound" preload="auto"></audio>
@@ -29,30 +28,71 @@
         // Configuration from server
         const userId = {{ user.id }};
         const settings = {{ settings.to_dict() | tojson }};
+        {% if has_advanced_tier %}
+        const alertConfigurations = {{ alert_configurations | tojson }};
+        const hasAdvancedTier = true;
+        {% else %}
+        const alertConfigurations = null;
+        const hasAdvancedTier = false;
+        {% endif %}
         
-        console.log('=== OVERLAY PAGE INITIALIZATION ===');
-        console.log('User ID:', userId);
-        console.log('Settings loaded:', !!settings);
-        console.log('typeof io:', typeof io);
+        
+        // Get configuration for alert based on tab number or amount
+        function getConfigForAlert(alertData) {
+            
+            if (!hasAdvancedTier || !alertConfigurations) {
+                return settings;
+            }
+            
+            // If alert has tab_number, use that specific configuration
+            if (alertData.tab_number) {
+                const config = alertConfigurations.find(c => c.tab_number === alertData.tab_number);
+                if (config) {
+                    return config;
+                } else {
+                }
+            }
+            
+            // If alert has config_id, use that specific configuration
+            if (alertData.config_id) {
+                const config = alertConfigurations.find(c => c.id === alertData.config_id);
+                if (config) {
+                    return config;
+                } else {
+                }
+            }
+            
+            // Find configuration based on amount (get highest minimum_amount that's <= donation amount)
+            if (alertData.amount) {
+                const eligibleConfigs = alertConfigurations.filter(c => c.minimum_amount <= alertData.amount);
+                if (eligibleConfigs.length > 0) {
+                    // Sort by minimum_amount descending and take the first (highest threshold)
+                    eligibleConfigs.sort((a, b) => b.minimum_amount - a.minimum_amount);
+                    return eligibleConfigs[0];
+                }
+            }
+            
+            // Fallback to first configuration
+            return alertConfigurations[0] || settings;
+        }
         
         // Alert queue management
         let alertQueue = [];
         let isShowingAlert = false;
         
+        // Sound effects queue management
+        let soundQueue = [];
+        let isPlayingSoundEffect = false;
+        
         // Initialize WebSocket connection (only if socket.io is available)
         let socket = null;
         
         if (typeof io !== 'undefined') {
-            console.log('✅ Socket.IO library available');
             // Connect to the correct Socket.IO server based on environment
             const socketUrl = window.location.hostname === '{{ config.SERVER_NAME }}' && window.location.port === '' 
                 ? undefined  // Use default (current domain) for production
                 : '{{ config.SOCKETIO_URL }}';  // Configurable dev server
             
-            console.log('Socket URL:', socketUrl || 'default (current domain)');
-            console.log('Current hostname:', window.location.hostname);
-            console.log('Current port:', window.location.port);
-            console.log('Expected server name:', '{{ config.SERVER_NAME }}');
             
             socket = io(socketUrl, {
                 transports: ['websocket', 'polling'],
@@ -60,88 +100,97 @@
                 rememberUpgrade: true
             });
             
-            // Room name for joining after connection
+            // Join user's room for personalized alerts
             const roomName = `user_${userId}`;
-            console.log('🏠 Room prepared for joining:', roomName);
+            socket.emit('join', {room: roomName});
             
             // Listen for donation alerts
             socket.on('donation_alert', function(data) {
-                console.log('💰 OVERLAY: Real donation alert received!', data);
                 queueAlert(data);
             });
             
-            // Listen for global donation alerts (backup method)
-            socket.on('donation_alert_global', function(data) {
-                console.log('🌍 OVERLAY: Global donation alert received (backup)!', data);
-                // Only process if it's for this user
-                if (data.user_id == userId || data.streamer_user_id == userId) {
-                    queueAlert(data);
-                }
+            // Listen for sound effect alerts
+            socket.on('sound_effect_alert', function(data) {
+                
+                // Queue sound effect for playback
+                queueSoundEffect(data);
             });
             
             // Listen for test alerts
             socket.on('test_alert', function(data) {
-                console.log('🧪 OVERLAY: Test alert received!', data);
                 
-                // If already showing an alert, ignore additional test alerts
-                if (isShowingAlert) {
-                    console.log('⚠️ OVERLAY: Ignored test alert - already showing alert');
-                    return;
-                }
-                
-                console.log('✅ OVERLAY: Processing test alert...');
-                showAlert(data);
+                // Use the same queueing system as real donations
+                queueAlert(data);
             });
 
             // Listen for settings updates
-            socket.on('settings_updated', function(newSettings) {
+            socket.on('settings_updated', function(data) {
                 
-                // Check if sound changed
-                if (newSettings.sound_url !== settings.sound_url) {
-                    preloadSound(newSettings.sound_url);
+                // Handle advanced tier configuration updates (has tab_number and config)
+                if (data.tab_number && data.config && hasAdvancedTier && alertConfigurations) {
+                    
+                    // Find and update the specific tab configuration
+                    const configIndex = alertConfigurations.findIndex(c => c.tab_number === data.tab_number);
+                    if (configIndex !== -1) {
+                        const oldConfig = alertConfigurations[configIndex];
+                        
+                        // Check if sound changed for this tab
+                        if (data.config.sound_url !== oldConfig.sound_url) {
+                            // Preload the new sound
+                            preloadSound(data.config.sound_url);
+                        }
+                        
+                        // Check if volume changed
+                        if (data.config.sound_volume !== oldConfig.sound_volume) {
+                        }
+                        
+                        // Update the configuration
+                        alertConfigurations[configIndex] = data.config;
+                    } else {
+                        alertConfigurations.push(data.config);
+                    }
                 }
-                
-                // Update all settings
-                Object.assign(settings, newSettings);
+                // Handle basic tier settings updates (legacy format)
+                else if (!data.tab_number && !data.config) {
+                    
+                    // Check if sound changed
+                    if (data.sound_url !== settings.sound_url) {
+                        preloadSound(data.sound_url);
+                    }
+                    
+                    // Update all settings
+                    Object.assign(settings, data);
+                }
+                else {
+                }
             });
             
             // Listen for room join acknowledgments
             socket.on('room_joined', function(data) {
-                console.log('🏠 OVERLAY: Successfully joined room:', JSON.stringify(data), data);
             });
             
             // Connection status logging
             socket.on('connect', function() {
-                console.log('✅ OVERLAY: Socket connected!', socket.id);
                 
-                // Small delay to ensure connection is fully ready
-                setTimeout(() => {
-                    // Re-join room after connection
-                    const roomName = `user_${userId}`;
-                    console.log('🏠 OVERLAY: Re-joining room after connection:', roomName);
-                    socket.emit('join', {room: roomName});
-                }, 100);
+                // Re-join room after connection
+                const roomName = `user_${userId}`;
+                socket.emit('join', {room: roomName});
                 
                 // Preload initial sound after connection
                 preloadSound(settings.sound_url);
             });
             
             socket.on('disconnect', function() {
-                console.log('❌ OVERLAY: Socket disconnected');
             });
             
             socket.on('error', function(error) {
-                console.log('❌ OVERLAY: Socket error:', error);
             });
             
             // Auto-reconnection
             socket.on('connect_error', function(error) {
-                console.log('❌ OVERLAY: Socket connection error:', error);
             });
             
-            console.log('✅ OVERLAY: Socket setup complete, waiting for connection...');
         } else {
-            console.log('❌ OVERLAY: Socket.IO library not available!');
         }
 
         // Preload initial sound (fallback if no socket connection)
@@ -178,10 +227,63 @@
             showAlert(alertData);
         }
         
+        // Sound effects queue management
+        function queueSoundEffect(soundData) {
+            
+            // Add to sound queue
+            soundQueue.push(soundData);
+            
+            // Process sound queue if not currently playing
+            if (!isPlayingSoundEffect) {
+                processSoundQueue();
+            }
+        }
+        
+        function processSoundQueue() {
+            if (soundQueue.length === 0) {
+                isPlayingSoundEffect = false;
+                return;
+            }
+            
+            isPlayingSoundEffect = true;
+            const soundData = soundQueue.shift();
+            
+            playSoundEffect(soundData);
+        }
+        
+        function playSoundEffect(soundData) {
+            
+            try {
+                // Create audio element for sound effect
+                const audio = new Audio(soundData.file_url);
+                
+                // Set volume based on user's preference (convert percentage to decimal)
+                const volumePercent = soundData.volume_level || 70;
+                audio.volume = Math.min(1.0, Math.max(0.0, volumePercent / 100));
+                
+                // Play the sound
+                audio.play().then(() => {
+                }).catch(error => {
+                });
+                
+                // Schedule next sound effect after duration + 1 second gap
+                const duration = (soundData.duration_seconds * 1000) + 1000;
+                
+                setTimeout(() => {
+                    processSoundQueue();
+                }, duration);
+                
+            } catch (error) {
+                // Continue with queue on error
+                setTimeout(() => processSoundQueue(), 1000);
+            }
+        }
+        
         
         function showAlert(alertData) {
-            console.log('🎯 OVERLAY: showAlert() called with data:', alertData);
-            console.log('Current isShowingAlert state:', isShowingAlert);
+            
+            // Get the correct configuration for this alert
+            const alertConfig = getConfigForAlert(alertData);
             
             // Set showing flag
             isShowingAlert = true;
@@ -189,39 +291,39 @@
             const container = document.getElementById('alertContainer');
             
             // Play sound if configured
-            if (settings.sound_url && alertData.amount >= settings.tts_minimum_amount) {
-                playAlertSound();
+            if (alertConfig.sound_url && alertData.amount >= alertConfig.minimum_amount) {
+                playAlertSound(alertConfig);
             }
             
             // Play TTS if backend provided audio URL
             if (alertData.tts_audio_url) {
-                playTTSFromURL(alertData.tts_audio_url);
-            } else {
+                playTTSFromURL(alertData.tts_audio_url, alertConfig);
             }
             
-            // Create alert HTML
-            const alertHTML = createAlertHTML(alertData);
+            // Create alert HTML using the correct configuration
+            const alertHTML = createAlertHTML(alertData, alertConfig);
             container.innerHTML = alertHTML;
             
             // Set CSS custom property for animation speed
-            document.documentElement.style.setProperty('--animation-speed', `${settings.animation_speed}ms`);
+            document.documentElement.style.setProperty('--animation-speed', `${alertConfig.animation_speed}ms`);
             
             // Apply entrance animation
             const alertElement = container.querySelector('.donation-alert');
-            alertElement.classList.add(settings.transition_type);
+            alertElement.classList.add(alertConfig.transition_type);
             
-            // Wait for entrance animation to complete, then show for visible duration
+            // RELIABLE TIMING SEQUENCE: entrance → visible → exit
+            // Phase 1: Entrance animation (animation_speed ms)
             setTimeout(() => {
                 
-                // Wait for the full visibility duration, then start exit animation
+                // Phase 2: Visible time (visible_time ms)
                 setTimeout(() => {
-                    hideAlert(alertElement);
-                }, settings.visible_time);
+                    hideAlert(alertElement, alertConfig);
+                }, alertConfig.visible_time);
                 
-            }, settings.animation_speed);
+            }, alertConfig.animation_speed);
         }
         
-        function createAlertHTML(alertData) {
+        function createAlertHTML(alertData, alertConfig = settings) {
             const donatorName = alertData.donator_name || 'Анонимус';
             const amount = alertData.amount;
             const message = alertData.message || '';
@@ -229,7 +331,7 @@
             const hasAvatar = alertData.has_avatar;
             
             // Process text template
-            let processedText = settings.text_template
+            let processedText = alertConfig.text_template
                 .replace(/{name}/g, donatorName)
                 .replace(/{amount}/g, amount.toLocaleString());
             
@@ -237,11 +339,11 @@
             processedText = processedText
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\[(.*?)\]/g, `<span style="color: ${settings.template_accent_color}">$1</span>`);
+                .replace(/\[(.*?)\]/g, `<span style="color: ${alertConfig.template_accent_color}">$1</span>`);
             
             // Determine layout classes
-            const isVertical = settings.image_position === 'top' || settings.image_position === 'bottom';
-            const isReverse = settings.image_position === 'right' || settings.image_position === 'bottom';
+            const isVertical = alertConfig.image_position === 'top' || alertConfig.image_position === 'bottom';
+            const isReverse = alertConfig.image_position === 'right' || alertConfig.image_position === 'bottom';
             
             let contentClass = 'alert-content';
             if (isVertical) {
@@ -256,68 +358,67 @@
                         <div class="donator-profile">
                             ${hasAvatar ? `
                                 <img src="${donatorAvatar}" alt="${donatorName}" class="donator-avatar" 
-                                     style="width: ${settings.donator_image_size}px; height: ${settings.donator_image_size}px;">
+                                     style="width: ${alertConfig.donator_image_size}px; height: ${alertConfig.donator_image_size}px;">
                             ` : ''}
                             <div class="donator-name" style="
-                                font-size: ${settings.donator_name_size}px;
-                                font-weight: ${settings.donator_name_weight};
-                                color: ${settings.donator_color};
-                                text-align: ${settings.donator_alignment};
+                                font-size: ${alertConfig.donator_name_size}px;
+                                font-weight: ${alertConfig.donator_name_weight};
+                                color: ${alertConfig.donator_color};
+                                text-align: ${alertConfig.donator_alignment};
                             ">${donatorName}</div>
                         </div>
                     ` : ''}
                     
                     <div class="${contentClass}">
                         <div class="alert-image">
-                            <img src="${settings.gif_url}" alt="Donation GIF" style="
-                                width: ${Math.round(120 * settings.image_size / 100)}px;
-                                height: ${Math.round(120 * settings.image_size / 100)}px;
+                            <img src="${alertConfig.gif_url}" alt="Donation GIF" style="
+                                width: ${Math.round(120 * alertConfig.image_size / 100)}px;
+                                height: ${Math.round(120 * alertConfig.image_size / 100)}px;
                                 object-fit: cover;
                             ">
                         </div>
                         
                         <div class="alert-text" style="
-                            font-size: ${settings.template_size}px;
-                            font-weight: ${settings.template_weight};
-                            color: ${settings.template_base_color};
-                            text-align: ${settings.template_alignment};
+                            font-size: ${alertConfig.template_size}px;
+                            font-weight: ${alertConfig.template_weight};
+                            color: ${alertConfig.template_base_color};
+                            text-align: ${alertConfig.template_alignment};
                         ">${processedText}</div>
                     </div>
                     
                     ${message ? `
                         <div class="alert-message" style="
-                            font-size: ${settings.message_size}px;
-                            font-weight: ${settings.message_weight};
-                            color: ${settings.message_color};
-                            text-align: ${settings.message_alignment};
-                            font-style: ${settings.message_style};
+                            font-size: ${alertConfig.message_size}px;
+                            font-weight: ${alertConfig.message_weight};
+                            color: ${alertConfig.message_color};
+                            text-align: ${alertConfig.message_alignment};
+                            font-style: ${alertConfig.message_style};
                         ">"${message}"</div>
                     ` : ''}
                 </div>
             `;
         }
         
-        function hideAlert(alertElement) {
+        function hideAlert(alertElement, alertConfig = settings) {
             
             // Get the opposite exit animation based on entrance animation
-            const exitAnimation = getExitAnimation(settings.transition_type);
+            const exitAnimation = getExitAnimation(alertConfig.transition_type);
             
             // Remove entrance animation class and add exit animation class
-            alertElement.classList.remove(settings.transition_type);
+            alertElement.classList.remove(alertConfig.transition_type);
             alertElement.classList.add(exitAnimation);
             
-            // Wait for exit animation to complete
+            // Phase 3: Exit animation (animation_speed ms) - then immediately process next
             setTimeout(() => {
+                
                 document.getElementById('alertContainer').innerHTML = '';
                 
                 // Reset showing flag
                 isShowingAlert = false;
                 
-                // Process next alert in queue
-                setTimeout(() => {
-                    processQueue();
-                }, 500);
-            }, settings.animation_speed);
+                // IMMEDIATELY process next alert in queue (no extra delay)
+                processQueue();
+            }, alertConfig.animation_speed);
         }
         
         function getExitAnimation(entranceAnimation) {
@@ -342,20 +443,27 @@
             }
         }
 
-        function playAlertSound() {
+        function playAlertSound(alertConfig = settings) {
             const audio = document.getElementById('alertSound');
+            
+            // Set the correct sound URL from the tab-specific config
+            audio.src = alertConfig.sound_url;
             audio.currentTime = 0; // Reset to start
-            audio.volume = settings.sound_volume / 100;
+            
+            // Use tab-specific volume setting
+            audio.volume = alertConfig.sound_volume / 100;
+            
+            
             audio.play().catch(e => {
-                // Silent audio play failure
             });
         }
         
-        function playTTSFromURL(audioUrl) {
+        function playTTSFromURL(audioUrl, alertConfig = settings) {
             
             const ttsAudio = document.getElementById('ttsAudio');
             ttsAudio.src = audioUrl;
-            ttsAudio.volume = settings.sound_volume / 100;
+            ttsAudio.volume = 1.0; // TTS always plays at 100% volume
+            
             
             // Play TTS after a short delay to avoid overlapping with alert sound
             setTimeout(() => {

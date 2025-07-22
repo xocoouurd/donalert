@@ -1,0 +1,449 @@
+/* Sound Effects Settings Page Styles */
+
+.sound-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.sound-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.sound-card h6 {
+    color: #fff;
+    font-weight: 600;
+}
+
+.sound-card .text-muted {
+    color: rgba(255, 255, 255, 0.7) !important;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
+
+.sound-duration {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sound-duration small {
+    color: #888888;
+    font-size: 0.8rem;
+}
+
+/* Status display styling */
+.status-display {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.status-item label {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.status-item strong,
+.status-item .badge {
+    font-size: 0.9rem;
+}
+
+/* Preview button animations */
+.sound-card .btn-outline-primary {
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    color: #6366f1;
+    background: transparent;
+    transition: all 0.2s ease;
+}
+
+.sound-card .btn-outline-primary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+    transform: scale(1.05);
+}
+
+.sound-card .btn-outline-primary:active {
+    transform: scale(0.95);
+}
+
+/* Toast alerts */
+.toast-alert {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: none;
+}
+
+.toast-alert.alert-success {
+    background: rgba(40, 167, 69, 0.9);
+    color: white;
+}
+
+.toast-alert.alert-danger {
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+}
+
+/* Modal styling */
+.modal-content.glass-card {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-close {
+    filter: invert(1);
+}
+
+/* Test sound modal animation */
+#testSoundModal .fa-play-circle {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Form styling improvements */
+.form-control,
+.form-select {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    color: white;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+    color: white;
+}
+
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    padding-right: 2.5rem !important;
+    height: auto !important;
+    line-height: 1.5 !important;
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+}
+
+.form-select option {
+    background: #2d3748;
+    color: white;
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    color: white;
+}
+
+.badge.bg-secondary,
+.badge.bg-success {
+    color: #ffffff !important;
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.input-group-text {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+/* Form labels */
+.form-label {
+    color: #333333;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: #333333;
+    font-size: 0.85rem;
+}
+
+/* Switch styling */
+.form-check-input:checked {
+    background-color: #6366f1;
+    border-color: #6366f1;
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+/* Badge styling */
+.badge.bg-gradient-success {
+    background: linear-gradient(45deg, #28a745, #20c997) !important;
+    font-size: 0.7rem;
+    padding: 0.25em 0.6em;
+}
+
+/* Alert styling */
+.alert {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.alert-info {
+    border-left: 4px solid #17a2b8;
+}
+
+.alert h6 {
+    color: white;
+    margin-bottom: 0.75rem;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+/* Button improvements */
+.btn-success {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.btn-outline-primary {
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.btn-outline-primary:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 1rem;
+    }
+
+    .glass-card {
+        margin-bottom: 1rem;
+    }
+
+    .sound-card {
+        margin-bottom: 1rem;
+    }
+
+    .status-display {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Sound effects grid */
+.sound-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.sound-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sound-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.sound-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.sound-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.sound-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.sound-card-body {
+    margin-bottom: 6px;
+}
+
+.sound-name {
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+    text-transform: capitalize;
+    line-height: 1.2;
+}
+
+.sound-category {
+    color: #333333;
+    font-size: 0.65rem;
+    margin-bottom: 4px;
+    text-transform: capitalize;
+}
+
+.sound-duration {
+    background: rgba(255, 255, 255, 0.2);
+    color: #888888;
+    padding: 1px 4px;
+    border-radius: 8px;
+    font-size: 0.6rem;
+    display: inline-block;
+    font-weight: 500;
+    margin-top: 0;
+    padding-top: 1px;
+    border-top: none;
+}
+
+.sound-card-controls {
+    text-align: center;
+    margin-top: auto;
+}
+
+.play-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.play-btn:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    transform: scale(1.1);
+}
+
+.play-btn.playing {
+    background: #dc3545;
+    border-color: #dc3545;
+}
+
+.no-sounds-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.no-sounds-message i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .sound-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 6px;
+    }
+
+    .sound-card {
+        padding: 6px;
+    }
+
+    .sound-name {
+        font-size: 0.7rem;
+    }
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+    transform: none;
+}
+
+/* Copy button styling */
+.btn-outline-primary.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Sound effects empty state */
+.text-center.text-muted.py-4 {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+}
+
+.text-center.text-muted.py-4 .fa-2x {
+    opacity: 0.7;
+}

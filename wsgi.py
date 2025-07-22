@@ -1,9 +1,9 @@
 """
 WSGI Entry Point for Production Deployment with Socket.IO Support
 """
-# Fix gevent monkey patching warning by patching early
-import gevent.monkey
-gevent.monkey.patch_all()
+# Import gevent and patch BEFORE importing any other modules
+from gevent import monkey
+monkey.patch_all()
 
 from app import create_app
 from app.extensions import socketio
@@ -11,7 +11,7 @@ from app.extensions import socketio
 # Create Flask application
 application = create_app()
 
-# For Gunicorn with eventlet worker class, gunicorn will serve the socketio.WSGIApp
+# For Gunicorn with gevent worker class, gunicorn will serve the socketio.WSGIApp
 # which includes both Flask and Socket.IO functionality
 app = application
 

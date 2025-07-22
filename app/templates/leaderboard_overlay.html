@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user.username }} - Хандивчдын жагсаалт</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-hover: #5856eb;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .leaderboard-container {
+            max-width: 600px;
+            width: 100%;
+            transition: opacity 0.3s ease;
+        }
+        
+        .leaderboard-disabled {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+        }
+        
+        .leaderboard-empty {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        /* Throne Display (Single Position) */
+        .throne-display {
+            text-align: center;
+            padding: 2rem;
+            border-radius: 20px;
+            border: 3px solid #FFD700;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 30px rgba(255, 215, 0, 0.6);
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+            transform: scale(1.1);
+            animation: throneGlow 3s ease-in-out infinite alternate;
+            overflow: hidden;
+        }
+        
+        .throne-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .throne-display::after {
+            content: '✨ ✨ ✨';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 1.2rem;
+            animation: sparkle 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .crown-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: crownPulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.8));
+        }
+        
+        .throne-display .donor-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .throne-display .donor-amount {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .throne-display .donor-count {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        /* Podium Layout (2-3 Positions) */
+        .podium-layout {
+            display: flex;
+            justify-content: center;
+            align-items: end;
+            gap: 1rem;
+            min-height: 200px;
+        }
+        
+        .podium-position {
+            flex: 1;
+            max-width: 180px;
+            text-align: center;
+            padding: 1.5rem 1rem;
+            border-radius: 15px;
+            border: 2px solid;
+            position: relative;
+            transition: transform 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .podium-position.throne {
+            transform: scale(1.1);
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+            border-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.3);
+            animation: throneGlow 3s ease-in-out infinite alternate;
+            z-index: 10;
+        }
+        
+        .podium-position.throne::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .podium-position.podium {
+            background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 50%, #C0C0C0 100%);
+            border-color: #C0C0C0;
+            box-shadow: 0 6px 20px rgba(192, 192, 192, 0.3), 0 0 15px rgba(192, 192, 192, 0.2);
+            animation: silverShine 4s ease-in-out infinite;
+            transform: scale(1.05);
+        }
+        
+        .podium-position.podium::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .podium-position .position-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .podium-position.throne .position-icon {
+            animation: crownPulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+        }
+        
+        .podium-position.podium .position-icon {
+            animation: medalSpin 6s ease-in-out infinite;
+            filter: drop-shadow(0 0 5px rgba(192, 192, 192, 0.6));
+        }
+        
+        .podium-position .position-number {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .podium-position .donor-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .podium-position .donor-amount {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .podium-position .donor-count {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        /* List Layout (4+ Positions) */
+        .list-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0;
+            border: none;
+            transition: transform 0.3s ease;
+        }
+        
+        .list-item:hover {
+            transform: translateX(5px);
+        }
+        
+        .list-item.throne {
+            border: none;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%) !important;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.3);
+            transform: scale(1.02);
+            animation: throneGlow 3s ease-in-out infinite alternate;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .list-item.throne::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .list-item.throne::after {
+            content: '👑';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            animation: crownPulse 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .list-item.podium {
+            border: none;
+            background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 50%, #C0C0C0 100%) !important;
+            box-shadow: 0 3px 10px rgba(192, 192, 192, 0.3), 0 0 10px rgba(192, 192, 192, 0.2);
+            transform: scale(1.01);
+            animation: silverShine 4s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .list-item.podium::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .list-item.podium::after {
+            content: '🥈';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            font-size: 1.3rem;
+            animation: medalSpin 6s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        /* Special styling for 3rd place (bronze) */
+        .list-item.bronze {
+            border: none;
+            background: linear-gradient(135deg, #CD7F32 0%, #B8860B 50%, #CD7F32 100%) !important;
+            box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3), 0 0 8px rgba(205, 127, 50, 0.2);
+            animation: bronzeGlow 5s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .list-item.bronze::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            animation: shimmer 6s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .list-item.bronze::after {
+            content: '🥉';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            animation: medalBounce 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        .list-item .position-number {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-right: 1rem;
+            min-width: 40px;
+        }
+        
+        .list-item .donor-info {
+            flex: 1;
+        }
+        
+        .list-item .donor-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .list-item .donor-stats {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Fade in animation */
+        .leaderboard-container {
+            animation: fadeIn 1s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Exciting Animations for Top 3 Positions */
+        
+        /* Throne/Gold Animations */
+        @keyframes throneGlow {
+            0% { box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.3); }
+            100% { box-shadow: 0 10px 35px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.5); }
+        }
+        
+        @keyframes crownPulse {
+            0%, 100% { 
+                transform: translateY(-50%) scale(1);
+                filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+            }
+            50% { 
+                transform: translateY(-50%) scale(1.1);
+                filter: drop-shadow(0 0 15px rgba(255, 215, 0, 1));
+            }
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { 
+                opacity: 1;
+                transform: rotate(0deg) scale(1);
+            }
+            50% { 
+                opacity: 0.7;
+                transform: rotate(180deg) scale(1.2);
+            }
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+        
+        /* Silver/Podium Animations */
+        @keyframes silverShine {
+            0%, 100% { 
+                box-shadow: 0 6px 20px rgba(192, 192, 192, 0.3), 0 0 15px rgba(192, 192, 192, 0.2);
+            }
+            50% { 
+                box-shadow: 0 8px 25px rgba(192, 192, 192, 0.4), 0 0 20px rgba(192, 192, 192, 0.3);
+            }
+        }
+        
+        @keyframes medalSpin {
+            0%, 100% { 
+                transform: translateY(-50%) rotateY(0deg);
+            }
+            25% { 
+                transform: translateY(-50%) rotateY(90deg);
+            }
+            50% { 
+                transform: translateY(-50%) rotateY(180deg);
+            }
+            75% { 
+                transform: translateY(-50%) rotateY(270deg);
+            }
+        }
+        
+        /* Bronze/3rd Place Animations */
+        @keyframes bronzeGlow {
+            0%, 100% { 
+                box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3), 0 0 8px rgba(205, 127, 50, 0.2);
+            }
+            50% { 
+                box-shadow: 0 4px 12px rgba(205, 127, 50, 0.4), 0 0 12px rgba(205, 127, 50, 0.3);
+            }
+        }
+        
+        @keyframes medalBounce {
+            0%, 100% { 
+                transform: translateY(-50%) scale(1);
+            }
+            50% { 
+                transform: translateY(-60%) scale(1.1);
+            }
+        }
+        
+        /* Phase 6: Advanced Animation Keyframes */
+        
+        /* Throne Takeover Animations */
+        @keyframes throneFlash {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        @keyframes crownFall {
+            0% { 
+                transform: translateY(-100px) scale(0.5) rotate(-10deg);
+                opacity: 0;
+            }
+            50% { 
+                transform: translateY(0px) scale(1.2) rotate(5deg);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateY(10px) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes messageSlide {
+            0% { 
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            30% { 
+                transform: translateY(-5px);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateY(0px);
+                opacity: 1;
+            }
+        }
+        
+        /* New Entry Animations */
+        @keyframes welcomeFlash {
+            0%, 100% { opacity: 0; }
+            10%, 90% { opacity: 1; }
+        }
+        
+        @keyframes starTwinkle {
+            0%, 100% { 
+                transform: scale(1) rotate(0deg);
+                opacity: 0.8;
+            }
+            25% { 
+                transform: scale(1.3) rotate(90deg);
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.1) rotate(180deg);
+                opacity: 0.9;
+            }
+            75% { 
+                transform: scale(1.4) rotate(270deg);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes welcomeSlide {
+            0% { 
+                transform: translateX(-50px);
+                opacity: 0;
+            }
+            50% { 
+                transform: translateX(5px);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateX(0px);
+                opacity: 1;
+            }
+        }
+        
+        /* Confetti styles */
+        .confetti-particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            z-index: 1001;
+        }
+        
+        @keyframes confettiFall {
+            0% { 
+                transform: translateY(0px) rotate(0deg);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="leaderboard-container">
+        {% if not enabled %}
+            <div class="leaderboard-disabled">
+                <i class="fas fa-trophy" style="font-size: 3rem; opacity: 0.5; margin-bottom: 1rem;"></i>
+                <p>Хандивчдын жагсаалт идэвхгүй байна</p>
+            </div>
+        {% elif not top_donors %}
+            <div class="leaderboard-empty">
+                <i class="fas fa-heart" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                <p>Хандивч байхгүй байна</p>
+            </div>
+        {% else %}
+            <!-- Generate leaderboard based on position count and styling -->
+            {% set positions_count = settings.positions_count %}
+            {% set show_amounts = settings.show_amounts %}
+            {% set show_counts = settings.show_donation_counts %}
+            {% set throne_style = settings.get_throne_styling() %}
+            {% set podium_style = settings.get_podium_styling() %}
+            {% set standard_style = settings.get_standard_styling() %}
+            
+            {% if positions_count == 1 %}
+                <!-- Single throne display -->
+                {% set donor = top_donors[0] %}
+                <div class="throne-display">
+                    <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                    <div class="throne-content">
+                        <div class="donor-name">{{ donor.donor_name }}</div>
+                        {% if show_amounts %}
+                            <div class="donor-amount">{{ "{:,.0f}".format(donor.total_amount) }}₮</div>
+                        {% endif %}
+                        {% if show_counts %}
+                            <div class="donor-count">{{ donor.donation_count }} хандив</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+            {% elif positions_count <= 3 %}
+                <!-- Podium layout -->
+                <div class="podium-layout">
+                    {% for donor in top_donors[:positions_count] %}
+                        {% set is_throne = loop.index0 == 0 %}
+                        {% set style = throne_style if is_throne else podium_style %}
+                        {% set icon = 'crown' if is_throne else 'medal' %}
+                        
+                        <div class="podium-position {{ 'throne' if is_throne else 'podium' }}">
+                            <div class="position-icon"><i class="fas fa-{{ icon }}"></i></div>
+                            <div class="position-number">#{{ loop.index }}</div>
+                            <div class="donor-name">{{ donor.donor_name }}</div>
+                            {% if show_amounts %}
+                                <div class="donor-amount">{{ "{:,.0f}".format(donor.total_amount) }}₮</div>
+                            {% endif %}
+                            {% if show_counts %}
+                                <div class="donor-count">{{ donor.donation_count }} хандив</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+            {% else %}
+                <!-- List layout -->
+                <div class="list-layout">
+                    {% for donor in top_donors[:positions_count] %}
+                        {% set is_throne = loop.index0 == 0 %}
+                        {% set is_podium = loop.index0 == 1 %}
+                        {% set is_bronze = loop.index0 == 2 %}
+                        {% set is_standard = loop.index0 >= 3 %}
+                        
+                        <div class="list-item {{ 'throne' if is_throne else 'podium' if is_podium else 'bronze' if is_bronze else 'standard' }}" 
+                             {% if is_standard %}style="background-color: {{ standard_style.background_color }};"{% endif %}>
+                            <div class="position-number">#{{ loop.index }}</div>
+                            <div class="donor-info">
+                                <div class="donor-name">{{ donor.donor_name }}</div>
+                                {% if show_amounts or show_counts %}
+                                    <div class="donor-stats">
+                                        {% if show_amounts %}{{ "{:,.0f}".format(donor.total_amount) }}₮{% endif %}
+                                        {% if show_amounts and show_counts %} • {% endif %}
+                                        {% if show_counts %}{{ donor.donation_count }} хандив{% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Socket.IO for real-time updates -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script>
+        // Initialize socket connection
+        const socket = io();
+        
+        // Join leaderboard room for this user
+        socket.emit('join_leaderboard_room', {
+            user_id: {{ user.id }}
+        });
+        
+        // Listen for leaderboard updates
+        socket.on('leaderboard_updated', function(data) {
+            
+            // Check for position changes first
+            if (data.position_change) {
+                handlePositionChange(data.position_change);
+            }
+            
+            // Update the page with new data
+            updateLeaderboardDisplay(data);
+        });
+        
+        function updateLeaderboardDisplay(data) {
+            const container = document.querySelector('.leaderboard-container');
+            const enabled = data.enabled;
+            const settings = data.settings;
+            const topDonors = data.top_donors;
+            
+            if (!enabled) {
+                container.innerHTML = `
+                    <div class="leaderboard-disabled">
+                        <i class="fas fa-trophy" style="font-size: 3rem; opacity: 0.5; margin-bottom: 1rem;"></i>
+                        <p>Хандивчдын жагсаалт идэвхгүй байна</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (!topDonors || topDonors.length === 0) {
+                container.innerHTML = `
+                    <div class="leaderboard-empty">
+                        <i class="fas fa-heart" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <p>Хандивч байхгүй байна</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Generate new HTML based on settings
+            let html = '';
+            const positionsCount = settings.positions_count || 3;
+            const showAmounts = settings.show_amounts !== false;
+            const showCounts = settings.show_donation_counts !== false;
+            const displayDonors = topDonors.slice(0, positionsCount);
+            
+            // Get font and styling settings
+            const globalStyling = settings.global_styling || {};
+            const throneHeight = settings.throne_styling?.height || 50;
+            const throneWidth = settings.throne_styling?.width || 100;
+            const podiumHeight = settings.podium_styling?.height || 45;
+            const podiumWidth = settings.podium_styling?.width || 100;
+            const standardHeight = settings.standard_styling?.height || 40;
+            const standardWidth = settings.standard_styling?.width || 100;
+            const standardBgColor = settings.standard_styling?.background_color || '#404040';
+            
+            // Font styling functions
+            const getNamesFont = () => {
+                const font = globalStyling.names_font || {};
+                return {
+                    size: font.size || 16,
+                    color: font.color || '#FFFFFF',
+                    weight: font.weight || '600',
+                    italic: font.italic || false
+                };
+            };
+            
+            const getAmountsFont = () => {
+                const font = globalStyling.amounts_font || {};
+                return {
+                    size: font.size || 14,
+                    color: font.color || '#FFD700',
+                    weight: font.weight || '500',
+                    italic: font.italic || false
+                };
+            };
+            
+            const getPositionsFont = () => {
+                const font = globalStyling.positions_font || {};
+                return {
+                    size: font.size || 18,
+                    color: font.color || '#FFFFFF',
+                    weight: font.weight || '700',
+                    italic: font.italic || false
+                };
+            };
+            
+            const createFontStyle = (fontObj) => {
+                return `font-size: ${fontObj.size}px; color: ${fontObj.color}; font-weight: ${fontObj.weight}; font-style: ${fontObj.italic ? 'italic' : 'normal'};`;
+            };
+            
+            const namesFont = getNamesFont();
+            const amountsFont = getAmountsFont();
+            const positionsFont = getPositionsFont();
+            
+            const nameStyle = createFontStyle(namesFont);
+            const amountStyle = createFontStyle(amountsFont);
+            const positionStyle = createFontStyle(positionsFont);
+            
+            if (positionsCount === 1) {
+                // Single throne display
+                const donor = displayDonors[0];
+                html = `
+                    <div class="throne-display" style="min-height: ${throneHeight}px; width: ${throneWidth}%;">
+                        <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                        <div class="throne-content">
+                            <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
+                            ${showAmounts ? `<div class="donor-amount" style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                            ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (positionsCount <= 3) {
+                // Podium layout
+                html = '<div class="podium-layout">';
+                displayDonors.forEach((donor, index) => {
+                    const isThrone = index === 0;
+                    const icon = isThrone ? 'crown' : 'medal';
+                    const height = isThrone ? throneHeight : podiumHeight;
+                    const width = isThrone ? throneWidth : podiumWidth;
+                    
+                    html += `
+                        <div class="podium-position ${isThrone ? 'throne' : 'podium'}" style="min-height: ${height}px; width: ${width}%;">
+                            <div class="position-icon"><i class="fas fa-${icon}"></i></div>
+                            <div class="position-number" style="${positionStyle}">#${index + 1}</div>
+                            <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
+                            ${showAmounts ? `<div class="donor-amount" style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</div>` : ''}
+                            ${showCounts ? `<div class="donor-count">${donor.donation_count} хандив</div>` : ''}
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            } else {
+                // List layout
+                html = '<div class="list-layout">';
+                displayDonors.forEach((donor, index) => {
+                    const isThrone = index === 0;
+                    const isPodium = index === 1;
+                    const isBronze = index === 2;
+                    const isStandard = index >= 3;
+                    let cssClass = 'standard';
+                    let height, width;
+                    
+                    if (isThrone) {
+                        cssClass = 'throne';
+                        height = throneHeight;
+                        width = throneWidth;
+                    } else if (isPodium) {
+                        cssClass = 'podium';
+                        height = podiumHeight;
+                        width = podiumWidth;
+                    } else if (isBronze) {
+                        cssClass = 'bronze';
+                        height = podiumHeight;
+                        width = podiumWidth;
+                    } else {
+                        height = standardHeight;
+                        width = standardWidth;
+                    }
+                    
+                    const standardBg = isStandard ? `background-color: ${standardBgColor};` : '';
+                    const styleAttr = `min-height: ${height}px; width: ${width}%;${standardBg}`;
+                    
+                    html += `
+                        <div class="list-item ${cssClass}" style="${styleAttr}">
+                            <div class="position-number" style="${positionStyle}">#${index + 1}</div>
+                            <div class="donor-info">
+                                <div class="donor-name" style="${nameStyle}">${donor.donor_name}</div>
+                                ${showAmounts || showCounts ? `<div class="donor-stats">
+                                    ${showAmounts ? `<span style="${amountStyle}">${Math.round(donor.total_amount).toLocaleString()}₮</span>` : ''}
+                                    ${showAmounts && showCounts ? ' • ' : ''}
+                                    ${showCounts ? `${donor.donation_count} хандив` : ''}
+                                </div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Update container with fade effect
+            container.style.opacity = '0';
+            setTimeout(() => {
+                container.innerHTML = html;
+                container.style.opacity = '1';
+            }, 200);
+        }
+        
+        function handlePositionChange(changeData) {
+            
+            // Handle throne takeover (someone becomes #1)
+            if (changeData.is_throne_takeover) {
+                showThroneTakeoverAnimation(changeData);
+            }
+            
+            // Handle new entry (someone joins leaderboard for first time)
+            if (!changeData.old_position) {
+                showNewEntryAnimation(changeData);
+            }
+            
+            // Handle general position improvement
+            if (changeData.old_position > changeData.new_position) {
+                showPositionUpAnimation(changeData);
+            }
+        }
+        
+        function showThroneTakeoverAnimation(changeData) {
+            // Phase 6: Special throne takeover animation
+            
+            const container = document.querySelector('.leaderboard-container');
+            if (!container) return;
+            
+            // Create throne takeover overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'throne-takeover-overlay';
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                z-index: 1000;
+                animation: throneFlash 3s ease-in-out;
+                pointer-events: none;
+            `;
+            
+            // Add crown falling animation
+            const crown = document.createElement('div');
+            crown.innerHTML = '👑';
+            crown.style.cssText = `
+                font-size: 4rem;
+                animation: crownFall 2s ease-in-out;
+                filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1));
+            `;
+            
+            // Add takeover message
+            const message = document.createElement('div');
+            message.innerHTML = `<strong>${changeData.donor_name}</strong><br>Дэдээр суулаа! 🏆`;
+            message.style.cssText = `
+                color: #FFD700;
+                font-size: 1.5rem;
+                font-weight: bold;
+                text-align: center;
+                margin-top: 1rem;
+                animation: messageSlide 2s ease-in-out;
+                text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+                font-family: 'Inter', sans-serif;
+            `;
+            
+            overlay.appendChild(crown);
+            overlay.appendChild(message);
+            container.style.position = 'relative';
+            container.appendChild(overlay);
+            
+            // Add confetti effect (simple version)
+            createConfettiEffect();
+            
+            // Enhanced container effects
+            container.style.boxShadow = '0 0 50px rgba(255, 215, 0, 0.8)';
+            container.style.transform = 'scale(1.03)';
+            container.style.transition = 'all 0.5s ease';
+            
+            // Remove overlay after animation
+            setTimeout(() => {
+                if (overlay && overlay.parentNode) {
+                    overlay.remove();
+                }
+                container.style.boxShadow = '';
+                container.style.transform = '';
+            }, 3000);
+        }
+        
+        function showNewEntryAnimation(changeData) {
+            // Phase 6: New entry highlighting animation  
+            
+            const container = document.querySelector('.leaderboard-container');
+            if (!container) return;
+            
+            // Create new entry welcome overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'new-entry-overlay';
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: radial-gradient(circle, rgba(0,191,255,0.2) 0%, transparent 70%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                z-index: 999;
+                animation: welcomeFlash 2.5s ease-in-out;
+                pointer-events: none;
+            `;
+            
+            // Add welcome star
+            const star = document.createElement('div');
+            star.innerHTML = '⭐';
+            star.style.cssText = `
+                font-size: 3rem;
+                animation: starTwinkle 2s ease-in-out;
+                filter: drop-shadow(0 0 15px rgba(0, 191, 255, 1));
+            `;
+            
+            // Add welcome message
+            const message = document.createElement('div');
+            message.innerHTML = `Тавтай морил!<br><strong>${changeData.donor_name}</strong> 🌟`;
+            message.style.cssText = `
+                color: #00BFFF;
+                font-size: 1.2rem;
+                font-weight: bold;
+                text-align: center;
+                margin-top: 0.5rem;
+                animation: welcomeSlide 2s ease-in-out;
+                text-shadow: 0 0 8px rgba(0, 191, 255, 0.8);
+                font-family: 'Inter', sans-serif;
+            `;
+            
+            overlay.appendChild(star);
+            overlay.appendChild(message);
+            container.style.position = 'relative';
+            container.appendChild(overlay);
+            
+            // Subtle container highlight
+            container.style.boxShadow = '0 0 30px rgba(0, 191, 255, 0.5)';
+            container.style.transition = 'all 0.3s ease';
+            
+            // Remove overlay after animation
+            setTimeout(() => {
+                if (overlay && overlay.parentNode) {
+                    overlay.remove();
+                }
+                container.style.boxShadow = '';
+            }, 2500);
+        }
+        
+        function showPositionUpAnimation(changeData) {
+            // Phase 6: Position improvement animation
+            
+            // For now, just add a subtle glow effect
+            setTimeout(() => {
+                const container = document.querySelector('.leaderboard-container');
+                if (container) {
+                    container.style.filter = 'brightness(1.2)';
+                    container.style.transition = 'filter 0.3s ease';
+                    
+                    setTimeout(() => {
+                        container.style.filter = '';
+                    }, 1000);
+                }
+            }, 300);
+            
+            // TODO Phase 6: Add smooth position change animations
+            // - Sliding animations between positions
+            // - Highlight effect on moving donor
+            // - Position number changes with animation
+        }
+        
+        function createConfettiEffect() {
+            // Phase 6: Simple confetti effect for throne takeover
+            const container = document.querySelector('.leaderboard-container');
+            if (!container) return;
+            
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00BFFF', '#32CD32', '#FF69B4'];
+            const confettiCount = 30;
+            
+            for (let i = 0; i < confettiCount; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti-particle';
+                    
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    const startX = Math.random() * window.innerWidth;
+                    const size = Math.random() * 8 + 4;
+                    const rotation = Math.random() * 360;
+                    
+                    confetti.style.cssText = `
+                        background: ${color};
+                        left: ${startX}px;
+                        top: -20px;
+                        width: ${size}px;
+                        height: ${size}px;
+                        transform: rotate(${rotation}deg);
+                        animation: confettiFall ${2 + Math.random() * 2}s linear;
+                    `;
+                    
+                    document.body.appendChild(confetti);
+                    
+                    // Remove confetti after animation
+                    setTimeout(() => {
+                        if (confetti && confetti.parentNode) {
+                            confetti.remove();
+                        }
+                    }, 4000);
+                }, i * 50); // Stagger the confetti
+            }
+        }
+        
+        // Initial log
+    </script>
+</body>
+</html>
