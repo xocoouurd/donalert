@@ -43,10 +43,14 @@ class DonorLeaderboard(db.Model):
             ).first()
             
             if not entry:
+                from decimal import Decimal
                 entry = cls(
                     user_id=streamer_id,
                     donor_name=donation.donor_name,
                     donor_user_id=None,  # Always None for merged entries
+                    total_amount=Decimal('0'),
+                    donation_count=0,
+                    biggest_single_donation=Decimal('0'),
                     first_donation_date=donation.created_at,
                     last_donation_date=donation.created_at
                 )
@@ -68,6 +72,14 @@ class DonorLeaderboard(db.Model):
         # Convert amount to Decimal if it's not already
         if not isinstance(amount, Decimal):
             amount = Decimal(str(amount))
+        
+        # Initialize fields if they're None (new entries)
+        if self.total_amount is None:
+            self.total_amount = Decimal('0')
+        if self.biggest_single_donation is None:
+            self.biggest_single_donation = Decimal('0')
+        if self.donation_count is None:
+            self.donation_count = 0
             
         self.total_amount += amount
         self.donation_count += 1
