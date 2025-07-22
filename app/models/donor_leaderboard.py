@@ -36,40 +36,21 @@ class DonorLeaderboard(db.Model):
     def update_donor_entry(cls, streamer_id, donation):
         """Update leaderboard entry with new donation"""
         try:
-            # Determine donor key (registered user ID or guest name)
-            if donation.donor_user_id:
-                # For registered users: group by donor_user_id
-                entry = cls.query.filter_by(
-                    user_id=streamer_id,
-                    donor_user_id=donation.donor_user_id
-                ).first()
-                
-                if not entry:
-                    entry = cls(
-                        user_id=streamer_id,
-                        donor_name=donation.donor_name,
-                        donor_user_id=donation.donor_user_id,
-                        first_donation_date=donation.created_at,
-                        last_donation_date=donation.created_at
-                    )
-                    db.session.add(entry)
-            else:
-                # For guests: group by donor_name (potential duplicates accepted)
-                entry = cls.query.filter_by(
+            # Always group by donor_name only (merge guest + registered donations)
+            entry = cls.query.filter_by(
+                user_id=streamer_id,
+                donor_name=donation.donor_name
+            ).first()
+            
+            if not entry:
+                entry = cls(
                     user_id=streamer_id,
                     donor_name=donation.donor_name,
-                    donor_user_id=None
-                ).first()
-                
-                if not entry:
-                    entry = cls(
-                        user_id=streamer_id,
-                        donor_name=donation.donor_name,
-                        donor_user_id=None,
-                        first_donation_date=donation.created_at,
-                        last_donation_date=donation.created_at
-                    )
-                    db.session.add(entry)
+                    donor_user_id=None,  # Always None for merged entries
+                    first_donation_date=donation.created_at,
+                    last_donation_date=donation.created_at
+                )
+                db.session.add(entry)
             
             # Update entry with new donation
             entry.add_donation(donation.amount, donation.created_at)
@@ -106,17 +87,11 @@ class DonorLeaderboard(db.Model):
     @classmethod
     def get_donor_position(cls, streamer_id, donor_name, donor_user_id=None):
         """Get donor's current position in leaderboard (1-based)"""
-        if donor_user_id:
-            entry = cls.query.filter_by(
-                user_id=streamer_id,
-                donor_user_id=donor_user_id
-            ).first()
-        else:
-            entry = cls.query.filter_by(
-                user_id=streamer_id,
-                donor_name=donor_name,
-                donor_user_id=None
-            ).first()
+        # Always search by donor_name only (merged entries)
+        entry = cls.query.filter_by(
+            user_id=streamer_id,
+            donor_name=donor_name
+        ).first()
         
         if not entry:
             return None

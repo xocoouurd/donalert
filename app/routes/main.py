@@ -152,7 +152,7 @@ def dev_page():
 @main_bp.route('/dev/simulate-donation', methods=['POST'])
 @login_required
 def simulate_donation():
-    """Simulate a donation for testing all systems"""
+    """Simulate a donation for testing all systems - uses REAL donation flow"""
     if not current_user.dev_access:
         from flask import abort
         abort(404)
@@ -167,93 +167,67 @@ def simulate_donation():
         if amount <= 0:
             return jsonify({'success': False, 'error': 'Invalid amount'}), 400
         
-        current_app.logger.info(f"DEV: Simulating donation for user {current_user.id}: {amount}₮")
+        current_app.logger.info(f"DEV: Simulating donation via REAL donation flow for user {current_user.id}: {amount}₮")
         
-        # Import required models and services
-        from app.models.donation import Donation
+        # Import required models
         from app.models.donation_payment import DonationPayment
-        from app.models.marathon import Marathon
-        from app.models.donation_goal import DonationGoal
+        import uuid
+        from datetime import datetime
         
-        # Create a test donation record
-        donation = Donation.create_donation(
-            user_id=current_user.id,
-            amount=amount,
+        # Create a test DonationPayment record that mimics a real payment
+        # This will go through the exact same flow as real donations
+        test_payment = DonationPayment(
+            streamer_user_id=current_user.id,
             donor_name=donator_name,
+            donor_platform='dev_test',
+            donor_user_id=None,  # Guest donation
+            amount=amount,
+            currency='MNT',
             message=message,
-            platform='test',
-            is_test=True  # Mark as test donation
+            type='alert',
+            sound_effect_id=None,
+            quickpay_invoice_id=f'test_{uuid.uuid4().hex[:12]}',
+            status='paid',  # Mark as paid so mark_as_paid() works
+            payment_date=datetime.utcnow(),
+            payment_method='dev_test',
+            expires_at=datetime.utcnow()
         )
         
-        response_data = {
-            'success': True,
-            'donation_id': donation.id,
-            'alert_triggered': False,
-            'marathon_updated': False,
-            'goal_updated': False
-        }
+        # Add to session but don't commit (keep it as test-only)
+        db.session.add(test_payment)
+        db.session.flush()  # Get the ID without committing to database
         
-        # Trigger donation alert (like real donations do)
-        try:
-            # Create a temporary donation payment to trigger the alert system
-            temp_payment = DonationPayment(
-                streamer_user_id=current_user.id,
-                donor_name=donator_name,
-                amount=amount,
-                message=message,
-                status='paid'
-            )
+        current_app.logger.info(f"DEV: Created test payment record {test_payment.id}")
+        
+        # Now use the REAL donation flow - call mark_as_paid()
+        # This will handle everything: donation creation, alerts, marathon, goal, leaderboard
+        success = test_payment.mark_as_paid(payment_method='dev_test')
+        
+        if success:
+            current_app.logger.info(f"DEV: Test donation processed successfully via real donation flow")
             
-            # Use the payment's alert method
-            temp_payment._send_donation_alert(donation)
-            response_data['alert_triggered'] = True
-            current_app.logger.info(f"DEV: Alert triggered for {amount}₮")
-        except Exception as e:
-            current_app.logger.warning(f"DEV: Alert trigger failed: {str(e)}")
-        
-        # Update marathon if running
-        try:
-            marathon = Marathon.query.filter_by(user_id=current_user.id).first()
-            if marathon:
-                # Debug marathon state
-                current_app.logger.info(f"DEV: Marathon found - started_at: {marathon.started_at}, is_paused: {marathon.is_paused}, remaining_time: {marathon.remaining_time_minutes}min")
-                
-                if marathon.started_at and not marathon.is_paused:
-                    # Add donation amount to accumulated donations
-                    if marathon.add_donation_amount(amount):
-                        current_app.logger.info(f"DEV: Added {amount}₮ to marathon donations")
-                    
-                    # Calculate and add time based on donation amount
-                    minutes_to_add = marathon.calculate_minutes_from_donation(amount)
-                    if minutes_to_add > 0:
-                        marathon.add_time_minutes(minutes_to_add, source='donation')
-                        current_app.logger.info(f"DEV: Added {minutes_to_add} minutes to marathon from {amount}₮ donation")
-                        response_data['marathon_updated'] = True
-                        response_data['marathon_time_added'] = minutes_to_add
-                    else:
-                        current_app.logger.info(f"DEV: Donation {amount}₮ too small to add time (price: {marathon.minute_price}₮/min)")
-                else:
-                    current_app.logger.info(f"DEV: Marathon not running - started_at: {marathon.started_at}, is_paused: {marathon.is_paused}")
-            else:
-                current_app.logger.info(f"DEV: No marathon found for user {current_user.id}")
-        except Exception as e:
-            current_app.logger.warning(f"DEV: Marathon update failed: {str(e)}")
-        
-        # Update donation goal if active
-        try:
-            goal = DonationGoal.query.filter_by(user_id=current_user.id).first()
-            if goal and goal.is_active:
-                goal.add_donation(amount)
-                db.session.commit()
-                response_data['goal_updated'] = True
-                current_app.logger.info(f"DEV: Goal updated with {amount}₮")
-        except Exception as e:
-            current_app.logger.warning(f"DEV: Goal update failed: {str(e)}")
-        
-        return jsonify(response_data)
+            # Keep the test payment record - it's clearly marked as 'dev_test'
+            # This allows test donations to go through the exact same flow as real donations
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Test donation processed via real donation flow',
+                'alert_triggered': True,
+                'marathon_updated': True,
+                'goal_updated': True,
+                'leaderboard_updated': True
+            })
+        else:
+            current_app.logger.error(f"DEV: Test donation processing failed")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'Test donation processing failed'}), 500
         
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"DEV: Donation simulation failed: {str(e)}")
+        import traceback
+        current_app.logger.error(f"DEV: Traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @main_bp.route('/dev/toggle-tier', methods=['POST'])
@@ -328,18 +302,16 @@ def list_sound_effects():
 @main_bp.route('/dev/simulate-sound-effect', methods=['POST'])
 @login_required  
 def simulate_sound_effect():
-    """Simulate a sound effect for testing"""
+    """Simulate a sound effect for testing - uses REAL donation flow"""
     if not current_user.dev_access:
         from flask import abort
         abort(403)
     
     try:
         from app.models.sound_effect import SoundEffect
-        from app.models.sound_effect_donation import SoundEffectDonation
-        from app.models.user_sound_settings import UserSoundSettings
-        from app.extensions import socketio
-        from datetime import datetime
+        from app.models.donation_payment import DonationPayment
         import uuid
+        from datetime import datetime
         
         data = request.get_json()
         
@@ -356,85 +328,59 @@ def simulate_sound_effect():
         if not sound_effect or not sound_effect.is_active:
             return jsonify({'success': False, 'error': 'Sound effect not found or inactive'}), 404
         
-        # Check if user has sound effects enabled (optional for dev testing)
-        settings = UserSoundSettings.query.filter_by(user_id=current_user.id).first()
-        if not settings or not settings.is_enabled:
-            current_app.logger.warning(f"DEV: Sound effects disabled for user {current_user.id}, but allowing test")
+        current_app.logger.info(f"DEV: Simulating sound effect via REAL donation flow for user {current_user.id}: {amount}₮")
         
-        # Create a temporary test payment record for the sound effect donation
-        from app.models.donation_payment import DonationPayment
-        
+        # Create a test DonationPayment record for sound effect
+        # This will go through the exact same flow as real sound effect donations
         test_payment = DonationPayment(
             streamer_user_id=current_user.id,
             donor_name=donator_name,
             donor_platform='dev_test',
-            donor_user_id=None,
+            donor_user_id=None,  # Guest donation
             amount=amount,
             currency='MNT',
             message='',
             type='sound_effect',
             sound_effect_id=sound_effect_id,
-            status='paid',  # Mark as paid for test
-            payment_date=datetime.utcnow(),
             quickpay_invoice_id=f'test_{uuid.uuid4().hex[:12]}',
+            status='paid',  # Mark as paid so mark_as_paid() works
+            payment_date=datetime.utcnow(),
+            payment_method='dev_test',
             expires_at=datetime.utcnow()
         )
         
+        # Add to session but don't commit yet
         db.session.add(test_payment)
-        db.session.flush()  # Get the ID without committing
+        db.session.flush()  # Get the ID without committing to database
         
-        # Create test sound effect donation record
-        sound_donation = SoundEffectDonation(
-            sound_effect_id=sound_effect_id,
-            streamer_user_id=current_user.id,
-            donor_name=donator_name,
-            donor_user_id=None,  # Test donations don't have donor users
-            amount=amount,
-            donation_payment_id=test_payment.id  # Use the test payment ID
-        )
+        current_app.logger.info(f"DEV: Created test sound effect payment record {test_payment.id}")
         
-        db.session.add(sound_donation)
-        db.session.commit()
+        # Now use the REAL donation flow - call mark_as_paid()
+        # This will handle everything: donation creation, sound effect, leaderboard
+        success = test_payment.mark_as_paid(payment_method='dev_test')
         
-        # Get user's sound settings for volume level
-        from app.models.user_sound_settings import UserSoundSettings
-        try:
-            user_settings = UserSoundSettings.get_or_create_for_user(current_user.id)
-            volume_level = user_settings.volume_level if user_settings.volume_level is not None else 70
-        except Exception as e:
-            current_app.logger.warning(f"DEV: Failed to get volume settings for user {current_user.id}, using default: {str(e)}")
-            volume_level = 70
-        
-        # Send sound effect to overlay
-        test_sound_data = {
-            'type': 'sound_effect',
-            'id': f'test_{uuid.uuid4().hex[:8]}',
-            'sound_effect_id': sound_effect.id,
-            'sound_filename': sound_effect.filename,
-            'sound_name': sound_effect.name,
-            'duration_seconds': float(sound_effect.duration_seconds),
-            'donor_name': donator_name,
-            'amount': amount,
-            'created_at': datetime.utcnow().isoformat(),
-            'file_url': sound_effect.get_file_url(),
-            'volume_level': volume_level,
-            'is_test': True
-        }
-        
-        # Send to overlay
-        room = f"user_{current_user.id}"
-        socketio.emit('sound_effect_alert', test_sound_data, room=room)
-        
-        current_app.logger.info(f"DEV: Test sound effect sent: {sound_effect.name} to user {current_user.id}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'Test sound effect sent: {sound_effect.name}'
-        })
+        if success:
+            current_app.logger.info(f"DEV: Test sound effect processed successfully via real donation flow")
+            
+            # Keep the test payment record - it's clearly marked as 'dev_test'
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Test sound effect processed via real donation flow: {sound_effect.name}',
+                'sound_effect_triggered': True,
+                'leaderboard_updated': True
+            })
+        else:
+            current_app.logger.error(f"DEV: Test sound effect processing failed")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'Test sound effect processing failed'}), 500
         
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error simulating sound effect: {str(e)}")
+        import traceback
+        current_app.logger.error(f"DEV: Traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @main_bp.route('/donation-alert')

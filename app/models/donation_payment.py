@@ -488,16 +488,14 @@ class DonationPayment(db.Model):
             # Get old position before update (for position change detection)
             old_entry = DonorLeaderboard.query.filter_by(
                 user_id=self.streamer_user_id,
-                donor_name=donation.donor_name,
-                donor_user_id=donation.donor_platform_id
+                donor_name=donation.donor_name
             ).first()
             
             old_position = None
             if old_entry:
                 old_position = DonorLeaderboard.get_donor_position(
                     self.streamer_user_id, 
-                    donation.donor_name,
-                    donation.donor_platform_id
+                    donation.donor_name
                 )
                 current_app.logger.info(f"LEADERBOARD: Donor {donation.donor_name} current position: {old_position}")
             else:
@@ -510,8 +508,7 @@ class DonationPayment(db.Model):
                 # Get new position after update
                 new_position = DonorLeaderboard.get_donor_position(
                     self.streamer_user_id,
-                    donation.donor_name, 
-                    donation.donor_platform_id
+                    donation.donor_name
                 )
                 
                 current_app.logger.info(f"LEADERBOARD: Donor {donation.donor_name} new position: {new_position}")
