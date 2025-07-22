@@ -30,6 +30,7 @@ class SubscriptionStatus(enum.Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
     PENDING = "pending"
+    PENDING_DOWNGRADE = "pending_downgrade"  # NEW: For scheduled downgrades
 
 class Subscription(db.Model):
     __tablename__ = 'subscriptions'
@@ -63,6 +64,11 @@ class Subscription(db.Model):
     
     # Auto-renewal
     auto_renew = db.Column(db.Boolean, default=False)
+    
+    # Scheduled tier change functionality
+    scheduled_tier_change = db.Column(Enum(SubscriptionTier), nullable=True)  # Target tier for scheduled change
+    scheduled_change_date = db.Column(db.DateTime, nullable=True)  # When the tier change will happen
+    scheduled_change_months = db.Column(db.Integer, nullable=True)  # Duration for new tier
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -408,6 +414,28 @@ class Subscription(db.Model):
         """Cancel the subscription"""
         self.status = SubscriptionStatus.CANCELLED
         self.auto_renew = False
+        self.updated_at = datetime.utcnow()
+        db.session.commit()
+    
+    def is_pending_downgrade(self):
+        """Check if subscription has a scheduled downgrade"""
+        return (self.scheduled_tier_change is not None and 
+                self.scheduled_change_date is not None and
+                self.scheduled_change_date > datetime.utcnow())
+    
+    def cancel_scheduled_change(self):
+        """Cancel any scheduled tier change"""
+        self.scheduled_tier_change = None
+        self.scheduled_change_date = None
+        self.scheduled_change_months = None
+        self.updated_at = datetime.utcnow()
+        db.session.commit()
+    
+    def schedule_tier_change(self, target_tier, change_date, months):
+        """Schedule a tier change for a future date"""
+        self.scheduled_tier_change = target_tier
+        self.scheduled_change_date = change_date
+        self.scheduled_change_months = months
         self.updated_at = datetime.utcnow()
         db.session.commit()
     
